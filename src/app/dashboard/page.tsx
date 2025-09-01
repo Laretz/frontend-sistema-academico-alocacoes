@@ -1,0 +1,696 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useAuthStore } from '@/store/auth';
+import { MainLayout } from '@/components/layout/main-layout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Users,
+  BookOpen,
+  GraduationCap,
+  MapPin,
+  Calendar,
+  CalendarDays,
+  TrendingUp,
+  Clock,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
+import Link from 'next/link';
+
+interface DashboardStats {
+  totalUsuarios: number;
+  totalDisciplinas: number;
+  totalTurmas: number;
+  totalSalas: number;
+  totalAlocacoes: number;
+  alocacoesHoje: number;
+}
+
+// Dados de exemplo das alocações
+const alocacoes = {
+  "2º Período — 2025 — Matutino": [
+    {
+      codigo: "TAD0103",
+      prefixo: "BD",
+      disciplina: "Banco de dados",
+      ch: 60,
+      horario1: "4M23",
+      horario2: "6M45",
+      professor: "Carla",
+      local1: "Lab 2",
+      local2: "Lab 2",
+      vagas: 35,
+      demanda: 38
+    },
+    {
+      codigo: "TAD0009",
+      prefixo: "POO",
+      disciplina: "Programação Orientada a Objetos",
+      ch: 60,
+      horario1: "3M23",
+      horario2: "5M23",
+      professor: "Josenalde",
+      local1: "Lab 1",
+      local2: "Prédio Novo - Sala 6",
+      vagas: 40,
+      demanda: 46
+    },
+    {
+      codigo: "TAD0111",
+      prefixo: "WEB",
+      disciplina: "Programação Visual e Autoria Web",
+      ch: 60,
+      horario1: "35M45",
+      horario2: "",
+      professor: "Taniro",
+      local1: "Lab 1",
+      local2: "",
+      vagas: 40,
+      demanda: 45
+    },
+    {
+      codigo: "TAD0012",
+      prefixo: "DEVS",
+      disciplina: "Processo de Desenvolvimento de Software",
+      ch: 45,
+      horario1: "4M456",
+      horario2: "",
+      professor: "Carla",
+      local1: "Lab 2",
+      local2: "",
+      vagas: 35,
+      demanda: 39
+    },
+    {
+      codigo: "TAD0013",
+      prefixo: "MATII",
+      disciplina: "Matemática Aplicada II",
+      ch: 60,
+      horario1: "6M23",
+      horario2: "2M45",
+      professor: "Tásia",
+      local1: "Prédio Novo - Sala 6",
+      local2: "Prédio Novo - Sala 6",
+      vagas: 40,
+      demanda: 49
+    },
+    {
+      codigo: "TAD0114",
+      prefixo: "REDES",
+      disciplina: "Redes de Computadores",
+      ch: 60,
+      horario1: "35T12",
+      horario2: "",
+      professor: "Substituto TADS",
+      local1: "Prédio Novo - Sala 6",
+      local2: "",
+      vagas: 35,
+      demanda: 37
+    },
+    {
+      codigo: "TAD0016",
+      prefixo: "VER",
+      disciplina: "Vertentes Produtivas nas Ciências Agrárias",
+      ch: 45,
+      horario1: "2M123",
+      horario2: "",
+      professor: "Tásia",
+      local1: "Prédio Novo - Sala 6",
+      local2: "",
+      vagas: 35,
+      demanda: 41
+    }
+  ],
+  "4º Período — 2025 — Vespertino": [
+    {
+      codigo: "TAD0204",
+      prefixo: "FTCD",
+      disciplina: "Fundamentos e Técnicas em Ciência de Dados",
+      ch: 60,
+      horario1: "2T12",
+      horario2: "6T12",
+      professor: "Antonino",
+      local1: "Prédio Novo - Sala 6",
+      local2: "Lab 1",
+      vagas: 40,
+      demanda: 48
+    },
+    {
+      codigo: "TAD0018",
+      prefixo: "PDI",
+      disciplina: "Processamento Digital de Imagens",
+      ch: 60,
+      horario1: "2T34",
+      horario2: "6T34",
+      professor: "Antonino",
+      local1: "Prédio Novo - Sala 6",
+      local2: "Lab 1",
+      vagas: 40,
+      demanda: 50
+    },
+    {
+      codigo: "TAD0027",
+      prefixo: "MÓVEIS",
+      disciplina: "Programação para Dispositivos Móveis",
+      ch: 90,
+      horario1: "35T345",
+      horario2: "",
+      professor: "Taniro",
+      local1: "CVT",
+      local2: "",
+      vagas: 35,
+      demanda: 35
+    },
+    {
+      codigo: "TAD0028",
+      prefixo: "PLAN",
+      disciplina: "Planejamento e Gerência de Projetos",
+      ch: 45,
+      horario1: "3M456",
+      horario2: "",
+      professor: "Substituto TADS",
+      local1: "Prédio Novo - Sala 6",
+      local2: "",
+      vagas: 40,
+      demanda: 40
+    },
+    {
+      codigo: "TAD0032",
+      prefixo: "METOD",
+      disciplina: "Metodologia do Trabalho Científico",
+      ch: 30,
+      horario1: "5T12",
+      horario2: "",
+      professor: "Tásia",
+      local1: "CVT",
+      local2: "",
+      vagas: 40,
+      demanda: 45
+    },
+    {
+      codigo: "TAD0030",
+      prefixo: "MICRO",
+      disciplina: "Microcontroladores",
+      ch: 60,
+      horario1: "34T12",
+      horario2: "34T12",
+      professor: "Leonardo",
+      local1: "CVT",
+      local2: "Lab Eletrônica",
+      vagas: 40,
+      demanda: 48
+    },
+    {
+      codigo: "TAD0029",
+      prefixo: "ARQUIT",
+      disciplina: "Arquitetura de Software",
+      ch: 45,
+      horario1: "4T345",
+      horario2: "",
+      professor: "Substituto TADS",
+      local1: "Lab 1",
+      local2: "",
+      vagas: 35,
+      demanda: 37
+    }
+  ]
+};
+
+const gradeHorarios = {
+  "2º Período — 2025 — Matutino": {
+    M1: { segunda: "VER", terca: "", quarta: "", quinta: "", sexta: "" },
+    M2: { segunda: "VER", terca: "POO", quarta: "BD", quinta: "POO", sexta: "MATII" },
+    M3: { segunda: "VER", terca: "POO", quarta: "BD", quinta: "POO", sexta: "MATII" },
+    M4: { segunda: "MATII", terca: "WEB", quarta: "DEVS", quinta: "WEB", sexta: "BD" },
+    M5: { segunda: "MATII", terca: "WEB", quarta: "DEVS", quinta: "WEB", sexta: "BD" },
+    M6: { segunda: "", terca: "", quarta: "DEVS", quinta: "", sexta: "" }
+  },
+  "4º Período — 2025 — Vespertino": {
+    T1: { segunda: "FTCD", terca: "MICRO", quarta: "MICRO", quinta: "METOD", sexta: "FTCD" },
+    T2: { segunda: "FTCD", terca: "MICRO", quarta: "MICRO", quinta: "METOD", sexta: "FTCD" },
+    T3: { segunda: "PDI", terca: "MÓVEIS", quarta: "ARQUIT", quinta: "MÓVEIS", sexta: "PDI" },
+    T4: { segunda: "PDI", terca: "MÓVEIS", quarta: "ARQUIT", quinta: "MÓVEIS", sexta: "PDI" },
+    T5: { segunda: "", terca: "MÓVEIS", quarta: "ARQUIT", quinta: "MÓVEIS", sexta: "" },
+    T6: { segunda: "", terca: "", quarta: "", quinta: "", sexta: "" }
+  }
+};
+
+export default function DashboardPage() {
+  const { user } = useAuthStore();
+  const [stats, setStats] = useState<DashboardStats>({
+    totalUsuarios: 0,
+    totalDisciplinas: 0,
+    totalTurmas: 0,
+    totalSalas: 0,
+    totalAlocacoes: 0,
+    alocacoesHoje: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [showAlocacoes, setShowAlocacoes] = useState(true);
+
+  useEffect(() => {
+    // Simular carregamento de estatísticas
+    setTimeout(() => {
+      setStats({
+        totalUsuarios: 45,
+        totalDisciplinas: 14,
+        totalTurmas: 2,
+        totalSalas: 6,
+        totalAlocacoes: 14,
+        alocacoesHoje: 8,
+      });
+      setLoading(false);
+    }, 1000);
+  }, []);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Bom dia';
+    if (hour < 18) return 'Boa tarde';
+    return 'Boa noite';
+  };
+
+  const getStatusColor = (vagas: number, demanda: number) => {
+    const ocupacao = (demanda / vagas) * 100;
+    if (ocupacao > 100) return "bg-red-100 text-red-800";
+    if (ocupacao > 80) return "bg-yellow-100 text-yellow-800";
+    return "bg-green-100 text-green-800";
+  };
+
+  const getStatusText = (vagas: number, demanda: number) => {
+    const ocupacao = (demanda / vagas) * 100;
+    if (ocupacao > 100) return "Superlotada";
+    if (ocupacao > 80) return "Quase Cheia";
+    return "Disponível";
+  };
+
+  const quickActions = [
+    {
+      title: 'Nova Alocação',
+      description: 'Criar uma nova alocação de horário',
+      href: '/alocacoes/nova',
+      icon: Calendar,
+      color: 'bg-blue-500',
+    },
+    {
+      title: 'Ver Grade',
+      description: 'Visualizar grade de horários',
+      href: '/grade-horarios',
+      icon: CalendarDays,
+      color: 'bg-green-500',
+    },
+    {
+      title: 'Gerenciar Disciplinas',
+      description: 'Adicionar ou editar disciplinas',
+      href: '/disciplinas',
+      icon: BookOpen,
+      color: 'bg-purple-500',
+    },
+    {
+      title: 'Gerenciar Turmas',
+      description: 'Adicionar ou editar turmas',
+      href: '/turmas',
+      icon: GraduationCap,
+      color: 'bg-orange-500',
+    },
+  ];
+
+  const statsCards = [
+    {
+      title: 'Total de Usuários',
+      value: stats.totalUsuarios,
+      icon: Users,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-100',
+      adminOnly: true,
+    },
+    {
+      title: 'Disciplinas',
+      value: stats.totalDisciplinas,
+      icon: BookOpen,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-100',
+    },
+    {
+      title: 'Turmas',
+      value: stats.totalTurmas,
+      icon: GraduationCap,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-100',
+    },
+    {
+      title: 'Salas',
+      value: stats.totalSalas,
+      icon: MapPin,
+      color: 'text-green-600',
+      bgColor: 'bg-green-100',
+    },
+    {
+      title: 'Total de Alocações',
+      value: stats.totalAlocacoes,
+      icon: Calendar,
+      color: 'text-red-600',
+      bgColor: 'bg-red-100',
+    },
+    {
+      title: 'Alocações Hoje',
+      value: stats.alocacoesHoje,
+      icon: Clock,
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-100',
+    },
+  ];
+
+  const filteredStatsCards = statsCards.filter(card => {
+    if (card.adminOnly && user?.perfil !== 'ADMIN') {
+      return false;
+    }
+    return true;
+  });
+
+  const filteredQuickActions = quickActions.filter(action => {
+    // Filtrar ações baseadas no perfil do usuário se necessário
+    return true;
+  });
+
+  return (
+    <MainLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {getGreeting()}, {user?.nome}!
+            </h1>
+            <p className="text-gray-600">
+              Bem-vindo ao Sistema de Alocação Acadêmica
+            </p>
+          </div>
+          <Badge variant="outline" className="text-sm">
+            {user?.perfil}
+          </Badge>
+        </div>
+
+        {/* Estatísticas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredStatsCards.map((stat, index) => (
+            <Card key={index}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">
+                      {stat.title}
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {loading ? '...' : stat.value}
+                    </p>
+                  </div>
+                  <div className={`p-3 rounded-full ${stat.bgColor}`}>
+                    <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Ações Rápidas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {filteredQuickActions.map((action, index) => (
+            <Card key={index} className="hover:shadow-md transition-shadow cursor-pointer">
+              <Link href={action.href}>
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-4">
+                    <div className={`p-3 rounded-full ${action.color}`}>
+                      <action.icon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">
+                        {action.title}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {action.description}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Link>
+            </Card>
+          ))}
+        </div>
+
+        {/* Alocações por Turma */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl">Alocações por Turma</CardTitle>
+                <CardDescription>
+                  Visualização detalhada das disciplinas alocadas por período e turno
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAlocacoes(!showAlocacoes)}
+              >
+                {showAlocacoes ? (
+                  <><EyeOff className="h-4 w-4 mr-2" /> Ocultar</>
+                ) : (
+                  <><Eye className="h-4 w-4 mr-2" /> Mostrar</>
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          {showAlocacoes && (
+            <CardContent className="p-0">
+              <div className="space-y-8 p-6">
+                {Object.entries(alocacoes).map(([turma, disciplinas]) => (
+                  <div key={turma} className="space-y-4">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h3 className="text-lg font-semibold text-blue-900">{turma}</h3>
+                      <p className="text-sm text-blue-700">
+                        {disciplinas.length} disciplinas alocadas
+                      </p>
+                    </div>
+                    
+                    {/* Tabela de Disciplinas */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full border border-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Código</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Prefixo</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Disciplina</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">CH</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Horário 1</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Horário 2</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Professor</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Local 1</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Local 2</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Vagas</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Demanda</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {disciplinas.map((disciplina, index) => (
+                            <tr key={disciplina.codigo} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              <td className="px-3 py-2 text-sm font-medium text-gray-900 border-r">
+                                {disciplina.codigo}
+                              </td>
+                              <td className="px-3 py-2 border-r">
+                                <Badge variant="outline" className="font-mono text-xs">
+                                  {disciplina.prefixo}
+                                </Badge>
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 border-r max-w-xs">
+                                {disciplina.disciplina}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                                {disciplina.ch}h
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 font-mono border-r">
+                                {disciplina.horario1}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 font-mono border-r">
+                                {disciplina.horario2 || '-'}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                                {disciplina.professor}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                                {disciplina.local1}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                                {disciplina.local2 || '-'}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                                {disciplina.vagas}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                                {disciplina.demanda}
+                              </td>
+                              <td className="px-3 py-2">
+                                <Badge className={getStatusColor(disciplina.vagas, disciplina.demanda)}>
+                                  {getStatusText(disciplina.vagas, disciplina.demanda)}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Grade de Horários */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="text-md font-semibold text-gray-900 mb-3">Grade de Horários</h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full border border-gray-300">
+                          <thead>
+                            <tr className="bg-gray-100">
+                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">Horário</th>
+                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">Segunda</th>
+                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">Terça</th>
+                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">Quarta</th>
+                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">Quinta</th>
+                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">Sexta</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.entries(gradeHorarios[turma] || {}).map(([horario, dias]) => (
+                              <tr key={horario}>
+                                <td className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-900 bg-gray-50">
+                                  {horario}
+                                </td>
+                                <td className="border border-gray-300 px-2 py-1 text-sm text-center">
+                                  {dias.segunda && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {dias.segunda}
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="border border-gray-300 px-2 py-1 text-sm text-center">
+                                  {dias.terca && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {dias.terca}
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="border border-gray-300 px-2 py-1 text-sm text-center">
+                                  {dias.quarta && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {dias.quarta}
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="border border-gray-300 px-2 py-1 text-sm text-center">
+                                  {dias.quinta && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {dias.quinta}
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="border border-gray-300 px-2 py-1 text-sm text-center">
+                                  {dias.sexta && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {dias.sexta}
+                                    </Badge>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* Resumo Recente */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <TrendingUp className="h-5 w-5" />
+                <span>Atividade Recente</span>
+              </CardTitle>
+              <CardDescription>
+                Últimas ações realizadas no sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Nova alocação criada</p>
+                    <p className="text-xs text-gray-500">Há 2 horas</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Disciplina atualizada</p>
+                    <p className="text-xs text-gray-500">Há 4 horas</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Nova turma cadastrada</p>
+                    <p className="text-xs text-gray-500">Ontem</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Calendar className="h-5 w-5" />
+                <span>Próximas Aulas</span>
+              </CardTitle>
+              <CardDescription>
+                Aulas agendadas para hoje
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium">Banco de Dados</p>
+                    <p className="text-sm text-gray-600">2º Período - Lab 2</p>
+                  </div>
+                  <Badge variant="outline">4M23</Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium">POO</p>
+                    <p className="text-sm text-gray-600">2º Período - Lab 1</p>
+                  </div>
+                  <Badge variant="outline">3M23</Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium">Ciência de Dados</p>
+                    <p className="text-sm text-gray-600">4º Período - Lab 1</p>
+                  </div>
+                  <Badge variant="outline">2T12</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </MainLayout>
+  );
+}
