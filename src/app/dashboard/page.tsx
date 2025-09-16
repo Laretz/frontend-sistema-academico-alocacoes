@@ -1,11 +1,17 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useAuthStore } from '@/store/auth';
-import { MainLayout } from '@/components/layout/main-layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useEffect, useState } from "react";
+import { useAuthStore } from "@/store/auth";
+import { MainLayout } from "@/components/layout/main-layout";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Users,
   BookOpen,
@@ -17,8 +23,11 @@ import {
   Clock,
   Eye,
   EyeOff,
-} from 'lucide-react';
-import Link from 'next/link';
+  Brain,
+  Building,
+  School,
+} from "lucide-react";
+import Link from "next/link";
 
 interface DashboardStats {
   totalUsuarios: number;
@@ -27,6 +36,20 @@ interface DashboardStats {
   totalSalas: number;
   totalAlocacoes: number;
   alocacoesHoje: number;
+}
+
+interface DiasHorario {
+  segunda: string;
+  terca: string;
+  quarta: string;
+  quinta: string;
+  sexta: string;
+}
+
+interface GradeHorarios {
+  [turma: string]: {
+    [horario: string]: DiasHorario;
+  };
 }
 
 // Dados de exemplo das alocações
@@ -43,7 +66,7 @@ const alocacoes = {
       local1: "Lab 2",
       local2: "Lab 2",
       vagas: 35,
-      demanda: 38
+      demanda: 38,
     },
     {
       codigo: "TAD0009",
@@ -56,7 +79,7 @@ const alocacoes = {
       local1: "Lab 1",
       local2: "Prédio Novo - Sala 6",
       vagas: 40,
-      demanda: 46
+      demanda: 46,
     },
     {
       codigo: "TAD0111",
@@ -69,7 +92,7 @@ const alocacoes = {
       local1: "Lab 1",
       local2: "",
       vagas: 40,
-      demanda: 45
+      demanda: 45,
     },
     {
       codigo: "TAD0012",
@@ -82,7 +105,7 @@ const alocacoes = {
       local1: "Lab 2",
       local2: "",
       vagas: 35,
-      demanda: 39
+      demanda: 39,
     },
     {
       codigo: "TAD0013",
@@ -95,7 +118,7 @@ const alocacoes = {
       local1: "Prédio Novo - Sala 6",
       local2: "Prédio Novo - Sala 6",
       vagas: 40,
-      demanda: 49
+      demanda: 49,
     },
     {
       codigo: "TAD0114",
@@ -108,7 +131,7 @@ const alocacoes = {
       local1: "Prédio Novo - Sala 6",
       local2: "",
       vagas: 35,
-      demanda: 37
+      demanda: 37,
     },
     {
       codigo: "TAD0016",
@@ -121,8 +144,8 @@ const alocacoes = {
       local1: "Prédio Novo - Sala 6",
       local2: "",
       vagas: 35,
-      demanda: 41
-    }
+      demanda: 41,
+    },
   ],
   "4º Período — 2025 — Vespertino": [
     {
@@ -136,7 +159,7 @@ const alocacoes = {
       local1: "Prédio Novo - Sala 6",
       local2: "Lab 1",
       vagas: 40,
-      demanda: 48
+      demanda: 48,
     },
     {
       codigo: "TAD0018",
@@ -149,7 +172,7 @@ const alocacoes = {
       local1: "Prédio Novo - Sala 6",
       local2: "Lab 1",
       vagas: 40,
-      demanda: 50
+      demanda: 50,
     },
     {
       codigo: "TAD0027",
@@ -162,7 +185,7 @@ const alocacoes = {
       local1: "CVT",
       local2: "",
       vagas: 35,
-      demanda: 35
+      demanda: 35,
     },
     {
       codigo: "TAD0028",
@@ -175,7 +198,7 @@ const alocacoes = {
       local1: "Prédio Novo - Sala 6",
       local2: "",
       vagas: 40,
-      demanda: 40
+      demanda: 40,
     },
     {
       codigo: "TAD0032",
@@ -188,7 +211,7 @@ const alocacoes = {
       local1: "CVT",
       local2: "",
       vagas: 40,
-      demanda: 45
+      demanda: 45,
     },
     {
       codigo: "TAD0030",
@@ -201,7 +224,7 @@ const alocacoes = {
       local1: "CVT",
       local2: "Lab Eletrônica",
       vagas: 40,
-      demanda: 48
+      demanda: 48,
     },
     {
       codigo: "TAD0029",
@@ -214,28 +237,82 @@ const alocacoes = {
       local1: "Lab 1",
       local2: "",
       vagas: 35,
-      demanda: 37
-    }
-  ]
+      demanda: 37,
+    },
+  ],
 };
 
-const gradeHorarios = {
+const gradeHorarios: GradeHorarios = {
   "2º Período — 2025 — Matutino": {
     M1: { segunda: "VER", terca: "", quarta: "", quinta: "", sexta: "" },
-    M2: { segunda: "VER", terca: "POO", quarta: "BD", quinta: "POO", sexta: "MATII" },
-    M3: { segunda: "VER", terca: "POO", quarta: "BD", quinta: "POO", sexta: "MATII" },
-    M4: { segunda: "MATII", terca: "WEB", quarta: "DEVS", quinta: "WEB", sexta: "BD" },
-    M5: { segunda: "MATII", terca: "WEB", quarta: "DEVS", quinta: "WEB", sexta: "BD" },
-    M6: { segunda: "", terca: "", quarta: "DEVS", quinta: "", sexta: "" }
+    M2: {
+      segunda: "VER",
+      terca: "POO",
+      quarta: "BD",
+      quinta: "POO",
+      sexta: "MATII",
+    },
+    M3: {
+      segunda: "VER",
+      terca: "POO",
+      quarta: "BD",
+      quinta: "POO",
+      sexta: "MATII",
+    },
+    M4: {
+      segunda: "MATII",
+      terca: "WEB",
+      quarta: "DEVS",
+      quinta: "WEB",
+      sexta: "BD",
+    },
+    M5: {
+      segunda: "MATII",
+      terca: "WEB",
+      quarta: "DEVS",
+      quinta: "WEB",
+      sexta: "BD",
+    },
+    M6: { segunda: "", terca: "", quarta: "DEVS", quinta: "", sexta: "" },
   },
   "4º Período — 2025 — Vespertino": {
-    T1: { segunda: "FTCD", terca: "MICRO", quarta: "MICRO", quinta: "METOD", sexta: "FTCD" },
-    T2: { segunda: "FTCD", terca: "MICRO", quarta: "MICRO", quinta: "METOD", sexta: "FTCD" },
-    T3: { segunda: "PDI", terca: "MÓVEIS", quarta: "ARQUIT", quinta: "MÓVEIS", sexta: "PDI" },
-    T4: { segunda: "PDI", terca: "MÓVEIS", quarta: "ARQUIT", quinta: "MÓVEIS", sexta: "PDI" },
-    T5: { segunda: "", terca: "MÓVEIS", quarta: "ARQUIT", quinta: "MÓVEIS", sexta: "" },
-    T6: { segunda: "", terca: "", quarta: "", quinta: "", sexta: "" }
-  }
+    T1: {
+      segunda: "FTCD",
+      terca: "MICRO",
+      quarta: "MICRO",
+      quinta: "METOD",
+      sexta: "FTCD",
+    },
+    T2: {
+      segunda: "FTCD",
+      terca: "MICRO",
+      quarta: "MICRO",
+      quinta: "METOD",
+      sexta: "FTCD",
+    },
+    T3: {
+      segunda: "PDI",
+      terca: "MÓVEIS",
+      quarta: "ARQUIT",
+      quinta: "MÓVEIS",
+      sexta: "PDI",
+    },
+    T4: {
+      segunda: "PDI",
+      terca: "MÓVEIS",
+      quarta: "ARQUIT",
+      quinta: "MÓVEIS",
+      sexta: "PDI",
+    },
+    T5: {
+      segunda: "",
+      terca: "MÓVEIS",
+      quarta: "ARQUIT",
+      quinta: "MÓVEIS",
+      sexta: "",
+    },
+    T6: { segunda: "", terca: "", quarta: "", quinta: "", sexta: "" },
+  },
 };
 
 export default function DashboardPage() {
@@ -268,9 +345,9 @@ export default function DashboardPage() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Bom dia';
-    if (hour < 18) return 'Boa tarde';
-    return 'Boa noite';
+    if (hour < 12) return "Bom dia";
+    if (hour < 18) return "Boa tarde";
+    return "Boa noite";
   };
 
   const getStatusColor = (vagas: number, demanda: number) => {
@@ -289,89 +366,117 @@ export default function DashboardPage() {
 
   const quickActions = [
     {
-      title: 'Nova Alocação',
-      description: 'Criar uma nova alocação de horário',
-      href: '/alocacoes/nova',
+      title: "Alocação Automática",
+      description: "Gerar alocações usando inteligência artificial",
+      href: "/alocacao-automatica",
+      icon: Brain,
+      color: "bg-purple-600",
+    },
+    {
+      title: "Gerenciar Cursos",
+      description: "Visualizar e gerenciar cursos",
+      href: "/cursos",
+      icon: School,
+      color: "bg-blue-600",
+    },
+    {
+      title: "Gerenciar Prédios",
+      description: "Visualizar e gerenciar prédios",
+      href: "/predios",
+      icon: Building,
+      color: "bg-gray-600",
+    },
+    {
+      title: "Nova Alocação",
+      description: "Criar uma nova alocação de horário",
+      href: "/alocacoes/nova",
       icon: Calendar,
-      color: 'bg-blue-500',
+      color: "bg-blue-500",
     },
     {
-      title: 'Ver Grade',
-      description: 'Visualizar grade de horários',
-      href: '/grade-horarios',
+      title: "Ver Grade",
+      description: "Visualizar grade de horários",
+      href: "/grade-horarios",
       icon: CalendarDays,
-      color: 'bg-green-500',
+      color: "bg-green-500",
     },
     {
-      title: 'Gerenciar Disciplinas',
-      description: 'Adicionar ou editar disciplinas',
-      href: '/disciplinas',
+      title: "Grade Mensal",
+      description: "Visualizar cronograma mensal das disciplinas",
+      href: "/grade-mensal",
+      icon: TrendingUp,
+      color: "bg-indigo-500",
+    },
+    {
+      title: "Gerenciar Disciplinas",
+      description: "Adicionar ou editar disciplinas",
+      href: "/disciplinas",
       icon: BookOpen,
-      color: 'bg-purple-500',
+      color: "bg-purple-500",
     },
     {
-      title: 'Gerenciar Turmas',
-      description: 'Adicionar ou editar turmas',
-      href: '/turmas',
+      title: "Gerenciar Turmas",
+      description: "Adicionar ou editar turmas",
+      href: "/turmas",
       icon: GraduationCap,
-      color: 'bg-orange-500',
+      color: "bg-orange-500",
     },
   ];
 
   const statsCards = [
     {
-      title: 'Total de Usuários',
+      title: "Total de Usuários",
       value: stats.totalUsuarios,
       icon: Users,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
+      color: "text-blue-600",
+      bgColor: "bg-blue-100",
       adminOnly: true,
     },
     {
-      title: 'Disciplinas',
+      title: "Disciplinas",
       value: stats.totalDisciplinas,
       icon: BookOpen,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100',
+      color: "text-purple-600",
+      bgColor: "bg-purple-100",
     },
     {
-      title: 'Turmas',
+      title: "Turmas",
       value: stats.totalTurmas,
       icon: GraduationCap,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-100',
+      color: "text-orange-600",
+      bgColor: "bg-orange-100",
     },
     {
-      title: 'Salas',
+      title: "Salas",
       value: stats.totalSalas,
       icon: MapPin,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100',
+      color: "text-green-600",
+      bgColor: "bg-green-100",
     },
     {
-      title: 'Total de Alocações',
+      title: "Total de Alocações",
       value: stats.totalAlocacoes,
       icon: Calendar,
-      color: 'text-red-600',
-      bgColor: 'bg-red-100',
+      color: "text-red-600",
+      bgColor: "bg-red-100",
     },
     {
-      title: 'Alocações Hoje',
+      title: "Alocações Hoje",
       value: stats.alocacoesHoje,
       icon: Clock,
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-100',
+      color: "text-indigo-600",
+      bgColor: "bg-indigo-100",
     },
   ];
 
-  const filteredStatsCards = statsCards.filter(card => {
-    if (card.adminOnly && user?.perfil !== 'ADMIN') {
+  const filteredStatsCards = statsCards.filter((card) => {
+    if (card.adminOnly && user?.role !== "ADMIN") {
       return false;
     }
     return true;
   });
 
-  const filteredQuickActions = quickActions.filter(action => {
+  const filteredQuickActions = quickActions.filter((action) => {
     // Filtrar ações baseadas no perfil do usuário se necessário
     return true;
   });
@@ -390,7 +495,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <Badge variant="outline" className="text-sm">
-            {user?.perfil}
+            {user?.role}
           </Badge>
         </div>
 
@@ -405,7 +510,7 @@ export default function DashboardPage() {
                       {stat.title}
                     </p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {loading ? '...' : stat.value}
+                      {loading ? "..." : stat.value}
                     </p>
                   </div>
                   <div className={`p-3 rounded-full ${stat.bgColor}`}>
@@ -420,7 +525,10 @@ export default function DashboardPage() {
         {/* Ações Rápidas */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {filteredQuickActions.map((action, index) => (
-            <Card key={index} className="hover:shadow-md transition-shadow cursor-pointer">
+            <Card
+              key={index}
+              className="hover:shadow-md transition-shadow cursor-pointer"
+            >
               <Link href={action.href}>
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
@@ -449,7 +557,8 @@ export default function DashboardPage() {
               <div>
                 <CardTitle className="text-xl">Alocações por Turma</CardTitle>
                 <CardDescription>
-                  Visualização detalhada das disciplinas alocadas por período e turno
+                  Visualização detalhada das disciplinas alocadas por período e
+                  turno
                 </CardDescription>
               </div>
               <Button
@@ -458,9 +567,13 @@ export default function DashboardPage() {
                 onClick={() => setShowAlocacoes(!showAlocacoes)}
               >
                 {showAlocacoes ? (
-                  <><EyeOff className="h-4 w-4 mr-2" /> Ocultar</>
+                  <>
+                    <EyeOff className="h-4 w-4 mr-2" /> Ocultar
+                  </>
                 ) : (
-                  <><Eye className="h-4 w-4 mr-2" /> Mostrar</>
+                  <>
+                    <Eye className="h-4 w-4 mr-2" /> Mostrar
+                  </>
                 )}
               </Button>
             </div>
@@ -471,39 +584,70 @@ export default function DashboardPage() {
                 {Object.entries(alocacoes).map(([turma, disciplinas]) => (
                   <div key={turma} className="space-y-4">
                     <div className="bg-blue-50 p-4 rounded-lg">
-                      <h3 className="text-lg font-semibold text-blue-900">{turma}</h3>
+                      <h3 className="text-lg font-semibold text-blue-900">
+                        {turma}
+                      </h3>
                       <p className="text-sm text-blue-700">
                         {disciplinas.length} disciplinas alocadas
                       </p>
                     </div>
-                    
+
                     {/* Tabela de Disciplinas */}
                     <div className="overflow-x-auto">
                       <table className="w-full border border-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Código</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Prefixo</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Disciplina</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">CH</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Horário 1</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Horário 2</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Professor</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Local 1</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Local 2</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Vagas</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">Demanda</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              Código
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              Prefixo
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              Disciplina
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              CH
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              Horário
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              Professor
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              Local 1
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              Local 2
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              Vagas
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              Demanda
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                              Status
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {disciplinas.map((disciplina, index) => (
-                            <tr key={disciplina.codigo} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <tr
+                              key={disciplina.codigo}
+                              className={
+                                index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                              }
+                            >
                               <td className="px-3 py-2 text-sm font-medium text-gray-900 border-r">
                                 {disciplina.codigo}
                               </td>
                               <td className="px-3 py-2 border-r">
-                                <Badge variant="outline" className="font-mono text-xs">
+                                <Badge
+                                  variant="outline"
+                                  className="font-mono text-xs"
+                                >
                                   {disciplina.prefixo}
                                 </Badge>
                               </td>
@@ -514,10 +658,9 @@ export default function DashboardPage() {
                                 {disciplina.ch}h
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-900 font-mono border-r">
-                                {disciplina.horario1}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 font-mono border-r">
-                                {disciplina.horario2 || '-'}
+                                {(disciplina.horario1 && disciplina.horario2 ? 
+                                  `${disciplina.horario1}, ${disciplina.horario2}` : 
+                                  disciplina.horario1 || disciplina.horario2 || "-")}
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-900 border-r">
                                 {disciplina.professor}
@@ -526,7 +669,7 @@ export default function DashboardPage() {
                                 {disciplina.local1}
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-900 border-r">
-                                {disciplina.local2 || '-'}
+                                {disciplina.local2 || "-"}
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-900 border-r">
                                 {disciplina.vagas}
@@ -535,8 +678,16 @@ export default function DashboardPage() {
                                 {disciplina.demanda}
                               </td>
                               <td className="px-3 py-2">
-                                <Badge className={getStatusColor(disciplina.vagas, disciplina.demanda)}>
-                                  {getStatusText(disciplina.vagas, disciplina.demanda)}
+                                <Badge
+                                  className={getStatusColor(
+                                    disciplina.vagas,
+                                    disciplina.demanda
+                                  )}
+                                >
+                                  {getStatusText(
+                                    disciplina.vagas,
+                                    disciplina.demanda
+                                  )}
                                 </Badge>
                               </td>
                             </tr>
@@ -547,62 +698,93 @@ export default function DashboardPage() {
 
                     {/* Grade de Horários */}
                     <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="text-md font-semibold text-gray-900 mb-3">Grade de Horários</h4>
+                      <h4 className="text-md font-semibold text-gray-900 mb-3">
+                        Grade de Horários
+                      </h4>
                       <div className="overflow-x-auto">
                         <table className="w-full border border-gray-300">
                           <thead>
                             <tr className="bg-gray-100">
-                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">Horário</th>
-                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">Segunda</th>
-                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">Terça</th>
-                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">Quarta</th>
-                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">Quinta</th>
-                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">Sexta</th>
+                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">
+                                Horário
+                              </th>
+                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">
+                                Segunda
+                              </th>
+                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">
+                                Terça
+                              </th>
+                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">
+                                Quarta
+                              </th>
+                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">
+                                Quinta
+                              </th>
+                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">
+                                Sexta
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {Object.entries(gradeHorarios[turma] || {}).map(([horario, dias]) => (
-                              <tr key={horario}>
-                                <td className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-900 bg-gray-50">
-                                  {horario}
-                                </td>
-                                <td className="border border-gray-300 px-2 py-1 text-sm text-center">
-                                  {dias.segunda && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {dias.segunda}
-                                    </Badge>
-                                  )}
-                                </td>
-                                <td className="border border-gray-300 px-2 py-1 text-sm text-center">
-                                  {dias.terca && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {dias.terca}
-                                    </Badge>
-                                  )}
-                                </td>
-                                <td className="border border-gray-300 px-2 py-1 text-sm text-center">
-                                  {dias.quarta && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {dias.quarta}
-                                    </Badge>
-                                  )}
-                                </td>
-                                <td className="border border-gray-300 px-2 py-1 text-sm text-center">
-                                  {dias.quinta && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {dias.quinta}
-                                    </Badge>
-                                  )}
-                                </td>
-                                <td className="border border-gray-300 px-2 py-1 text-sm text-center">
-                                  {dias.sexta && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {dias.sexta}
-                                    </Badge>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
+                            {Object.entries(gradeHorarios[turma] || {}).map(
+                              ([horario, dias]: [string, DiasHorario]) => (
+                                <tr key={horario}>
+                                  <td className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-900 bg-gray-50">
+                                    {horario}
+                                  </td>
+                                  <td className="border border-gray-300 px-2 py-1 text-sm text-center">
+                                    {dias.segunda && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs"
+                                      >
+                                        {dias.segunda}
+                                      </Badge>
+                                    )}
+                                  </td>
+                                  <td className="border border-gray-300 px-2 py-1 text-sm text-center">
+                                    {dias.terca && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs"
+                                      >
+                                        {dias.terca}
+                                      </Badge>
+                                    )}
+                                  </td>
+                                  <td className="border border-gray-300 px-2 py-1 text-sm text-center">
+                                    {dias.quarta && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs"
+                                      >
+                                        {dias.quarta}
+                                      </Badge>
+                                    )}
+                                  </td>
+                                  <td className="border border-gray-300 px-2 py-1 text-sm text-center">
+                                    {dias.quinta && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs"
+                                      >
+                                        {dias.quinta}
+                                      </Badge>
+                                    )}
+                                  </td>
+                                  <td className="border border-gray-300 px-2 py-1 text-sm text-center">
+                                    {dias.sexta && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs"
+                                      >
+                                        {dias.sexta}
+                                      </Badge>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            )}
                           </tbody>
                         </table>
                       </div>
@@ -659,9 +841,7 @@ export default function DashboardPage() {
                 <Calendar className="h-5 w-5" />
                 <span>Próximas Aulas</span>
               </CardTitle>
-              <CardDescription>
-                Aulas agendadas para hoje
-              </CardDescription>
+              <CardDescription>Aulas agendadas para hoje</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">

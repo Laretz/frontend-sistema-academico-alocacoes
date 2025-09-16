@@ -20,7 +20,7 @@ const mockUsuarios = [
     nome: 'João Silva',
     email: 'joao.silva@ufrn.br',
     telefone: '(84) 99999-1111',
-    perfil: 'PROFESSOR' as const,
+    role: 'PROFESSOR' as const,
     especializacao: 'Agricultura',
     status: 'ativo',
     createdAt: '2024-01-15',
@@ -31,7 +31,7 @@ const mockUsuarios = [
     nome: 'Maria Santos',
     email: 'maria.santos@ufrn.br',
     telefone: '(84) 99999-2222',
-    perfil: 'PROFESSOR' as const,
+    role: 'PROFESSOR' as const,
     especializacao: 'Solos',
     status: 'ativo',
     createdAt: '2024-01-10',
@@ -42,7 +42,7 @@ const mockUsuarios = [
     nome: 'Carlos Lima',
     email: 'carlos.lima@ufrn.br',
     telefone: '(84) 99999-3333',
-    perfil: 'PROFESSOR' as const,
+    role: 'PROFESSOR' as const,
     especializacao: 'Irrigação',
     status: 'ativo',
     createdAt: '2024-01-05',
@@ -53,7 +53,7 @@ const mockUsuarios = [
     nome: 'Ana Costa',
     email: 'ana.costa@ufrn.br',
     telefone: '(84) 99999-4444',
-    perfil: 'ADMIN' as const,
+    role: 'ADMIN' as const,
     especializacao: 'TI',
     status: 'ativo',
     createdAt: '2024-01-01',
@@ -79,7 +79,7 @@ export default function UsuariosPage() {
         
         // Por enquanto, usar dados mock
         setUsuarios(mockUsuarios);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Erro ao carregar usuários:', error);
         toast.error('Erro ao carregar usuários');
       } finally {
@@ -109,7 +109,7 @@ export default function UsuariosPage() {
         // Por enquanto, remover dos dados mock
         setUsuarios(prev => prev.filter(u => u.id !== userId));
         toast.success('Usuário excluído com sucesso!');
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Erro ao excluir usuário:', error);
         toast.error('Erro ao excluir usuário');
       }
@@ -120,8 +120,8 @@ export default function UsuariosPage() {
     router.push('/usuarios/novo');
   };
 
-  const getPerfilColor = (perfil: string) => {
-    switch (perfil) {
+  const getPerfilColor = (role: string) => {
+    switch (role) {
       case 'ADMIN': return 'destructive';
       case 'PROFESSOR': return 'default';
       case 'ALUNO': return 'secondary';
@@ -129,12 +129,12 @@ export default function UsuariosPage() {
     }
   };
 
-  const getPerfilLabel = (perfil: string) => {
-    switch (perfil) {
+  const getPerfilLabel = (role: string) => {
+    switch (role) {
       case 'ADMIN': return 'Administrador';
       case 'PROFESSOR': return 'Professor';
       case 'ALUNO': return 'Aluno';
-      default: return perfil;
+      default: return role;
     }
   };
 
@@ -143,7 +143,7 @@ export default function UsuariosPage() {
   };
 
   // Verificar se o usuário tem permissão para ver esta página
-  if (user?.perfil !== 'ADMIN') {
+  if (user?.role !== 'ADMIN') {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-[400px]">
@@ -166,7 +166,7 @@ export default function UsuariosPage() {
               Gerencie os usuários do sistema
             </p>
           </div>
-          {user?.perfil === 'ADMIN' && (
+          {user?.role === 'ADMIN' && (
             <Button onClick={handleNewUser}>
               <Plus className="mr-2 h-4 w-4" />
               Novo Usuário
@@ -200,10 +200,10 @@ export default function UsuariosPage() {
                       {usuario.especializacao}
                     </CardDescription>
                     <Badge 
-                      variant={getPerfilColor(usuario.perfil)} 
+                      variant={getPerfilColor(usuario.role)} 
                       className="mt-2"
                     >
-                      {getPerfilLabel(usuario.perfil)}
+                      {getPerfilLabel(usuario.role)}
                     </Badge>
                   </div>
                 </div>
@@ -229,7 +229,7 @@ export default function UsuariosPage() {
                     <span>{new Date(usuario.createdAt).toLocaleDateString('pt-BR')}</span>
                   </div>
                 </div>
-                {user?.perfil === 'ADMIN' && (
+                {user?.role === 'ADMIN' && (
                   <div className="flex justify-end space-x-2 mt-4">
                     <Button 
                       variant="outline" 

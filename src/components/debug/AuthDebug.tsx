@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 export function AuthDebug() {
   const { user, token, isAuthenticated } = useAuthStore();
-  const [localStorageData, setLocalStorageData] = useState<any>({});
+  const [localStorageData, setLocalStorageData] = useState<Record<string, unknown>>({});
   const [cookieData, setCookieData] = useState<string>("");
 
   useEffect(() => {

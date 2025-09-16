@@ -18,8 +18,8 @@ const createUserSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   email: z.string().email('Email inválido'),
   senha: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
-  perfil: z.enum(['ADMIN', 'PROFESSOR', 'ALUNO'], {
-    required_error: 'Selecione um perfil',
+  role: z.enum(['ADMIN', 'PROFESSOR', 'COORDENADOR'], {
+    message: 'Selecione um role',
   }),
   especializacao: z.string().optional(),
   cargaHorariaMax: z.number().min(1).max(40).optional(),
@@ -29,8 +29,8 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   email: z.string().email('Email inválido'),
-  perfil: z.enum(['ADMIN', 'PROFESSOR', 'ALUNO'], {
-    required_error: 'Selecione um perfil',
+  role: z.enum(['ADMIN', 'PROFESSOR', 'COORDENADOR'], {
+    message: 'Selecione um perfil',
   }),
   especializacao: z.string().optional(),
   cargaHorariaMax: z.number().min(1).max(40).optional(),
@@ -63,7 +63,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false }: UserFo
       ? {
           nome: user.nome,
           email: user.email,
-          perfil: user.perfil,
+          role: user.role as 'ADMIN' | 'PROFESSOR' | 'COORDENADOR',
           especializacao: user.especializacao || '',
           cargaHorariaMax: user.cargaHorariaMax || undefined,
           preferencia: user.preferencia || '',
@@ -72,14 +72,14 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false }: UserFo
           nome: '',
           email: '',
           senha: '',
-          perfil: 'PROFESSOR',
+          role: 'PROFESSOR' as const,
           especializacao: '',
           cargaHorariaMax: undefined,
           preferencia: '',
         },
   });
 
-  const perfil = watch('perfil');
+  const role = watch('role');
 
   const onFormSubmit = async (data: CreateUserFormData | UpdateUserFormData) => {
     try {
@@ -164,18 +164,18 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false }: UserFo
                   )}
                 </Button>
               </div>
-              {errors.senha && (
-                <p className="text-sm text-red-500">{errors.senha.message}</p>
+              {!isEditing && (errors as any).senha && (
+                <p className="text-sm text-red-500">{(errors as any).senha.message}</p>
               )}
             </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="perfil">Perfil *</Label>
+              <Label htmlFor="role">Perfil *</Label>
               <Select
-                value={perfil}
-                onValueChange={(value) => setValue('perfil', value as any)}
+                value={role}
+                onValueChange={(value) => setValue('role', value as 'ADMIN' | 'PROFESSOR' | 'COORDENADOR')}
                 disabled={isLoading}
               >
                 <SelectTrigger>
@@ -184,11 +184,11 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false }: UserFo
                 <SelectContent>
                   <SelectItem value="ADMIN">Administrador</SelectItem>
                   <SelectItem value="PROFESSOR">Professor</SelectItem>
-                  <SelectItem value="ALUNO">Aluno</SelectItem>
+                  <SelectItem value="COORDENADOR">Coordenador</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.perfil && (
-                <p className="text-sm text-red-500">{errors.perfil.message}</p>
+              {errors.role && (
+                <p className="text-sm text-red-500">{errors.role.message}</p>
               )}
             </div>
 
@@ -203,7 +203,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false }: UserFo
             </div>
           </div>
 
-          {perfil === 'PROFESSOR' && (
+          {role === 'PROFESSOR' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="cargaHorariaMax">Carga Horária Máxima</Label>

@@ -2,7 +2,6 @@ import api from "@/lib/api";
 import {
   LoginRequest,
   LoginResponse,
-  RegisterRequest,
   User,
 } from "@/types/auth";
 

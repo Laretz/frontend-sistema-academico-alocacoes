@@ -12,7 +12,7 @@ interface AuthStore extends AuthState {
   checkAuth: () => void;
 }
 
-export const useAuthStore = create<AuthStore>((set, get) => ({
+export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
   token: null,
   isAuthenticated: false,
@@ -41,9 +41,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       });
 
       toast.success("Login realizado com sucesso!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
-      const message = error.response?.data?.message || "Erro ao fazer login";
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Erro ao fazer login";
       toast.error(message);
       throw error;
     }

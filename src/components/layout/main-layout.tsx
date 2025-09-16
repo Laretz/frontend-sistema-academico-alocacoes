@@ -1,13 +1,18 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useAuthStore } from '@/store/auth';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
-import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useEffect, useState } from "react";
+import { useAuthStore } from "@/store/auth";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -20,20 +25,26 @@ import {
   User,
   Menu,
   X,
-} from 'lucide-react';
+  School,
+  Building,
+  UserCheck,
+} from "lucide-react";
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Usuários', href: '/usuarios', icon: Users, adminOnly: true },
-  { name: 'Disciplinas', href: '/disciplinas', icon: BookOpen },
-  { name: 'Turmas', href: '/turmas', icon: GraduationCap },
-  { name: 'Salas', href: '/salas', icon: MapPin },
-  { name: 'Alocações', href: '/alocacoes', icon: Calendar },
-  { name: 'Grade de Horários', href: '/grade-horarios', icon: CalendarDays },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Usuários", href: "/usuarios", icon: Users, adminOnly: true },
+  { name: "Cursos", href: "/cursos", icon: School, adminOnly: true },
+  { name: "Prédios", href: "/predios", icon: Building, adminOnly: true },
+  { name: "Disciplinas", href: "/disciplinas", icon: BookOpen },
+  { name: "Professor-Disciplina", href: "/professor-disciplina", icon: UserCheck, adminOnly: true },
+  { name: "Turmas", href: "/turmas", icon: GraduationCap },
+  { name: "Salas", href: "/salas", icon: MapPin },
+  { name: "Alocações", href: "/alocacoes", icon: Calendar },
+  { name: "Grade de Horários", href: "/grade-horarios", icon: CalendarDays },
 ];
 
 export function MainLayout({ children }: MainLayoutProps) {
@@ -48,33 +59,33 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    router.push("/login");
   };
 
   const getInitials = (name: string) => {
     return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
       .toUpperCase()
       .slice(0, 2);
   };
 
-  const getPerfilColor = (perfil: string) => {
-    switch (perfil) {
-      case 'ADMIN':
-        return 'bg-red-100 text-red-800';
-      case 'PROFESSOR':
-        return 'bg-blue-100 text-blue-800';
-      case 'ALUNO':
-        return 'bg-green-100 text-green-800';
+  const getPerfilColor = (role: string) => {
+    switch (role) {
+      case "ADMIN":
+        return "bg-red-100 text-red-800";
+      case "PROFESSOR":
+        return "bg-blue-100 text-blue-800";
+      case "COORDENADOR":
+        return "bg-green-100 text-green-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
-  const filteredNavigation = navigation.filter(item => {
-    if (item.adminOnly && user?.perfil !== 'ADMIN') {
+  const filteredNavigation = navigation.filter((item) => {
+    if (item.adminOnly && user?.role !== "ADMIN") {
       return false;
     }
     return true;
@@ -102,8 +113,8 @@ export function MainLayout({ children }: MainLayoutProps) {
                       group flex items-center px-2 py-2 text-sm font-medium rounded-md
                       ${
                         isActive
-                          ? 'bg-gray-100 text-gray-900'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          ? "bg-gray-100 text-gray-900"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                       }
                     `}
                   >
@@ -112,8 +123,8 @@ export function MainLayout({ children }: MainLayoutProps) {
                         mr-3 h-5 w-5 flex-shrink-0
                         ${
                           isActive
-                            ? 'text-gray-500'
-                            : 'text-gray-400 group-hover:text-gray-500'
+                            ? "text-gray-500"
+                            : "text-gray-400 group-hover:text-gray-500"
                         }
                       `}
                     />
@@ -129,7 +140,10 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Sidebar mobile */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 flex lg:hidden">
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
+          <div
+            className="fixed inset-0 bg-gray-600 bg-opacity-75"
+            onClick={() => setSidebarOpen(false)}
+          />
           <div className="relative flex w-full max-w-xs flex-1 flex-col bg-white">
             <div className="absolute top-0 right-0 -mr-12 pt-2">
               <button
@@ -157,8 +171,8 @@ export function MainLayout({ children }: MainLayoutProps) {
                         group flex items-center px-2 py-2 text-sm font-medium rounded-md
                         ${
                           isActive
-                            ? 'bg-gray-100 text-gray-900'
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            ? "bg-gray-100 text-gray-900"
+                            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                         }
                       `}
                       onClick={() => setSidebarOpen(false)}
@@ -168,8 +182,8 @@ export function MainLayout({ children }: MainLayoutProps) {
                           mr-3 h-5 w-5 flex-shrink-0
                           ${
                             isActive
-                              ? 'text-gray-500'
-                              : 'text-gray-400 group-hover:text-gray-500'
+                              ? "text-gray-500"
+                              : "text-gray-400 group-hover:text-gray-500"
                           }
                         `}
                       />
@@ -199,12 +213,15 @@ export function MainLayout({ children }: MainLayoutProps) {
             <div className="flex items-center space-x-4">
               {user && (
                 <>
-                  <Badge className={getPerfilColor(user.perfil)}>
-                    {user.perfil}
+                  <Badge className={getPerfilColor(user.role)}>
+                    {user.role}
                   </Badge>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                      <Button
+                        variant="ghost"
+                        className="relative h-8 w-8 rounded-full"
+                      >
                         <Avatar className="h-8 w-8">
                           <AvatarFallback>
                             {getInitials(user.nome)}
@@ -227,7 +244,10 @@ export function MainLayout({ children }: MainLayoutProps) {
                           Perfil
                         </Link>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                      <DropdownMenuItem
+                        onClick={handleLogout}
+                        className="cursor-pointer"
+                      >
                         <LogOut className="mr-2 h-4 w-4" />
                         Sair
                       </DropdownMenuItem>

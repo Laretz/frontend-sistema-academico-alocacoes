@@ -2,7 +2,7 @@ export interface User {
   id: string;
   nome: string;
   email: string;
-  perfil: "ADMIN" | "PROFESSOR" | "COORDENADOR";
+  role: "ADMIN" | "PROFESSOR" | "COORDENADOR";
   especializacao?: string;
   cargaHorariaMax?: number;
   preferencia?: string;
@@ -24,7 +24,7 @@ export interface RegisterRequest {
   nome: string;
   email: string;
   senha: string;
-  perfil: "ADMIN" | "PROFESSOR" | "ALUNO";
+  role: "ADMIN" | "PROFESSOR" | "COORDENADOR";
   especializacao?: string;
   cargaHorariaMax?: number;
   preferencia?: string;

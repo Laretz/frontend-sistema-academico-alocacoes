@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/layout/main-layout';
 import { UserForm } from '@/components/forms/user-form';
-import { userService, CreateUserRequest } from '@/services/users';
+import { userService, CreateUserRequest, UpdateUserRequest } from '@/services/users';
 import { useAuthStore } from '@/store/auth';
 import { toast } from 'sonner';
 
@@ -14,7 +14,7 @@ export default function NovoUsuarioPage() {
   const { user } = useAuthStore();
 
   // Verificar se o usuário tem permissão para criar usuários
-  if (user?.perfil !== 'ADMIN') {
+  if (user?.role !== 'ADMIN') {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-[400px]">
@@ -27,17 +27,18 @@ export default function NovoUsuarioPage() {
     );
   }
 
-  const handleSubmit = async (data: CreateUserRequest) => {
+  const handleSubmit = async (data: CreateUserRequest | UpdateUserRequest) => {
     setIsLoading(true);
     try {
-      await userService.create(data);
+      await userService.create(data as CreateUserRequest);
       toast.success('Usuário criado com sucesso!');
       router.push('/usuarios');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao criar usuário:', error);
-      toast.error(
-        error.response?.data?.message || 'Erro ao criar usuário. Tente novamente.'
-      );
+      const errorMessage = error instanceof Error && 'response' in error 
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message 
+        : 'Erro ao criar usuário. Tente novamente.';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

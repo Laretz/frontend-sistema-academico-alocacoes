@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { MainLayout } from '@/components/layout/main-layout';
 import { UserForm } from '@/components/forms/user-form';
-import { userService, UpdateUserRequest } from '@/services/users';
+import { userService, UpdateUserRequest, CreateUserRequest } from '@/services/users';
 import { useAuthStore } from '@/store/auth';
 import { User } from '@/types/auth';
 import { toast } from 'sonner';
@@ -17,28 +17,31 @@ export default function EditarUsuarioPage() {
   const router = useRouter();
   const params = useParams();
   const { user: currentUser } = useAuthStore();
-  const userId = params.id as string;
+  const userId = params?.id as string;
 
-  // Verificar se o usuário tem permissão para editar usuários
-  if (currentUser?.perfil !== 'ADMIN') {
-    return (
-      <MainLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Acesso Negado</h2>
-            <p className="text-gray-600">Você não tem permissão para acessar esta página.</p>
-          </div>
-        </div>
-      </MainLayout>
-    );
+  // Verificar se o ID do usuário está presente
+  if (!userId) {
+    router.push('/usuarios');
+    return null;
   }
 
   useEffect(() => {
+    // Verificar se o usuário tem permissão para editar usuários
+    if (currentUser?.role !== 'ADMIN') {
+      router.push('/usuarios');
+      toast.error('Você não tem permissão para acessar esta página.');
+      return;
+    }
+
+    if (!userId) {
+      router.push('/usuarios');
+      return;
+    }
     const fetchUser = async () => {
       try {
         const userData = await userService.getById(userId);
         setUser(userData);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Erro ao carregar usuário:', error);
         toast.error('Erro ao carregar dados do usuário');
         router.push('/usuarios');
@@ -47,22 +50,21 @@ export default function EditarUsuarioPage() {
       }
     };
 
-    if (userId) {
-      fetchUser();
-    }
-  }, [userId, router]);
+    fetchUser();
+  }, [userId, router, currentUser]);
 
-  const handleSubmit = async (data: UpdateUserRequest) => {
+  const handleSubmit = async (data: CreateUserRequest | UpdateUserRequest) => {
     setIsLoading(true);
     try {
-      await userService.update(userId, data);
+      await userService.update(userId, data as UpdateUserRequest);
       toast.success('Usuário atualizado com sucesso!');
       router.push('/usuarios');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao atualizar usuário:', error);
-      toast.error(
-        error.response?.data?.message || 'Erro ao atualizar usuário. Tente novamente.'
-      );
+      const errorMessage = error instanceof Error && 'response' in error 
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message 
+        : 'Erro ao atualizar usuário. Tente novamente.';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
