@@ -166,25 +166,25 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
   const renderAlocacao = (alocacao: AlocacaoInfo | null) => {
     if (!alocacao) {
       return (
-        <div className="h-16 border border-gray-200 bg-gray-50 rounded p-1 text-center text-xs text-gray-400">
+        <div className="h-16 border border-border bg-muted/30 rounded p-1 text-center text-xs text-muted-foreground">
           Livre
         </div>
       );
     }
 
     return (
-      <div className="h-16 border border-blue-200 bg-blue-50 rounded p-1 text-xs overflow-hidden">
+      <div className="h-16 border border-primary/20 bg-primary/10 rounded p-1 text-xs overflow-hidden">
         <div
-          className="font-semibold text-blue-900 truncate"
+          className="font-semibold text-foreground truncate"
           title={alocacao.disciplina.nome}
         >
           {alocacao.disciplina.nome}
         </div>
-        <div className="text-blue-700 truncate" title={alocacao.professor.nome}>
+        <div className="text-primary truncate" title={alocacao.professor.nome}>
           {alocacao.professor.nome}
         </div>
         <div
-          className="text-blue-600 truncate"
+          className="text-primary/80 truncate"
           title={`${alocacao.turma.nome} - ${alocacao.turma.periodo}º período`}
         >
           {alocacao.turma.nome}
@@ -234,8 +234,8 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
         )}
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded p-4 text-center">
-            <p className="text-red-600">{error}</p>
+          <div className="bg-destructive/10 border border-destructive/20 rounded p-4 text-center">
+            <p className="text-destructive">{error}</p>
             <Button
               variant="outline"
               size="sm"
@@ -254,12 +254,12 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
               <Card>
                 <CardContent className="p-3">
                   <div className="flex items-center space-x-2">
-                    <Calendar className="h-4 w-4 text-blue-600" />
+                    <Calendar className="h-4 w-4 text-primary" />
                     <div>
                       <p className="text-sm font-medium">
                         {gradeData.resumo.totalAlocacoes}
                       </p>
-                      <p className="text-xs text-gray-600">Alocações</p>
+                      <p className="text-xs text-muted-foreground">Alocações</p>
                     </div>
                   </div>
                 </CardContent>
@@ -267,12 +267,12 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
               <Card>
                 <CardContent className="p-3">
                   <div className="flex items-center space-x-2">
-                    <GraduationCap className="h-4 w-4 text-green-600" />
+                    <GraduationCap className="h-4 w-4 text-secondary-foreground" />
                     <div>
                       <p className="text-sm font-medium">
                         {gradeData.resumo.disciplinasUnicas}
                       </p>
-                      <p className="text-xs text-gray-600">Disciplinas</p>
+                      <p className="text-xs text-muted-foreground">Disciplinas</p>
                     </div>
                   </div>
                 </CardContent>
@@ -280,12 +280,12 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
               <Card>
                 <CardContent className="p-3">
                   <div className="flex items-center space-x-2">
-                    <User className="h-4 w-4 text-purple-600" />
+                    <User className="h-4 w-4 text-accent-foreground" />
                     <div>
                       <p className="text-sm font-medium">
                         {gradeData.resumo.professoresUnicos}
                       </p>
-                      <p className="text-xs text-gray-600">Professores</p>
+                      <p className="text-xs text-muted-foreground">Professores</p>
                     </div>
                   </div>
                 </CardContent>
@@ -293,12 +293,12 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
               <Card>
                 <CardContent className="p-3">
                   <div className="flex items-center space-x-2">
-                    <GraduationCap className="h-4 w-4 text-orange-600" />
+                    <GraduationCap className="h-4 w-4 text-destructive" />
                     <div>
                       <p className="text-sm font-medium">
                         {gradeData.resumo.turmasUnicas}
                       </p>
-                      <p className="text-xs text-gray-600">Turmas</p>
+                      <p className="text-xs text-muted-foreground">Turmas</p>
                     </div>
                   </div>
                 </CardContent>
@@ -318,13 +318,13 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
                   <table className="w-full border-collapse table-fixed">
                     <thead>
                       <tr>
-                        <th className="border border-gray-300 p-1 bg-gray-50 text-xs font-medium text-left w-[10%]">
+                        <th className="border border-border p-1 bg-muted/30 text-xs font-medium text-left w-[10%]">
                           Horário
                         </th>
                         {diasSemana.map((dia) => (
                           <th
                             key={dia.key}
-                            className="border border-gray-300 p-1 bg-gray-50 text-xs font-medium text-center w-[15%]"
+                            className="border border-border p-1 bg-muted/30 text-xs font-medium text-center w-[15%]"
                           >
                             {dia.label}
                           </th>
@@ -334,9 +334,9 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
                     <tbody>
                       {horariosDisponiveis.map((horario) => (
                         <tr key={horario}>
-                          <td className="border border-gray-300 p-1 bg-gray-50 text-xs font-medium text-center w-[10%]">
+                          <td className="border border-border p-1 bg-muted/30 text-xs font-medium text-center w-[10%]">
                             <div className="font-semibold">{horario}</div>
-                            <div className="text-gray-600 text-xs">
+                            <div className="text-muted-foreground text-xs">
                               {getPeriodoHorario(horario)}
                             </div>
                           </td>
@@ -346,7 +346,7 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
                             return (
                               <td
                                 key={`${dia.key}-${horario}`}
-                                className="border border-gray-300 p-1 w-[15%]"
+                                className="border border-border p-1 w-[15%]"
                               >
                                 {renderAlocacao(alocacao)}
                               </td>

@@ -33,6 +33,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { disciplinaService, cursoService } from "@/services/entities";
 import { Disciplina, CreateDisciplinaRequest, Curso } from "@/types/entities";
+import { DatePicker } from "@/components/ui/date-picker";
 
 export default function DisciplinasPage() {
   const [disciplinas, setDisciplinas] = useState<Disciplina[]>([]);
@@ -45,17 +46,17 @@ export default function DisciplinasPage() {
   const [editingDisciplina, setEditingDisciplina] = useState<Disciplina | null>(
     null
   );
-  const [formData, setFormData] = useState<CreateDisciplinaRequest>({
+  const [formData, setFormData] = useState({
     nome: "",
     carga_horaria: 60,
     id_curso: "",
-    tipo_de_sala: "Sala",
+    tipo_de_sala: "Sala" as "Sala" | "Lab",
     periodo_letivo: "",
     codigo: "",
     semestre: 1,
     obrigatoria: true,
-    data_inicio: "",
-    data_fim_prevista: "",
+    data_inicio: undefined as Date | undefined,
+    data_fim_prevista: undefined as Date | undefined,
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -106,12 +107,8 @@ export default function DisciplinasPage() {
       setSubmitting(true);
       const payload = {
         ...formData,
-        data_inicio: formData.data_inicio
-          ? new Date(formData.data_inicio).toISOString()
-          : undefined,
-        data_fim_prevista: formData.data_fim_prevista
-          ? new Date(formData.data_fim_prevista).toISOString()
-          : undefined,
+        data_inicio: formData.data_inicio?.toISOString() || undefined,
+        data_fim_prevista: formData.data_fim_prevista?.toISOString() || undefined,
       };
 
       if (editingDisciplina) {
@@ -148,11 +145,11 @@ export default function DisciplinasPage() {
       semestre: disciplina.semestre || 1,
       obrigatoria: disciplina.obrigatoria || true,
       data_inicio: disciplina.data_inicio
-        ? disciplina.data_inicio.slice(0, 10)
-        : "",
+        ? new Date(disciplina.data_inicio)
+        : undefined,
       data_fim_prevista: disciplina.data_fim_prevista
-        ? disciplina.data_fim_prevista.slice(0, 10)
-        : "",
+        ? new Date(disciplina.data_fim_prevista)
+        : undefined,
     });
     setDialogOpen(true);
   };
@@ -169,8 +166,8 @@ export default function DisciplinasPage() {
       codigo: "",
       semestre: 1,
       obrigatoria: true,
-      data_inicio: "",
-      data_fim_prevista: "",
+      data_inicio: undefined,
+      data_fim_prevista: undefined,
     });
   };
 
@@ -211,7 +208,7 @@ export default function DisciplinasPage() {
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 h-4 w-4 text-white" />
                 Nova Disciplina
               </Button>
             </DialogTrigger>
@@ -381,37 +378,35 @@ export default function DisciplinasPage() {
                     <Label htmlFor="data_inicio" className="text-right">
                       Data Início
                     </Label>
-                    <Input
-                      id="data_inicio"
-                      type="date"
-                      value={formData.data_inicio}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          data_inicio: e.target.value,
-                        })
-                      }
-                      className="col-span-3"
-                      required
-                    />
+                    <div className="col-span-3">
+                      <DatePicker
+                        date={formData.data_inicio}
+                        onDateChange={(date) =>
+                          setFormData({
+                            ...formData,
+                            data_inicio: date,
+                          })
+                        }
+                        placeholder="Selecione a data de início"
+                      />
+                    </div>
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="data_fim_prevista" className="text-right">
                       Data Fim Prevista
                     </Label>
-                    <Input
-                      id="data_fim_prevista"
-                      type="date"
-                      value={formData.data_fim_prevista}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          data_fim_prevista: e.target.value,
-                        })
-                      }
-                      className="col-span-3"
-                      required
-                    />
+                    <div className="col-span-3">
+                      <DatePicker
+                        date={formData.data_fim_prevista}
+                        onDateChange={(date) =>
+                          setFormData({
+                            ...formData,
+                            data_fim_prevista: date,
+                          })
+                        }
+                        placeholder="Selecione a data de fim prevista"
+                      />
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>
@@ -438,7 +433,7 @@ export default function DisciplinasPage() {
 
         <div className="flex items-center space-x-2">
           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
             <Input
               placeholder="Buscar disciplinas..."
               value={searchTerm}
@@ -531,7 +526,7 @@ export default function DisciplinasPage() {
                         <span className="text-muted-foreground">
                           Horário Consolidado:
                         </span>
-                        <span className="font-medium text-blue-600">{disciplina.horario_consolidado}</span>
+                        <span className="font-medium text-primary">{disciplina.horario_consolidado}</span>
                       </div>
                     )}
                   </div>
@@ -542,7 +537,7 @@ export default function DisciplinasPage() {
                       title="Editar disciplina"
                       onClick={() => handleEdit(disciplina)}
                     >
-                      <Edit className="h-4 w-4" />
+                      <Edit className="h-4 w-4 text-blue-600" />
                     </Button>
                     <Button
                       variant="outline"
@@ -550,7 +545,7 @@ export default function DisciplinasPage() {
                       title="Excluir disciplina"
                       onClick={() => handleDelete(disciplina.id)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
                   </div>
                 </CardContent>

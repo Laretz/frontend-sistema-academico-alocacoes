@@ -68,10 +68,10 @@ export default function LoginPage() {
               <GraduationCap className="h-8 w-8 text-white" />
             </div>
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+          <h2 className="mt-6 text-3xl font-bold text-foreground">
             Sistema de Alocação Acadêmica
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             Escola Agrícola de Jundiaí - UFRN
           </p>
         </div>
@@ -147,11 +147,11 @@ export default function LoginPage() {
             </Form>
 
             <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Não tem uma conta?{" "}
                 <Link
                   href="/registro"
-                  className="font-medium text-blue-600 hover:text-blue-500"
+                  className="font-medium text-primary hover:text-primary/80"
                 >
                   Criar conta
                 </Link>

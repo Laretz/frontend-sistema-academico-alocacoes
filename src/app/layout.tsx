@@ -40,7 +40,7 @@ export default function RootLayout({
         <meta name="description" content="Sistema de Alocação Acadêmica da Escola Agrícola de Jundiaí - UFRN" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
         <QueryClientProvider client={queryClient}>
           <AuthProvider>

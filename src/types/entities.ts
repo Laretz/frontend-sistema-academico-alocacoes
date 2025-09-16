@@ -34,10 +34,10 @@ export interface User {
   email: string;
   role: "ADMIN" | "PROFESSOR" | "COORDENADOR";
   especializacao?: string;
-  cargaHorariaMax?: number;
+  carga_horaria_max?: number;
   preferencia?: string;
-  createdAt: string;
-  updatedAt: string;
+  id_curso?: string;
+  curso?: Curso;
 }
 
 export interface Turma {

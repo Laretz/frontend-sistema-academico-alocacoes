@@ -1,11 +1,10 @@
 'use client';
 
 import { MainLayout } from '@/components/layout/main-layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Search, Edit, Trash2, Mail, Phone } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth';
@@ -13,58 +12,12 @@ import { userService } from '@/services/users';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
-// Mock data - será substituído pela integração com a API
-const mockUsuarios = [
-  {
-    id: '1',
-    nome: 'João Silva',
-    email: 'joao.silva@ufrn.br',
-    telefone: '(84) 99999-1111',
-    role: 'PROFESSOR' as const,
-    especializacao: 'Agricultura',
-    status: 'ativo',
-    createdAt: '2024-01-15',
-    updatedAt: '2024-01-15'
-  },
-  {
-    id: '2',
-    nome: 'Maria Santos',
-    email: 'maria.santos@ufrn.br',
-    telefone: '(84) 99999-2222',
-    role: 'PROFESSOR' as const,
-    especializacao: 'Solos',
-    status: 'ativo',
-    createdAt: '2024-01-10',
-    updatedAt: '2024-01-10'
-  },
-  {
-    id: '3',
-    nome: 'Carlos Lima',
-    email: 'carlos.lima@ufrn.br',
-    telefone: '(84) 99999-3333',
-    role: 'PROFESSOR' as const,
-    especializacao: 'Irrigação',
-    status: 'ativo',
-    createdAt: '2024-01-05',
-    updatedAt: '2024-01-05'
-  },
-  {
-    id: '4',
-    nome: 'Ana Costa',
-    email: 'ana.costa@ufrn.br',
-    telefone: '(84) 99999-4444',
-    role: 'ADMIN' as const,
-    especializacao: 'TI',
-    status: 'ativo',
-    createdAt: '2024-01-01',
-    updatedAt: '2024-01-01'
-  }
-];
+
 
 export default function UsuariosPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [usuarios, setUsuarios] = useState(mockUsuarios);
-  const [isLoading, setIsLoading] = useState(false);
+  const [usuarios, setUsuarios] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuthStore();
   const router = useRouter();
 
@@ -73,12 +26,8 @@ export default function UsuariosPage() {
     const fetchUsuarios = async () => {
       try {
         setIsLoading(true);
-        // TODO: Implementar quando o backend estiver conectado
-        // const response = await userService.getAll();
-        // setUsuarios(response.data);
-        
-        // Por enquanto, usar dados mock
-        setUsuarios(mockUsuarios);
+        const response = await userService.getAll();
+        setUsuarios(response.usuarios || []);
       } catch (error: unknown) {
         console.error('Erro ao carregar usuários:', error);
         toast.error('Erro ao carregar usuários');
@@ -100,13 +49,25 @@ export default function UsuariosPage() {
     router.push(`/usuarios/${userId}/editar`);
   };
 
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    try {
+      await userService.updateRole(userId, newRole);
+      
+      setUsuarios(prev => prev.map(user => 
+        user.id === userId ? { ...user, role: newRole as 'PROFESSOR' | 'ADMIN' } : user
+      ));
+      toast.success('Role atualizado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar role:', error);
+      toast.error('Erro ao atualizar role');
+    }
+  };
+
   const handleDeleteUser = async (userId: string, userName: string) => {
     if (window.confirm(`Tem certeza que deseja excluir o usuário ${userName}?`)) {
       try {
-        // TODO: Implementar quando o backend estiver conectado
-        // await userService.delete(userId);
+        await userService.delete(userId);
         
-        // Por enquanto, remover dos dados mock
         setUsuarios(prev => prev.filter(u => u.id !== userId));
         toast.success('Usuário excluído com sucesso!');
       } catch (error: unknown) {
@@ -148,8 +109,8 @@ export default function UsuariosPage() {
       <MainLayout>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Acesso Negado</h2>
-            <p className="text-gray-600">Você não tem permissão para acessar esta página.</p>
+            <h2 className="text-2xl font-bold text-foreground mb-2">Acesso Negado</h2>
+            <p className="text-muted-foreground">Você não tem permissão para acessar esta página.</p>
           </div>
         </div>
       </MainLayout>
@@ -186,72 +147,77 @@ export default function UsuariosPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredUsuarios.map((usuario) => (
-            <Card key={usuario.id}>
-              <CardHeader>
-                <div className="flex items-start space-x-4">
-                  <Avatar>
-                    <AvatarFallback>{getInitials(usuario.nome)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{usuario.nome}</CardTitle>
-                    <CardDescription className="mt-1">
-                      {usuario.especializacao}
-                    </CardDescription>
-                    <Badge 
-                      variant={getPerfilColor(usuario.role)} 
-                      className="mt-2"
-                    >
-                      {getPerfilLabel(usuario.role)}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Mail className="mr-2 h-4 w-4" />
-                    <span className="truncate">{usuario.email}</span>
-                  </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Phone className="mr-2 h-4 w-4" />
-                    <span>{usuario.telefone}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Status:</span>
-                    <Badge variant={usuario.status === 'ativo' ? 'default' : 'secondary'}>
+        <div className="bg-card rounded-lg border shadow-sm">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Telefone</TableHead>
+                <TableHead>Especialização</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredUsuarios.map((usuario) => (
+                <TableRow key={usuario.id}>
+                  <TableCell className="font-medium">{usuario.nome}</TableCell>
+                  <TableCell>{usuario.email}</TableCell>
+                  <TableCell>{usuario.telefone}</TableCell>
+                  <TableCell>{usuario.especializacao}</TableCell>
+                  <TableCell>
+                    {user?.role === 'ADMIN' ? (
+                      <Select
+                        value={usuario.role}
+                        onValueChange={(value) => handleRoleChange(usuario.id, value)}
+                      >
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PROFESSOR">Professor</SelectItem>
+                          <SelectItem value="ADMIN">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span>{getPerfilLabel(usuario.role)}</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      usuario.status === 'ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
                       {usuario.status}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Criado em:</span>
-                    <span>{new Date(usuario.createdAt).toLocaleDateString('pt-BR')}</span>
-                  </div>
-                </div>
-                {user?.role === 'ADMIN' && (
-                  <div className="flex justify-end space-x-2 mt-4">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleEditUser(usuario.id)}
-                      title="Editar usuário"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleDeleteUser(usuario.id, usuario.nome)}
-                      title="Excluir usuário"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {user?.role === 'ADMIN' && (
+                      <div className="flex gap-2 justify-end">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleEditUser(usuario.id)}
+                          title="Editar usuário"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDeleteUser(usuario.id, usuario.nome)}
+                          title="Excluir usuário"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
 
         {filteredUsuarios.length === 0 && (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
@@ -26,6 +27,14 @@ import {
   Brain,
   Building,
   School,
+  ArrowLeft,
+  Library,
+  Building2,
+  Plus,
+  Grid3X3,
+  CalendarRange,
+  Layers,
+  Users2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -316,6 +325,7 @@ const gradeHorarios: GradeHorarios = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { user } = useAuthStore();
   const [stats, setStats] = useState<DashboardStats>({
     totalUsuarios: 0,
@@ -352,9 +362,9 @@ export default function DashboardPage() {
 
   const getStatusColor = (vagas: number, demanda: number) => {
     const ocupacao = (demanda / vagas) * 100;
-    if (ocupacao > 100) return "bg-red-100 text-red-800";
-    if (ocupacao > 80) return "bg-yellow-100 text-yellow-800";
-    return "bg-green-100 text-green-800";
+    if (ocupacao > 100) return "bg-destructive/10 text-destructive";
+    if (ocupacao > 80) return "bg-yellow-50 text-yellow-700";
+    return "bg-secondary/50 text-secondary-foreground";
   };
 
   const getStatusText = (vagas: number, demanda: number) => {
@@ -370,56 +380,56 @@ export default function DashboardPage() {
       description: "Gerar alocações usando inteligência artificial",
       href: "/alocacao-automatica",
       icon: Brain,
-      color: "bg-purple-600",
+      color: "bg-blue-600",
     },
     {
       title: "Gerenciar Cursos",
       description: "Visualizar e gerenciar cursos",
       href: "/cursos",
-      icon: School,
-      color: "bg-blue-600",
+      icon: Library,
+      color: "bg-emerald-600",
     },
     {
       title: "Gerenciar Prédios",
       description: "Visualizar e gerenciar prédios",
       href: "/predios",
-      icon: Building,
-      color: "bg-gray-600",
+      icon: Building2,
+      color: "bg-slate-600",
     },
     {
       title: "Nova Alocação",
       description: "Criar uma nova alocação de horário",
       href: "/alocacoes/nova",
-      icon: Calendar,
-      color: "bg-blue-500",
+      icon: Plus,
+      color: "bg-green-600",
     },
     {
       title: "Ver Grade",
       description: "Visualizar grade de horários",
       href: "/grade-horarios",
-      icon: CalendarDays,
-      color: "bg-green-500",
+      icon: Grid3X3,
+      color: "bg-teal-600",
     },
     {
       title: "Grade Mensal",
       description: "Visualizar cronograma mensal das disciplinas",
       href: "/grade-mensal",
-      icon: TrendingUp,
-      color: "bg-indigo-500",
+      icon: CalendarRange,
+      color: "bg-indigo-600",
     },
     {
       title: "Gerenciar Disciplinas",
       description: "Adicionar ou editar disciplinas",
       href: "/disciplinas",
-      icon: BookOpen,
-      color: "bg-purple-500",
+      icon: Layers,
+      color: "bg-purple-600",
     },
     {
       title: "Gerenciar Turmas",
       description: "Adicionar ou editar turmas",
       href: "/turmas",
-      icon: GraduationCap,
-      color: "bg-orange-500",
+      icon: Users2,
+      color: "bg-orange-600",
     },
   ];
 
@@ -486,13 +496,24 @@ export default function DashboardPage() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {getGreeting()}, {user?.nome}!
-            </h1>
-            <p className="text-gray-600">
-              Bem-vindo ao Sistema de Alocação Acadêmica
-            </p>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.back()}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">
+                {getGreeting()}, {user?.nome}!
+              </h1>
+              <p className="text-muted-foreground">
+                Bem-vindo ao Sistema de Alocação Acadêmica
+              </p>
+            </div>
           </div>
           <Badge variant="outline" className="text-sm">
             {user?.role}
@@ -506,10 +527,10 @@ export default function DashboardPage() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">
+                    <p className="text-sm font-medium text-muted-foreground">
                       {stat.title}
                     </p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-foreground">
                       {loading ? "..." : stat.value}
                     </p>
                   </div>
@@ -536,10 +557,10 @@ export default function DashboardPage() {
                       <action.icon className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">
+                      <h3 className="font-semibold text-foreground">
                         {action.title}
                       </h3>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         {action.description}
                       </p>
                     </div>
@@ -627,23 +648,23 @@ export default function DashboardPage() {
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
                               Demanda
                             </th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
                               Status
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-background divide-y divide-border">
                           {disciplinas.map((disciplina, index) => (
                             <tr
                               key={disciplina.codigo}
                               className={
-                                index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                                index % 2 === 0 ? "bg-background" : "bg-muted/30"
                               }
                             >
-                              <td className="px-3 py-2 text-sm font-medium text-gray-900 border-r">
+                              <td className="px-3 py-2 text-sm font-medium text-foreground border-r border-border">
                                 {disciplina.codigo}
                               </td>
-                              <td className="px-3 py-2 border-r">
+                              <td className="px-3 py-2 border-r border-border">
                                 <Badge
                                   variant="outline"
                                   className="font-mono text-xs"
@@ -651,21 +672,21 @@ export default function DashboardPage() {
                                   {disciplina.prefixo}
                                 </Badge>
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 border-r max-w-xs">
+                              <td className="px-3 py-2 text-sm text-foreground border-r border-border max-w-xs">
                                 {disciplina.disciplina}
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                              <td className="px-3 py-2 text-sm text-foreground border-r border-border">
                                 {disciplina.ch}h
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 font-mono border-r">
+                              <td className="px-3 py-2 text-sm text-foreground font-mono border-r border-border">
                                 {(disciplina.horario1 && disciplina.horario2 ? 
                                   `${disciplina.horario1}, ${disciplina.horario2}` : 
                                   disciplina.horario1 || disciplina.horario2 || "-")}
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                              <td className="px-3 py-2 text-sm text-foreground border-r border-border">
                                 {disciplina.professor}
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                              <td className="px-3 py-2 text-sm text-foreground border-r border-border">
                                 {disciplina.local1}
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-900 border-r">

@@ -58,6 +58,7 @@ import {
   Horario,
 } from "@/types/entities";
 import { User } from "@/types/auth";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface FormData {
   id_user: string;
@@ -92,8 +93,8 @@ export default function AlocacoesPage() {
   const [salas, setSalas] = useState<Sala[]>([]);
   const [horarios, setHorarios] = useState<Horario[]>([]);
   //estados para filtros
-  const [filtroDataInicio, setFiltroDataInicio] = useState("");
-  const [filtroDataFim, setFiltroDataFim] = useState("");
+  const [filtroDataInicio, setFiltroDataInicio] = useState<Date | undefined>(undefined);
+  const [filtroDataFim, setFiltroDataFim] = useState<Date | undefined>(undefined);
   const [filtroDiaSemana, setFiltroDiaSemana] = useState("");
   const [filtroPeriodo, setFiltroPeriodo] = useState("");
   const [filtroTurmaId, setFiltroTurmaId] = useState("");
@@ -315,8 +316,8 @@ export default function AlocacoesPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Alocações</h1>
-            <p className="text-gray-600">
+            <h1 className="text-2xl font-bold text-foreground">Alocações</h1>
+        <p className="text-muted-foreground">
               Gerencie as alocações de professores, disciplinas e horários
             </p>
           </div>
@@ -501,10 +502,10 @@ export default function AlocacoesPage() {
           <CardContent className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="relative">
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                <label className="text-sm font-medium text-foreground mb-1 block">
                   Filtrar por: Nome/Sala/Horario
                 </label>
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 mt-3" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 mt-3" />
                 <Input
                   placeholder="Buscar alocações..."
                   value={searchTerm}
@@ -515,39 +516,37 @@ export default function AlocacoesPage() {
 
               {/* Filtro por data de início */}
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                <label className="text-sm font-medium text-foreground mb-1 block">
                   Data Início
                 </label>
-                <Input
-                  type="date"
-                  value={filtroDataInicio}
-                  onChange={(e) => setFiltroDataInicio(e.target.value)}
-                  placeholder="Data de início"
+                <DatePicker
+                  date={filtroDataInicio}
+                  onDateChange={setFiltroDataInicio}
+                  placeholder="Selecione data de início"
                 />
               </div>
 
               {/* Filtro por data de fim */}
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                <label className="text-sm font-medium text-foreground mb-1 block">
                   Data Fim
                 </label>
-                <Input
-                  type="date"
-                  value={filtroDataFim}
-                  onChange={(e) => setFiltroDataFim(e.target.value)}
-                  placeholder="Data de fim"
+                <DatePicker
+                  date={filtroDataFim}
+                  onDateChange={setFiltroDataFim}
+                  placeholder="Selecione data de fim"
                 />
               </div>
 
               {/* Filtro por dia da semana */}
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                <label className="text-sm font-medium text-foreground mb-1 block">
                   Dia da Semana
                 </label>
                 <select
                   value={filtroDiaSemana}
                   onChange={(e) => setFiltroDiaSemana(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">Todos os dias</option>
                   <option value="segunda">Segunda-feira</option>
@@ -561,7 +560,7 @@ export default function AlocacoesPage() {
 
               {/* Filtro por período */}
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                <label className="text-sm font-medium text-foreground mb-1 block">
                   Período
                 </label>
                 <select
@@ -600,14 +599,14 @@ export default function AlocacoesPage() {
             </div>
 
             {/* Seção de Filtros Avançados */}
-            <div className="mt-6 pt-4 border-t border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Filtros Avançados</h3>
+            <div className="mt-6 pt-4 border-t border-border">
+            <h3 className="text-lg font-medium text-foreground mb-4">Filtros Avançados</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Filtro por Turma */}
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Turma
-                  </label>
+                  <label className="text-sm font-medium text-foreground mb-1 block">
+                  Turma
+                </label>
                   <select
                     value={filtroTurmaId}
                     onChange={(e) => setFiltroTurmaId(e.target.value)}
@@ -670,12 +669,12 @@ export default function AlocacoesPage() {
         <div className="grid gap-4">
           {loading ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">Carregando alocações...</p>
+              <p className="text-muted-foreground">Carregando alocações...</p>
             </div>
           ) : filteredAlocacoes.length === 0 ? (
             <div className="text-center py-8">
-              <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <p className="text-gray-500">
+              <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">
                 {searchTerm ||
                 filtroDataInicio ||
                 filtroDataFim ||
@@ -697,7 +696,7 @@ export default function AlocacoesPage() {
                     <div className="flex-1 space-y-3">
                       <div className="flex items-center space-x-4">
                         <div className="flex items-center space-x-2">
-                          <BookOpen className="h-4 w-4 text-blue-500" />
+                          <BookOpen className="h-4 w-4 text-primary" />
                           <span className="font-medium text-lg">
                             {alocacao.disciplina?.nome ||
                               "Disciplina não encontrada"}
@@ -708,7 +707,7 @@ export default function AlocacoesPage() {
                         </Badge>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center space-x-2">
                           <UserIcon className="h-4 w-4" />
                           <span>
@@ -740,7 +739,7 @@ export default function AlocacoesPage() {
                       </div>
 
                       {alocacao.horario && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           Horário: {alocacao.horario.horario_inicio} -{" "}
                           {alocacao.horario.horario_fim}
                         </div>
@@ -759,7 +758,7 @@ export default function AlocacoesPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(alocacao.id)}
-                        className="text-red-600 hover:text-red-700"
+                        className="text-destructive hover:text-destructive/80"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

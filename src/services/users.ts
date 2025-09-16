@@ -42,6 +42,11 @@ export const userService = {
     return response.data.usuario;
   },
 
+  updateRole: async (id: string, role: string): Promise<User> => {
+    const response = await api.put<{ usuario: User }>(`/users/${id}`, { role });
+    return response.data.usuario;
+  },
+
   delete: async (id: string): Promise<void> => {
     await api.delete(`/users/${id}`);
   },

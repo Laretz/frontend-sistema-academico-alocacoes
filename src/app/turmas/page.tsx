@@ -290,7 +290,7 @@ export default function TurmasPage() {
                         <Users className="mr-1 h-3 w-3" />
                         Alunos:
                       </span>
-                      <span className="font-medium text-blue-600">
+                      <span className="font-medium text-primary">
                         {turma.num_alunos}
                       </span>
                     </div>

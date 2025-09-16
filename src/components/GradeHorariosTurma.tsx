@@ -92,19 +92,32 @@ const horariosDisponiveis = [
   "N4",
 ];
 
-// Função para mapear períodos para horários
+// Função para mapear períodos para horários usando tema shadcn/ui
 const getStatusColor = (vagas: number, demanda: number) => {
-  if (demanda === 0) return "bg-gray-100 text-gray-800";
-  if (vagas >= demanda) return "bg-green-100 text-green-800";
-  if (vagas >= demanda * 0.8) return "bg-yellow-100 text-yellow-800";
-  return "bg-red-100 text-red-800";
+  if (demanda === 0) return "bg-muted text-muted-foreground";
+  if (vagas >= demanda) return "bg-secondary/50 text-secondary-foreground border-secondary";
+  if (vagas >= demanda * 0.8) return "bg-warning/10 text-warning border-warning/20";
+  return "bg-destructive/10 text-destructive border-destructive/20";
 };
 
 const getStatusText = (vagas: number, demanda: number) => {
   if (demanda === 0) return "Sem demanda";
-  if (vagas >= demanda) return "Adequada";
-  if (vagas >= demanda * 0.8) return "Atenção";
-  return "Superlotada";
+  if (vagas >= demanda) return "Disponível";
+  if (vagas >= demanda * 0.8) return "Quase lotado";
+  return "Lotado";
+};
+
+// Função para cores de disciplinas usando tema shadcn/ui
+const getDisciplinaColor = (index: number) => {
+  const colors = [
+    "bg-primary/10 text-primary border-primary/20",
+    "bg-secondary/50 text-secondary-foreground border-secondary",
+    "bg-accent/50 text-accent-foreground border-accent",
+    "bg-destructive/10 text-destructive border-destructive/20",
+    "bg-muted/50 text-muted-foreground border-muted",
+    "bg-primary/20 text-primary border-primary/30",
+  ];
+  return colors[index % colors.length];
 };
 
 const getPeriodoHorario = (periodo: string): string => {
@@ -168,51 +181,51 @@ export function GradeHorariosTurma({
     }
   }, [open, fetchGradeHorarios]);
 
-  // Função para determinar a cor baseada no turno da turma vs horário da alocação
+  // Função para determinar a cor baseada no turno da turma vs horário da alocação usando tema shadcn/ui
   const getAlocacaoColor = (codigoHorario: string) => {
     const turnoTurma = turma.turno.toUpperCase();
     const periodoHorario = codigoHorario.charAt(0); // M, T ou N
     
-    // Se o horário está no turno correto da turma, usa azul (normal)
+    // Se o horário está no turno correto da turma, usa primary (normal)
     if (
       (turnoTurma === 'MATUTINO' && periodoHorario === 'M') ||
       (turnoTurma === 'VESPERTINO' && periodoHorario === 'T') ||
       (turnoTurma === 'NOTURNO' && periodoHorario === 'N')
     ) {
       return {
-        border: 'border-blue-200',
-        bg: 'bg-blue-50',
-        textPrimary: 'text-blue-900',
-        textSecondary: 'text-blue-700',
-        textTertiary: 'text-blue-600'
+        border: 'border-primary/20',
+        bg: 'bg-primary/5',
+        textPrimary: 'text-primary',
+        textSecondary: 'text-primary/80',
+        textTertiary: 'text-primary/60'
       };
     }
     
-    // Se é horário noturno fora do turno, usa vermelho
+    // Se é horário noturno fora do turno, usa destructive
     if (periodoHorario === 'N') {
       return {
-        border: 'border-red-200',
-        bg: 'bg-red-50',
-        textPrimary: 'text-red-900',
-        textSecondary: 'text-red-700',
-        textTertiary: 'text-red-600'
+        border: 'border-destructive/20',
+        bg: 'bg-destructive/5',
+        textPrimary: 'text-destructive',
+        textSecondary: 'text-destructive/80',
+        textTertiary: 'text-destructive/60'
       };
     }
     
-    // Para outros casos (manhã em turma vespertina, tarde em turma matutina), usa amarelo
+    // Para outros casos (manhã em turma vespertina, tarde em turma matutina), usa warning
     return {
-      border: 'border-yellow-200',
-      bg: 'bg-yellow-50',
-      textPrimary: 'text-yellow-900',
-      textSecondary: 'text-yellow-700',
-      textTertiary: 'text-yellow-600'
+      border: 'border-warning/20',
+        bg: 'bg-warning/10',
+        textPrimary: 'text-warning',
+        textSecondary: 'text-warning/80',
+        textTertiary: 'text-warning/70'
     };
   };
 
   const renderAlocacao = (alocacao: AlocacaoInfo | null) => {
     if (!alocacao) {
       return (
-        <div className="h-16 border border-gray-200 bg-gray-50 rounded p-1 text-center text-xs text-gray-400">
+        <div className="h-16 border border-border bg-muted/30 rounded-md p-2 text-center text-xs text-muted-foreground flex items-center justify-center">
           Livre
         </div>
       );
@@ -221,18 +234,18 @@ export function GradeHorariosTurma({
     const colors = getAlocacaoColor(alocacao.horario.codigo);
 
     return (
-      <div className={`h-16 border ${colors.border} ${colors.bg} rounded p-1 text-xs overflow-hidden`}>
+      <div className={`h-16 border ${colors.border} ${colors.bg} rounded-md p-2 text-xs overflow-hidden hover:shadow-sm transition-shadow`}>
         <div
-          className={`font-semibold ${colors.textPrimary} truncate`}
+          className={`font-semibold ${colors.textPrimary} truncate leading-tight`}
           title={alocacao.disciplina.nome}
         >
           {alocacao.disciplina.nome}
         </div>
-        <div className={`${colors.textSecondary} truncate`} title={alocacao.professor.nome}>
+        <div className={`${colors.textSecondary} truncate mt-1 leading-tight`} title={alocacao.professor.nome}>
           {alocacao.professor.nome}
         </div>
         <div
-          className={`${colors.textTertiary} truncate`}
+          className={`${colors.textTertiary} truncate mt-1 leading-tight`}
           title={`${alocacao.sala.nome} - ${alocacao.sala.predio}`}
         >
           {alocacao.sala.nome}
@@ -282,8 +295,8 @@ export function GradeHorariosTurma({
         )}
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded p-4 text-center">
-            <p className="text-red-600">{error}</p>
+          <div className="bg-destructive/10 border border-destructive/20 rounded p-4 text-center">
+            <p className="text-destructive">{error}</p>
             <Button
               variant="outline"
               size="sm"
@@ -302,12 +315,12 @@ export function GradeHorariosTurma({
               <Card>
                 <CardContent className="p-3">
                   <div className="flex items-center space-x-2">
-                    <Calendar className="h-4 w-4 text-blue-600" />
+                    <Calendar className="h-4 w-4 text-primary" />
                     <div>
                       <p className="text-sm font-medium">
                         {gradeData.resumo.totalAlocacoes}
                       </p>
-                      <p className="text-xs text-gray-600">Alocações</p>
+                      <p className="text-xs text-muted-foreground">Alocações</p>
                     </div>
                   </div>
                 </CardContent>
@@ -315,12 +328,12 @@ export function GradeHorariosTurma({
               <Card>
                 <CardContent className="p-3">
                   <div className="flex items-center space-x-2">
-                    <GraduationCap className="h-4 w-4 text-green-600" />
+                    <GraduationCap className="h-4 w-4 text-secondary-foreground" />
                     <div>
                       <p className="text-sm font-medium">
                         {gradeData.resumo.disciplinasUnicas}
                       </p>
-                      <p className="text-xs text-gray-600">Disciplinas</p>
+                      <p className="text-xs text-muted-foreground">Disciplinas</p>
                     </div>
                   </div>
                 </CardContent>
@@ -328,12 +341,12 @@ export function GradeHorariosTurma({
               <Card>
                 <CardContent className="p-3">
                   <div className="flex items-center space-x-2">
-                    <User className="h-4 w-4 text-purple-600" />
+                    <User className="h-4 w-4 text-accent-foreground" />
                     <div>
                       <p className="text-sm font-medium">
                         {gradeData.resumo.professoresUnicos}
                       </p>
-                      <p className="text-xs text-gray-600">Professores</p>
+                      <p className="text-xs text-muted-foreground">Professores</p>
                     </div>
                   </div>
                 </CardContent>
@@ -350,42 +363,42 @@ export function GradeHorariosTurma({
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                  <table className="w-full border border-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="w-full border border-border">
+                    <thead className="bg-muted/30">
                       <tr>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                           Código
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                           Prefixo
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                           Disciplina
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                           CH
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                           Horário
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                           Professor
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                           Local
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                           Vagas
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                           Demanda
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
                           Status
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-background divide-y divide-border">
                       {Object.values(gradeData.grade)
                         .flatMap(dia => Object.values(dia))
                         .filter((alocacao): alocacao is AlocacaoInfo => alocacao !== null)
@@ -418,35 +431,35 @@ export function GradeHorariosTurma({
                           return (
                             <tr
                               key={alocacao.disciplina.id}
-                              className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                              className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}
                             >
-                              <td className="px-3 py-2 text-sm font-medium text-gray-900 border-r">
+                              <td className="px-3 py-2 text-sm font-medium text-foreground border-r border-border">
                                 {alocacao.disciplina.codigo || "---"}
                               </td>
-                              <td className="px-3 py-2 border-r">
+                              <td className="px-3 py-2 border-r border-border">
                                 <Badge variant="outline" className="font-mono text-xs">
                                   ---
                                 </Badge>
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 border-r max-w-xs">
+                              <td className="px-3 py-2 text-sm text-foreground border-r border-border max-w-xs">
                                 {alocacao.disciplina.nome}
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                              <td className="px-3 py-2 text-sm text-foreground border-r border-border">
                                 {alocacao.disciplina.cargaHoraria}h
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 font-mono border-r">
+                              <td className="px-3 py-2 text-sm text-foreground font-mono border-r border-border">
                                 {horarioConsolidado}
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                              <td className="px-3 py-2 text-sm text-foreground border-r border-border">
                                 {alocacao.professor.nome}
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                              <td className="px-3 py-2 text-sm text-foreground border-r border-border">
                                 {alocacao.sala.predio} {alocacao.sala.nome}
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                              <td className="px-3 py-2 text-sm text-foreground border-r border-border">
                                 {turma.num_alunos}
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                              <td className="px-3 py-2 text-sm text-foreground border-r border-border">
                                 {turma.num_alunos}
                               </td>
                               <td className="px-3 py-2">
@@ -474,17 +487,17 @@ export function GradeHorariosTurma({
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="w-full">
+                <div className="w-full overflow-x-auto">
                   <table className="w-full border-collapse table-fixed">
                     <thead>
                       <tr>
-                        <th className="border border-gray-300 p-1 bg-gray-50 text-xs font-medium text-left w-[10%]">
+                        <th className="border border-border p-3 bg-muted text-sm font-medium text-left w-[10%]">
                           Horário
                         </th>
                         {diasSemana.map((dia) => (
                           <th
                             key={dia.key}
-                            className="border border-gray-300 p-1 bg-gray-50 text-xs font-medium text-center w-[15%]"
+                            className="border border-border p-3 bg-muted text-sm font-medium text-center w-[15%]"
                           >
                             {dia.label}
                           </th>
@@ -493,10 +506,10 @@ export function GradeHorariosTurma({
                     </thead>
                     <tbody>
                       {horariosDisponiveis.map((horario) => (
-                        <tr key={horario}>
-                          <td className="border border-gray-300 p-1 bg-gray-50 text-xs font-medium text-center w-[10%]">
-                            <div className="font-semibold">{horario}</div>
-                            <div className="text-gray-600 text-xs">
+                        <tr key={horario} className="hover:bg-muted/50 transition-colors">
+                          <td className="border border-border p-3 bg-muted/30 text-sm font-medium text-center w-[10%]">
+                            <div className="font-semibold text-foreground">{horario}</div>
+                            <div className="text-muted-foreground text-xs">
                               {getPeriodoHorario(horario)}
                             </div>
                           </td>
@@ -506,7 +519,7 @@ export function GradeHorariosTurma({
                             return (
                               <td
                                 key={`${dia.key}-${horario}`}
-                                className="border border-gray-300 p-1 w-[15%]"
+                                className="border border-border p-2 w-[15%] bg-card"
                               >
                                 {renderAlocacao(alocacao)}
                               </td>

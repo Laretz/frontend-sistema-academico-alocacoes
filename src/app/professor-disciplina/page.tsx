@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { MainLayout } from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,7 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Users, BookOpen } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Trash2, Plus, Users, BookOpen, CheckSquare, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { professorDisciplinaService } from "@/services/professor-disciplina";
 import { disciplinaService } from "@/services/entities";
@@ -30,10 +33,12 @@ import {
 } from "@/types/entities";
 
 export default function ProfessorDisciplinaPage() {
+  const router = useRouter();
   const [professores, setProfessores] = useState<User[]>([]);
   const [disciplinas, setDisciplinas] = useState<Disciplina[]>([]);
   const [selectedProfessor, setSelectedProfessor] = useState<string>("");
   const [selectedDisciplina, setSelectedDisciplina] = useState<string>("");
+  const [selectedDisciplinas, setSelectedDisciplinas] = useState<string[]>([]);
   const [disciplinasProfessor, setDisciplinasProfessor] = useState<
     DisciplinaComVinculo[]
   >([]);
@@ -114,6 +119,38 @@ export default function ProfessorDisciplinaPage() {
     }
   };
 
+  const vincularMultiplasDisciplinas = async () => {
+    if (!selectedProfessor || selectedDisciplinas.length === 0) {
+      toast.error("Selecione um professor e pelo menos uma disciplina");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Vincular cada disciplina selecionada
+      const promises = selectedDisciplinas.map(disciplinaId =>
+        professorDisciplinaService.vincular({
+          id_user: selectedProfessor,
+          id_disciplina: disciplinaId,
+        })
+      );
+      
+      await Promise.all(promises);
+      toast.success(`Professor vinculado a ${selectedDisciplinas.length} disciplina(s) com sucesso!`);
+
+      // Atualizar as listas
+      if (viewMode === "professor") {
+        carregarDisciplinasProfessor(selectedProfessor);
+      }
+
+      setSelectedDisciplinas([]);
+    } catch (error) {
+      toast.error("Erro ao vincular professor às disciplinas");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const desvincularProfessorDisciplina = async (
     id_user: string,
     id_disciplina: string
@@ -147,47 +184,59 @@ export default function ProfessorDisciplinaPage() {
     }
   };
 
+  const handleDisciplinaSelection = (disciplinaId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedDisciplinas(prev => [...prev, disciplinaId]);
+    } else {
+      setSelectedDisciplinas(prev => prev.filter(id => id !== disciplinaId));
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedDisciplinas.length === disciplinas.length) {
+      setSelectedDisciplinas([]);
+    } else {
+      setSelectedDisciplinas(disciplinas.map(d => d.id));
+    }
+  };
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <MainLayout>
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Gerenciar Professor-Disciplina
-          </h1>
-          <p className="text-muted-foreground">
-            Vincule professores às disciplinas que podem lecionar
-          </p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.back()}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Gerenciar Professor-Disciplina
+            </h1>
+            <p className="text-muted-foreground">
+              Vincule professores às disciplinas que podem lecionar
+            </p>
+          </div>
         </div>
 
-        <div className="flex gap-2">
-          <Button
-            variant={viewMode === "professor" ? "default" : "outline"}
-            onClick={() => setViewMode("professor")}
-          >
-            <Users className="w-4 h-4 mr-2" />
-            Por Professor
-          </Button>
-          <Button
-            variant={viewMode === "disciplina" ? "default" : "outline"}
-            onClick={() => setViewMode("disciplina")}
-          >
-            <BookOpen className="w-4 h-4 mr-2" />
-            Por Disciplina
-          </Button>
-        </div>
+
       </div>
 
-      {/* Formulário de Vinculação */}
+      {/* Formulário de Vinculação Múltipla */}
       <Card>
         <CardHeader>
-          <CardTitle>Novo Vínculo</CardTitle>
+          <CardTitle>Novos Vínculos</CardTitle>
           <CardDescription>
-            Selecione um professor e uma disciplina para criar um novo vínculo
+            Selecione um professor e múltiplas disciplinas para criar vários vínculos de uma vez
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
+          <div className="space-y-4">
+            <div>
               <label className="text-sm font-medium mb-2 block">
                 Professor
               </label>
@@ -209,34 +258,150 @@ export default function ProfessorDisciplinaPage() {
               </Select>
             </div>
 
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">
-                Disciplina
-              </label>
-              <Select
-                value={selectedDisciplina}
-                onValueChange={handleDisciplinaChange}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma disciplina" />
-                </SelectTrigger>
-                <SelectContent>
-                  {disciplinas.map((disciplina) => (
-                    <SelectItem key={disciplina.id} value={disciplina.id}>
-                      {disciplina.nome} ({disciplina.codigo})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium">
+                  Disciplinas ({selectedDisciplinas.length} selecionadas)
+                </label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleSelectAll}
+                  disabled={disciplinas.length === 0}
+                >
+                  <CheckSquare className="w-4 h-4 mr-2 text-blue-600" />
+                  {selectedDisciplinas.length === disciplinas.length ? "Desmarcar Todas" : "Selecionar Todas"}
+                </Button>
+              </div>
+              
+              <div className="max-h-60 overflow-y-auto border rounded-lg p-3 space-y-2">
+                {disciplinas.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">
+                    Nenhuma disciplina disponível
+                  </p>
+                ) : (
+                  disciplinas.map((disciplina) => (
+                    <div key={disciplina.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
+                      <Checkbox
+                        id={`disciplina-${disciplina.id}`}
+                        checked={selectedDisciplinas.includes(disciplina.id)}
+                        onCheckedChange={(checked) => 
+                          handleDisciplinaSelection(disciplina.id, checked as boolean)
+                        }
+                      />
+                      <label 
+                        htmlFor={`disciplina-${disciplina.id}`}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <div className="font-medium">{disciplina.nome}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {disciplina.codigo} - {disciplina.carga_horaria}h
+                        </div>
+                      </label>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
-            <Button
-              onClick={vincularProfessorDisciplina}
-              disabled={loading || !selectedProfessor || !selectedDisciplina}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Vincular
-            </Button>
+            <div className="flex justify-end">
+              <Button
+                onClick={vincularMultiplasDisciplinas}
+                disabled={loading || !selectedProfessor || selectedDisciplinas.length === 0}
+              >
+                <Plus className="w-4 h-4 mr-2 text-white" />
+                Vincular {selectedDisciplinas.length} Disciplina(s)
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Formulário de Vinculação */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Novo Vínculo</CardTitle>
+              <CardDescription>
+                Selecione um professor e uma disciplina para criar um novo vínculo
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === "professor" ? "default" : "outline"}
+                onClick={() => setViewMode("professor")}
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Por Professor
+              </Button>
+              <Button
+                variant={viewMode === "disciplina" ? "default" : "outline"}
+                onClick={() => setViewMode("disciplina")}
+              >
+                <BookOpen className="w-4 h-4 mr-2" />
+                Por Disciplina
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Professor
+                </label>
+                <Select
+                  value={selectedProfessor}
+                  onValueChange={setSelectedProfessor}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um professor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {professores.map((professor) => (
+                      <SelectItem key={professor.id} value={professor.id}>
+                        {professor.nome} -{" "}
+                        {professor.especializacao || "Sem especialização"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Disciplina
+                </label>
+                <Select
+                  value={selectedDisciplina}
+                  onValueChange={setSelectedDisciplina}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma disciplina" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {disciplinas.map((disciplina) => (
+                      <SelectItem key={disciplina.id} value={disciplina.id}>
+                        {disciplina.nome} ({disciplina.codigo})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Button
+                  onClick={vincularProfessorDisciplina}
+                  disabled={loading || !selectedProfessor || !selectedDisciplina}
+                  className="w-full"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Vincular
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -291,7 +456,7 @@ export default function ProfessorDisciplinaPage() {
                         )
                       }
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 text-white" />
                     </Button>
                   </div>
                 ))}
@@ -342,7 +507,7 @@ export default function ProfessorDisciplinaPage() {
                         )
                       }
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 text-white" />
                     </Button>
                   </div>
                 ))}
@@ -351,6 +516,7 @@ export default function ProfessorDisciplinaPage() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </MainLayout>
   );
 }
