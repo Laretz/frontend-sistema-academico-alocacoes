@@ -58,6 +58,7 @@ import {
   Horario,
 } from "@/types/entities";
 import { User } from "@/types/auth";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface FormData {
   id_user: string;
@@ -92,8 +93,8 @@ export default function AlocacoesPage() {
   const [salas, setSalas] = useState<Sala[]>([]);
   const [horarios, setHorarios] = useState<Horario[]>([]);
   //estados para filtros
-  const [filtroDataInicio, setFiltroDataInicio] = useState("");
-  const [filtroDataFim, setFiltroDataFim] = useState("");
+  const [filtroDataInicio, setFiltroDataInicio] = useState<Date | undefined>(undefined);
+  const [filtroDataFim, setFiltroDataFim] = useState<Date | undefined>(undefined);
   const [filtroDiaSemana, setFiltroDiaSemana] = useState("");
   const [filtroPeriodo, setFiltroPeriodo] = useState("");
   const [filtroTurmaId, setFiltroTurmaId] = useState("");
@@ -276,12 +277,12 @@ export default function AlocacoesPage() {
       if (dataAlocacao > dataFim) return false;
     }
 
-    if (filtroDiaSemana) {
+    if (filtroDiaSemana && filtroDiaSemana !== "todos") {
       const diaSemanaAlocacao = alocacao.horario?.dia_semana?.toLowerCase();
       if (diaSemanaAlocacao !== filtroDiaSemana.toLowerCase()) return false;
     }
 
-    if (filtroPeriodo) {
+    if (filtroPeriodo && filtroPeriodo !== "todos") {
       const codigoHorario = alocacao.horario?.codigo?.toLowerCase();
       if (filtroPeriodo === 'M' || filtroPeriodo === 'T' || filtroPeriodo === 'N') {
         if (!codigoHorario?.startsWith(filtroPeriodo.toLowerCase())) return false;
@@ -290,7 +291,7 @@ export default function AlocacoesPage() {
       }
     }
 
-    if (filtroTurmaId) {
+    if (filtroTurmaId && filtroTurmaId !== "todas") {
       if (alocacao.id_turma !== filtroTurmaId) return false;
     }
 
@@ -315,8 +316,8 @@ export default function AlocacoesPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Alocações</h1>
-            <p className="text-gray-600">
+            <h1 className="text-2xl font-bold text-foreground">Alocações</h1>
+        <p className="text-muted-foreground">
               Gerencie as alocações de professores, disciplinas e horários
             </p>
           </div>
@@ -339,7 +340,7 @@ export default function AlocacoesPage() {
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="id_user">Professor</Label>
                     <Select
@@ -385,7 +386,9 @@ export default function AlocacoesPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
 
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="id_turma">Turma</Label>
                     <Select
@@ -401,8 +404,7 @@ export default function AlocacoesPage() {
                       <SelectContent>
                         {turmas.map((turma) => (
                           <SelectItem key={turma.id} value={turma.id}>
-                            {turma.nome} - {turma.periodo}º período (
-                            {turma.turno})
+                            {turma.nome} - {turma.periodo}º período ({turma.turno})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -501,10 +503,10 @@ export default function AlocacoesPage() {
           <CardContent className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="relative">
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                <label className="text-sm font-medium text-foreground mb-1 block">
                   Filtrar por: Nome/Sala/Horario
                 </label>
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 mt-3" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 mt-3" />
                 <Input
                   placeholder="Buscar alocações..."
                   value={searchTerm}
@@ -515,111 +517,106 @@ export default function AlocacoesPage() {
 
               {/* Filtro por data de início */}
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                <label className="text-sm font-medium text-foreground mb-1 block">
                   Data Início
                 </label>
-                <Input
-                  type="date"
-                  value={filtroDataInicio}
-                  onChange={(e) => setFiltroDataInicio(e.target.value)}
-                  placeholder="Data de início"
+                <DatePicker
+                  date={filtroDataInicio}
+                  onDateChange={setFiltroDataInicio}
+                  placeholder="Selecione data de início"
                 />
               </div>
 
               {/* Filtro por data de fim */}
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                <label className="text-sm font-medium text-foreground mb-1 block">
                   Data Fim
                 </label>
-                <Input
-                  type="date"
-                  value={filtroDataFim}
-                  onChange={(e) => setFiltroDataFim(e.target.value)}
-                  placeholder="Data de fim"
+                <DatePicker
+                  date={filtroDataFim}
+                  onDateChange={setFiltroDataFim}
+                  placeholder="Selecione data de fim"
                 />
               </div>
 
               {/* Filtro por dia da semana */}
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                <label className="text-sm font-medium text-foreground mb-1 block">
                   Dia da Semana
                 </label>
-                <select
-                  value={filtroDiaSemana}
-                  onChange={(e) => setFiltroDiaSemana(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Todos os dias</option>
-                  <option value="segunda">Segunda-feira</option>
-                  <option value="terca">Terça-feira</option>
-                  <option value="quarta">Quarta-feira</option>
-                  <option value="quinta">Quinta-feira</option>
-                  <option value="sexta">Sexta-feira</option>
-                  <option value="sabado">Sábado</option>
-                </select>
+                <Select value={filtroDiaSemana} onValueChange={setFiltroDiaSemana}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os dias" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os dias</SelectItem>
+                    <SelectItem value="segunda">Segunda-feira</SelectItem>
+                    <SelectItem value="terca">Terça-feira</SelectItem>
+                    <SelectItem value="quarta">Quarta-feira</SelectItem>
+                    <SelectItem value="quinta">Quinta-feira</SelectItem>
+                    <SelectItem value="sexta">Sexta-feira</SelectItem>
+                    <SelectItem value="sabado">Sábado</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Filtro por período */}
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                <label className="text-sm font-medium text-foreground mb-1 block">
                   Período
                 </label>
-                <select
-                  value={filtroPeriodo}
-                  onChange={(e) => setFiltroPeriodo(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Todos os períodos</option>
-                  <option value="M">Manhã</option>
-                  <option value="T">Tarde</option>
-                  <option value="N">Noite</option>
-                  <optgroup label="Manhã - Específicos">
-                    <option value="M1">M1</option>
-                    <option value="M2">M2</option>
-                    <option value="M3">M3</option>
-                    <option value="M4">M4</option>
-                    <option value="M5">M5</option>
-                    <option value="M6">M6</option>
-                  </optgroup>
-                  <optgroup label="Tarde - Específicos">
-                    <option value="T1">T1</option>
-                    <option value="T2">T2</option>
-                    <option value="T3">T3</option>
-                    <option value="T4">T4</option>
-                    <option value="T5">T5</option>
-                    <option value="T6">T6</option>
-                  </optgroup>
-                  <optgroup label="Noite - Específicos">
-                    <option value="N1">N1</option>
-                    <option value="N2">N2</option>
-                    <option value="N3">N3</option>
-                    <option value="N4">N4</option>
-                  </optgroup>
-                </select>
+                <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os períodos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os períodos</SelectItem>
+                    <SelectItem value="M">Manhã</SelectItem>
+                    <SelectItem value="T">Tarde</SelectItem>
+                    <SelectItem value="N">Noite</SelectItem>
+                    <SelectItem value="M1">M1 - Manhã</SelectItem>
+                    <SelectItem value="M2">M2 - Manhã</SelectItem>
+                    <SelectItem value="M3">M3 - Manhã</SelectItem>
+                    <SelectItem value="M4">M4 - Manhã</SelectItem>
+                    <SelectItem value="M5">M5 - Manhã</SelectItem>
+                    <SelectItem value="M6">M6 - Manhã</SelectItem>
+                    <SelectItem value="T1">T1 - Tarde</SelectItem>
+                    <SelectItem value="T2">T2 - Tarde</SelectItem>
+                    <SelectItem value="T3">T3 - Tarde</SelectItem>
+                    <SelectItem value="T4">T4 - Tarde</SelectItem>
+                    <SelectItem value="T5">T5 - Tarde</SelectItem>
+                    <SelectItem value="T6">T6 - Tarde</SelectItem>
+                    <SelectItem value="N1">N1 - Noite</SelectItem>
+                    <SelectItem value="N2">N2 - Noite</SelectItem>
+                    <SelectItem value="N3">N3 - Noite</SelectItem>
+                    <SelectItem value="N4">N4 - Noite</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             {/* Seção de Filtros Avançados */}
-            <div className="mt-6 pt-4 border-t border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Filtros Avançados</h3>
+            <div className="mt-6 pt-4 border-t border-border">
+            <h3 className="text-lg font-medium text-foreground mb-4">Filtros Avançados</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Filtro por Turma */}
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  <label className="text-sm font-medium text-foreground mb-1 block">
                     Turma
                   </label>
-                  <select
-                    value={filtroTurmaId}
-                    onChange={(e) => setFiltroTurmaId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Selecione uma turma</option>
-                    {turmas.map((turma) => (
-                      <option key={turma.id} value={turma.id}>
-                        {turma.nome} - {turma.periodo}º período ({turma.turno})
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={filtroTurmaId} onValueChange={setFiltroTurmaId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma turma" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todas as turmas</SelectItem>
+                      {turmas.map((turma) => (
+                        <SelectItem key={turma.id} value={turma.id}>
+                          {turma.nome} - {turma.periodo}º período ({turma.turno})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Botões de Ação */}
@@ -670,12 +667,12 @@ export default function AlocacoesPage() {
         <div className="grid gap-4">
           {loading ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">Carregando alocações...</p>
+              <p className="text-muted-foreground">Carregando alocações...</p>
             </div>
           ) : filteredAlocacoes.length === 0 ? (
             <div className="text-center py-8">
-              <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <p className="text-gray-500">
+              <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">
                 {searchTerm ||
                 filtroDataInicio ||
                 filtroDataFim ||
@@ -697,7 +694,7 @@ export default function AlocacoesPage() {
                     <div className="flex-1 space-y-3">
                       <div className="flex items-center space-x-4">
                         <div className="flex items-center space-x-2">
-                          <BookOpen className="h-4 w-4 text-blue-500" />
+                          <BookOpen className="h-4 w-4 text-primary" />
                           <span className="font-medium text-lg">
                             {alocacao.disciplina?.nome ||
                               "Disciplina não encontrada"}
@@ -708,7 +705,7 @@ export default function AlocacoesPage() {
                         </Badge>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center space-x-2">
                           <UserIcon className="h-4 w-4" />
                           <span>
@@ -740,7 +737,7 @@ export default function AlocacoesPage() {
                       </div>
 
                       {alocacao.horario && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           Horário: {alocacao.horario.horario_inicio} -{" "}
                           {alocacao.horario.horario_fim}
                         </div>
@@ -759,7 +756,7 @@ export default function AlocacoesPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(alocacao.id)}
-                        className="text-red-600 hover:text-red-700"
+                        className="text-destructive hover:text-destructive/80"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

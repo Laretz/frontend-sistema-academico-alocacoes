@@ -34,10 +34,18 @@ export interface User {
   email: string;
   role: "ADMIN" | "PROFESSOR" | "COORDENADOR";
   especializacao?: string;
-  cargaHorariaMax?: number;
+  carga_horaria_max?: number;
   preferencia?: string;
-  createdAt: string;
-  updatedAt: string;
+  cursos?: {
+    id: string;
+    id_user: string;
+    id_curso: string;
+    ativo: boolean;
+    created_at: string;
+    updated_at: string;
+    curso: Curso;
+  }[];
+  curso?: Curso[]; // Para compatibilidade com o código existente
 }
 
 export interface Turma {
@@ -46,6 +54,8 @@ export interface Turma {
   num_alunos: number;
   periodo: number;
   turno: string;
+  id_curso: string;
+  curso?: Curso;
 }
 
 export interface Predio {

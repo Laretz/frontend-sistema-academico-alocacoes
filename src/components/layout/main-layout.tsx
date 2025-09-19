@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/auth";
+import { useTokenRefresh } from "@/hooks/useTokenRefresh";
+
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -29,6 +31,7 @@ import {
   Building,
   UserCheck,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -48,6 +51,8 @@ const navigation = [
 ];
 
 export function MainLayout({ children }: MainLayoutProps) {
+  // Ativar refresh automático de token
+  useTokenRefresh();
   const { user, logout, checkAuth } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
@@ -74,13 +79,13 @@ export function MainLayout({ children }: MainLayoutProps) {
   const getPerfilColor = (role: string) => {
     switch (role) {
       case "ADMIN":
-        return "bg-red-100 text-red-800";
+        return "bg-destructive/10 text-destructive";
       case "PROFESSOR":
-        return "bg-blue-100 text-blue-800";
+        return "bg-primary/10 text-primary";
       case "COORDENADOR":
-        return "bg-green-100 text-green-800";
+        return "bg-secondary/50 text-secondary-foreground";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted/50 text-muted-foreground";
     }
   };
 
@@ -92,13 +97,13 @@ export function MainLayout({ children }: MainLayoutProps) {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Sidebar para desktop */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex min-h-0 flex-1 flex-col bg-white border-r border-gray-200">
+        <div className="flex min-h-0 flex-1 flex-col bg-card border-r border-border">
           <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
             <div className="flex flex-shrink-0 items-center px-4">
-              <h1 className="text-xl font-bold text-gray-900">
+              <h1 className="text-xl font-bold text-foreground">
                 Sistema Acadêmico
               </h1>
             </div>
@@ -110,21 +115,21 @@ export function MainLayout({ children }: MainLayoutProps) {
                     key={item.name}
                     href={item.href}
                     className={`
-                      group flex items-center px-2 py-2 text-sm font-medium rounded-md
+                      group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors
                       ${
                         isActive
-                          ? "bg-gray-100 text-gray-900"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                       }
                     `}
                   >
                     <item.icon
                       className={`
-                        mr-3 h-5 w-5 flex-shrink-0
+                        mr-3 h-5 w-5 flex-shrink-0 transition-colors
                         ${
                           isActive
-                            ? "text-gray-500"
-                            : "text-gray-400 group-hover:text-gray-500"
+                            ? "text-primary-foreground"
+                            : "text-muted-foreground group-hover:text-accent-foreground"
                         }
                       `}
                     />
@@ -141,10 +146,10 @@ export function MainLayout({ children }: MainLayoutProps) {
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 flex lg:hidden">
           <div
-            className="fixed inset-0 bg-gray-600 bg-opacity-75"
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}
           />
-          <div className="relative flex w-full max-w-xs flex-1 flex-col bg-white">
+          <div className="relative flex w-full max-w-xs flex-1 flex-col bg-card border-r border-border">
             <div className="absolute top-0 right-0 -mr-12 pt-2">
               <button
                 type="button"
@@ -156,7 +161,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             </div>
             <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
               <div className="flex flex-shrink-0 items-center px-4">
-                <h1 className="text-xl font-bold text-gray-900">
+                <h1 className="text-xl font-bold text-foreground">
                   Sistema Acadêmico
                 </h1>
               </div>
@@ -168,22 +173,22 @@ export function MainLayout({ children }: MainLayoutProps) {
                       key={item.name}
                       href={item.href}
                       className={`
-                        group flex items-center px-2 py-2 text-sm font-medium rounded-md
+                        group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors
                         ${
                           isActive
-                            ? "bg-gray-100 text-gray-900"
-                            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                         }
                       `}
                       onClick={() => setSidebarOpen(false)}
                     >
                       <item.icon
                         className={`
-                          mr-3 h-5 w-5 flex-shrink-0
+                          mr-3 h-5 w-5 flex-shrink-0 transition-colors
                           ${
                             isActive
-                              ? "text-gray-500"
-                              : "text-gray-400 group-hover:text-gray-500"
+                              ? "text-primary-foreground"
+                              : "text-muted-foreground group-hover:text-accent-foreground"
                           }
                         `}
                       />
@@ -200,7 +205,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Conteúdo principal */}
       <div className="lg:pl-64">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-white shadow-sm border-b border-gray-200">
+        <div className="sticky top-0 z-10 bg-background shadow-sm border-b border-border">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
             <button
               type="button"
@@ -213,9 +218,6 @@ export function MainLayout({ children }: MainLayoutProps) {
             <div className="flex items-center space-x-4">
               {user && (
                 <>
-                  <Badge className={getPerfilColor(user.role)}>
-                    {user.role}
-                  </Badge>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -253,8 +255,12 @@ export function MainLayout({ children }: MainLayoutProps) {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  <Badge className={getPerfilColor(user.role)}>
+                    {user.role}
+                  </Badge>
                 </>
               )}
+              <ThemeToggle />
             </div>
           </div>
         </div>

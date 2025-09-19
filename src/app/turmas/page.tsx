@@ -263,8 +263,11 @@ export default function TurmasPage() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredTurmas.map((turma) => (
-              <Card key={turma.id}>
+            {filteredTurmas.map((turma, index) => (
+              <Card 
+                key={turma.id}
+                className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}
+              >
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
@@ -290,7 +293,7 @@ export default function TurmasPage() {
                         <Users className="mr-1 h-3 w-3" />
                         Alunos:
                       </span>
-                      <span className="font-medium text-blue-600">
+                      <span className="font-medium text-primary">
                         {turma.num_alunos}
                       </span>
                     </div>

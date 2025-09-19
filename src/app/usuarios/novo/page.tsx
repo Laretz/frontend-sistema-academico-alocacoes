@@ -19,8 +19,8 @@ export default function NovoUsuarioPage() {
       <MainLayout>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Acesso Negado</h2>
-            <p className="text-gray-600">Você não tem permissão para acessar esta página.</p>
+            <h2 className="text-2xl font-bold text-foreground mb-2">Acesso Negado</h2>
+            <p className="text-muted-foreground">Você não tem permissão para acessar esta página.</p>
           </div>
         </div>
       </MainLayout>

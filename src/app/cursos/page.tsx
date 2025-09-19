@@ -153,7 +153,7 @@ export default function CursosPage() {
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <Button onClick={() => router.push('/cursos/criar')}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 h-4 w-4 text-white" />
               Novo Curso
             </Button>
             <DialogContent className="sm:max-w-[425px]">
@@ -228,7 +228,7 @@ export default function CursosPage() {
         </div>
 
         <div className="flex items-center space-x-2">
-          <Search className="h-4 w-4 text-muted-foreground" />
+          <Search className="h-4 w-4 text-gray-500" />
           <Input
             placeholder="Buscar cursos..."
             value={searchTerm}
@@ -265,7 +265,7 @@ export default function CursosPage() {
                         title="Editar curso"
                         onClick={() => handleEdit(curso)}
                       >
-                        <Edit className="h-4 w-4" />
+                        <Edit className="h-4 w-4 text-blue-600" />
                       </Button>
                       <Button
                         variant="outline"
@@ -273,7 +273,7 @@ export default function CursosPage() {
                         title="Excluir curso"
                         onClick={() => handleDelete(curso.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 text-red-600" />
                       </Button>
                     </div>
                   </div>

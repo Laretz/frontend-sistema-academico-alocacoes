@@ -21,8 +21,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Zap, AlertTriangle, Play, Calendar, Eye } from "lucide-react";
-import { formatCargaHoraria } from "@/utils/carga-horaria";
+import { Input } from "@/components/ui/input";
+import { Brain, AlertTriangle, Play, Calendar, Eye, Search, Filter } from "lucide-react";
 import { gerarHorarioConsolidadoPorDisciplina } from "@/utils/horario-consolidado";
 import { toast } from "sonner";
 import { turmaService, disciplinaService } from "@/services/entities";
@@ -81,6 +81,10 @@ export default function AlocacaoAutomaticaPage() {
   const [previewData, setPreviewData] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  
+  // Estados para filtros
+  const [selectedSemestre, setSelectedSemestre] = useState<string>("todos");
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   useEffect(() => {
     fetchData();
@@ -88,19 +92,28 @@ export default function AlocacaoAutomaticaPage() {
 
   const fetchData = async () => {
     try {
-      const [turmasData, disciplinasData] = await Promise.all([
-        turmaService.getAll(1, 100),
-        disciplinaService.getAll(1),
-      ]);
+      const turmasData = await turmaService.getAll(1, 100);
       setTurmas(turmasData?.turmas || []);
-      setDisciplinas(disciplinasData?.disciplinas || []);
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
       toast.error("Erro ao carregar dados");
       setTurmas([]);
-      setDisciplinas([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDisciplinasByCurso = async (cursoId: string) => {
+    try {
+      const disciplinasData = await disciplinaService.getAll(1);
+      const disciplinasFiltradas = disciplinasData?.disciplinas?.filter(
+        (disciplina) => disciplina.id_curso === cursoId
+      ) || [];
+      setDisciplinas(disciplinasFiltradas);
+    } catch (error) {
+      console.error("Erro ao carregar disciplinas:", error);
+      toast.error("Erro ao carregar disciplinas");
+      setDisciplinas([]);
     }
   };
 
@@ -111,6 +124,77 @@ export default function AlocacaoAutomaticaPage() {
         : [...prev, disciplinaId]
     );
   };
+
+  // Função para filtrar disciplinas
+  const getFilteredDisciplinas = () => {
+    return disciplinas.filter((disciplina) => {
+      const matchesSemestre = selectedSemestre === "todos" || disciplina.semestre?.toString() === selectedSemestre;
+      const matchesSearch = !searchTerm || 
+        disciplina.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        disciplina.codigo?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      return matchesSemestre && matchesSearch;
+    });
+  };
+
+  // Função para agrupar disciplinas por semestre
+  const getDisciplinasGroupedBySemestre = () => {
+    const disciplinasFiltradas = getFilteredDisciplinas();
+    const grouped = disciplinasFiltradas.reduce((acc, disciplina) => {
+      const semestre = disciplina.semestre?.toString() || "1";
+      if (!acc[semestre]) {
+        acc[semestre] = [];
+      }
+      acc[semestre].push(disciplina);
+      return acc;
+    }, {} as Record<string, Disciplina[]>);
+
+    // Ordenar semestres
+    const sortedSemestres = Object.keys(grouped).sort((a, b) => parseInt(a) - parseInt(b));
+    return sortedSemestres.map(semestre => ({
+      semestre,
+      disciplinas: grouped[semestre]
+    }));
+  };
+
+  // Função para selecionar todas as disciplinas filtradas
+  const handleSelectAll = () => {
+    const disciplinasFiltradas = getFilteredDisciplinas();
+    const allSelected = disciplinasFiltradas.every(d => selectedDisciplinas.includes(d.id));
+    
+    if (allSelected) {
+      // Desmarcar todas as disciplinas filtradas
+      setSelectedDisciplinas(prev => 
+        prev.filter(id => !disciplinasFiltradas.some(d => d.id === id))
+      );
+    } else {
+      // Selecionar todas as disciplinas filtradas
+      const newSelections = disciplinasFiltradas.map(d => d.id);
+      setSelectedDisciplinas(prev => {
+        const combined = [...prev, ...newSelections];
+        return [...new Set(combined)]; // Remove duplicatas
+      });
+    }
+  };
+
+  // Função para selecionar todas as disciplinas de um semestre
+  const handleSelectSemestre = (disciplinasSemestre: Disciplina[]) => {
+    const allSelected = disciplinasSemestre.every(d => selectedDisciplinas.includes(d.id));
+    
+    if (allSelected) {
+      // Desmarcar todas as disciplinas do semestre
+      setSelectedDisciplinas(prev => 
+        prev.filter(id => !disciplinasSemestre.some(d => d.id === id))
+      );
+    } else {
+      // Selecionar todas as disciplinas do semestre
+      const newSelections = disciplinasSemestre.map(d => d.id);
+      setSelectedDisciplinas(prev => {
+        const combined = [...prev, ...newSelections];
+        return [...new Set(combined)]; // Remove duplicatas
+      });
+     }
+   };
 
   const handleGeneratePreview = async () => {
     if (!selectedTurma || selectedDisciplinas.length === 0) {
@@ -397,7 +481,7 @@ export default function AlocacaoAutomaticaPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-              <Zap className="h-8 w-8 text-yellow-500" />
+              <Brain className="h-8 w-8 text-blue-600" />
               Alocação Automática
             </h1>
             <p className="text-muted-foreground">
@@ -419,7 +503,19 @@ export default function AlocacaoAutomaticaPage() {
             {/* Seleção de Turma */}
             <div className="space-y-2">
               <Label htmlFor="turma">Turma</Label>
-              <Select value={selectedTurma} onValueChange={setSelectedTurma}>
+              <Select 
+                value={selectedTurma} 
+                onValueChange={(value) => {
+                  setSelectedTurma(value);
+                  setSelectedDisciplinas([]); // Limpar disciplinas selecionadas
+                  const turma = turmas.find(t => t.id === value);
+                  if (turma && turma.id_curso) {
+                    fetchDisciplinasByCurso(turma.id_curso);
+                  } else {
+                    setDisciplinas([]);
+                  }
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma turma" />
                 </SelectTrigger>
@@ -427,6 +523,11 @@ export default function AlocacaoAutomaticaPage() {
                   {turmas.map((turma) => (
                     <SelectItem key={turma.id} value={turma.id}>
                       {turma.nome} - {turma.turno} ({turma.num_alunos} alunos)
+                      {turma.curso && (
+                        <span className="text-muted-foreground ml-2">
+                          - {turma.curso.nome}
+                        </span>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -435,47 +536,128 @@ export default function AlocacaoAutomaticaPage() {
 
             {/* Seleção de Disciplinas */}
             <div className="space-y-4">
-              <Label>Disciplinas</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-64 overflow-y-auto border rounded-lg p-4">
-                {disciplinas.map((disciplina) => (
-                  <div
-                    key={disciplina.id}
-                    className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50"
+              <div className="flex items-center justify-between">
+                <Label>Disciplinas {selectedTurma && disciplinas.length > 0 && (
+                  <span className="text-muted-foreground text-sm">
+                    ({disciplinas.length} disponíveis para esta turma)
+                  </span>
+                )}</Label>
+                {selectedTurma && disciplinas.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAll}
+                    className="flex items-center gap-2"
                   >
-                    <Checkbox
-                      id={disciplina.id}
-                      checked={selectedDisciplinas.includes(disciplina.id)}
-                      onCheckedChange={() =>
-                        handleDisciplinaToggle(disciplina.id)
-                      }
-                    />
-                    <div className="flex-1 min-w-0">
-                      <Label
-                        htmlFor={disciplina.id}
-                        className="text-sm font-medium cursor-pointer"
-                      >
-                        {disciplina.nome}
-                      </Label>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        <Badge variant="secondary" className="text-xs">
-                          {disciplina.carga_horaria}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          {disciplina.tipo_de_sala}
-                        </Badge>
-                        {disciplina.horario_consolidado && (
-                          <Badge
-                            variant="default"
-                            className="text-xs bg-blue-100 text-blue-800"
-                          >
-                            {disciplina.horario_consolidado}
-                          </Badge>
-                        )}
+                    <Filter className="h-4 w-4" />
+                    {getFilteredDisciplinas().every(d => selectedDisciplinas.includes(d.id)) ? 'Desmarcar Todas' : 'Selecionar Todas'}
+                  </Button>
+                )}
+              </div>
+              
+              {!selectedTurma ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Selecione uma turma para ver as disciplinas disponíveis
+                </div>
+              ) : disciplinas.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhuma disciplina encontrada para esta turma
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Filtros */}
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                          placeholder="Buscar disciplinas..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10"
+                        />
                       </div>
                     </div>
+                    <div className="w-full sm:w-48">
+                      <Select value={selectedSemestre} onValueChange={setSelectedSemestre}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Filtrar por semestre" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todos">Todos os semestres</SelectItem>
+                          {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                            <SelectItem key={sem} value={sem.toString()}>
+                              {sem}º Semestre
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  
+                  {/* Disciplinas agrupadas por semestre */}
+                  <div className="max-h-64 overflow-y-auto border rounded-lg p-4 space-y-6">
+                    {getDisciplinasGroupedBySemestre().map(({ semestre, disciplinas: disciplinasSemestre }) => (
+                      <div key={semestre} className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium text-base flex items-center gap-2">
+                            <Badge variant="outline">{semestre}º Semestre</Badge>
+                            <span className="text-sm text-muted-foreground">({disciplinasSemestre.length} disciplinas)</span>
+                          </h4>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSelectSemestre(disciplinasSemestre)}
+                            className="text-xs"
+                          >
+                            {disciplinasSemestre.every(d => selectedDisciplinas.includes(d.id)) ? 'Desmarcar' : 'Selecionar'} Semestre
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pl-4">
+                          {disciplinasSemestre.map((disciplina) => (
+                            <div
+                              key={disciplina.id}
+                              className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50"
+                            >
+                              <Checkbox
+                                id={disciplina.id}
+                                checked={selectedDisciplinas.includes(disciplina.id)}
+                                onCheckedChange={() =>
+                                  handleDisciplinaToggle(disciplina.id)
+                                }
+                              />
+                              <div className="flex-1 min-w-0">
+                                <Label
+                                  htmlFor={disciplina.id}
+                                  className="text-sm font-medium cursor-pointer"
+                                >
+                                  {disciplina.nome}
+                                </Label>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {disciplina.carga_horaria}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    {disciplina.tipo_de_sala}
+                                  </Badge>
+                                  {disciplina.horario_consolidado && (
+                                    <Badge
+                                      variant="default"
+                                      className="text-xs bg-primary/10 text-primary"
+                                    >
+                                      {disciplina.horario_consolidado}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {selectedDisciplinas.length > 0 && (
                 <div className="space-y-3">
@@ -484,8 +666,8 @@ export default function AlocacaoAutomaticaPage() {
                   </div>
 
                   {/* Horários Consolidados das Disciplinas Selecionadas */}
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">
+                  <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">
                       Horários Consolidados:
                     </h4>
                     <div className="space-y-1">
@@ -499,10 +681,10 @@ export default function AlocacaoAutomaticaPage() {
                             key={disciplinaId}
                             className="flex justify-between items-center text-sm"
                           >
-                            <span className="text-blue-800 font-medium">
+                            <span className="text-blue-700 dark:text-blue-300 font-medium">
                               {disciplina.nome}:
                             </span>
-                            <span className="text-blue-700">
+                            <span className="text-blue-600 dark:text-blue-400">
                               {disciplina.horario_consolidado ||
                                 "Será gerado automaticamente"}
                             </span>
@@ -524,8 +706,8 @@ export default function AlocacaoAutomaticaPage() {
                   selectedDisciplinas.length === 0 ||
                   isGeneratingPreview
                 }
-                className="w-full"
-                variant="outline"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white border-blue-600 hover:border-blue-700"
+                variant="default"
               >
                 {isGeneratingPreview ? (
                   <>
@@ -541,7 +723,7 @@ export default function AlocacaoAutomaticaPage() {
                 <Button
                   onClick={handleConfirmAllocations}
                   disabled={isGenerating}
-                  className="w-full"
+                  className="w-full bg-blue-700 hover:bg-blue-800 text-white"
                 >
                   {isGenerating ? (
                     <>
@@ -583,19 +765,19 @@ export default function AlocacaoAutomaticaPage() {
               <div className="space-y-6">
                 {/* Estatísticas do Preview */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">
+                  <div className="bg-primary/10 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-primary">
                       {previewData.allocations?.length || 0}
                     </div>
-                    <div className="text-sm text-blue-600">
+                    <div className="text-sm text-primary">
                       Alocações Geradas
                     </div>
                   </div>
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">
+                  <div className="bg-secondary/50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-secondary-foreground">
                       {previewData.fitness?.toFixed(2) || 0}
                     </div>
-                    <div className="text-sm text-green-600">
+                    <div className="text-sm text-secondary-foreground">
                       Score de Qualidade
                     </div>
                   </div>
@@ -617,42 +799,42 @@ export default function AlocacaoAutomaticaPage() {
                         Disciplinas da Turma
                       </h3>
                       <div className="overflow-x-auto">
-                        <table className="w-full border border-gray-200">
-                          <thead className="bg-gray-50">
+                        <table className="w-full border border-border">
+                  <thead className="bg-muted/30">
                             <tr>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                                 Código
                               </th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                                 Prefixo
                               </th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                                 Disciplina
                               </th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                                 CH
                               </th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                                 Horário
                               </th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                                 Professor
                               </th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                                 Local
                               </th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                                 Vagas
                               </th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase border-r border-border">
                                 Demanda
                               </th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
                                 Status
                               </th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
+                          <tbody className="bg-background divide-y divide-border">
                             {previewData.allocations
                               .reduce((unique: any[], allocation: any) => {
                                 const exists = unique.find(
@@ -678,11 +860,11 @@ export default function AlocacaoAutomaticaPage() {
                                     key={allocation.disciplina?.codigo || index}
                                     className={
                                       index % 2 === 0
-                                        ? "bg-white"
-                                        : "bg-gray-50"
+                                        ? "bg-background"
+                                        : "bg-muted/30"
                                     }
                                   >
-                                    <td className="px-3 py-2 text-sm font-medium text-gray-900 border-r">
+                                    <td className="px-3 py-2 text-sm font-medium text-foreground border-r border-border">
                                       {allocation.disciplina?.codigo || "---"}
                                     </td>
                                     <td className="px-3 py-2 border-r">
@@ -693,21 +875,21 @@ export default function AlocacaoAutomaticaPage() {
                                         ---
                                       </Badge>
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-900 border-r max-w-xs">
+                                    <td className="px-3 py-2 text-sm text-foreground border-r border-border max-w-xs">
                                       {allocation.disciplina?.nome || "---"}
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                                    <td className="px-3 py-2 text-sm text-foreground border-r border-border">
                                       {allocation.disciplina?.carga_horaria
                                         ? `${allocation.disciplina.carga_horaria}h`
                                         : "---"}
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-900 font-mono border-r">
+                                    <td className="px-3 py-2 text-sm text-foreground font-mono border-r border-border">
                                       {horarioConsolidado}
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                                    <td className="px-3 py-2 text-sm text-foreground border-r">
                                       {allocation.professor?.nome || "---"}
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                                    <td className="px-3 py-2 text-sm text-foreground border-r">
                                       {allocation.sala
                                         ? `${
                                             allocation.sala.predio?.nome ||
@@ -715,14 +897,14 @@ export default function AlocacaoAutomaticaPage() {
                                           }, ${allocation.sala.nome}`
                                         : "---"}
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                                    <td className="px-3 py-2 text-sm text-foreground border-r">
                                       {selectedTurma?.num_alunos || "---"}
                                     </td>
-                                    <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                                    <td className="px-3 py-2 text-sm text-foreground border-r">
                                       {selectedTurma?.num_alunos || "---"}
                                     </td>
                                     <td className="px-3 py-2">
-                                      <Badge className="bg-green-100 text-green-800">
+                                      <Badge className="bg-secondary/50 text-secondary-foreground">
                                         Adequada
                                       </Badge>
                                     </td>
@@ -742,25 +924,25 @@ export default function AlocacaoAutomaticaPage() {
                       Grade Semanal de Horários
                     </h3>
                     <div className="overflow-x-auto">
-                      <table className="w-full border-collapse border border-gray-300 text-sm">
+                      <table className="w-full border-collapse border border-border text-sm">
                         <thead>
-                          <tr className="bg-gray-50">
-                            <th className="border border-gray-300 p-3 text-left font-semibold">
+                          <tr className="bg-muted/30">
+                            <th className="border border-border p-3 text-left font-semibold">
                               Horário
                             </th>
-                            <th className="border border-gray-300 p-3 text-center font-semibold">
+                            <th className="border border-border p-3 text-center font-semibold">
                               Segunda-feira
                             </th>
-                            <th className="border border-gray-300 p-3 text-center font-semibold">
+                            <th className="border border-border p-3 text-center font-semibold">
                               Terça-feira
                             </th>
-                            <th className="border border-gray-300 p-3 text-center font-semibold">
+                            <th className="border border-border p-3 text-center font-semibold">
                               Quarta-feira
                             </th>
-                            <th className="border border-gray-300 p-3 text-center font-semibold">
+                            <th className="border border-border p-3 text-center font-semibold">
                               Quinta-feira
                             </th>
-                            <th className="border border-gray-300 p-3 text-center font-semibold">
+                            <th className="border border-border p-3 text-center font-semibold">
                               Sexta-feira
                             </th>
                           </tr>
@@ -768,17 +950,17 @@ export default function AlocacaoAutomaticaPage() {
                         <tbody>
                           {previewData.schedule.map(
                             (row: any, index: number) => (
-                              <tr key={index} className="hover:bg-gray-50">
-                                <td className="border border-gray-300 p-3 font-medium bg-blue-50">
+                              <tr key={index} className="hover:bg-muted/50">
+                                <td className="border border-border p-3 font-medium bg-primary/10">
                                   <div className="text-center">
                                     {(() => {
                                       const timeInfo = getTimeInfo(row.time);
                                       return (
                                         <>
-                                          <div className="font-bold text-blue-900 text-sm">
+                                          <div className="font-bold text-primary text-sm">
                                             {timeInfo.code}
                                           </div>
-                                          <div className="text-blue-700 text-xs">
+                                          <div className="text-primary/80 text-xs">
                                             {timeInfo.startTime} -{" "}
                                             {timeInfo.endTime}
                                           </div>
@@ -790,30 +972,30 @@ export default function AlocacaoAutomaticaPage() {
                                 {row.days.map((day: any, dayIndex: number) => (
                                   <td
                                     key={dayIndex}
-                                    className="border border-gray-300 p-3 min-w-[150px]"
+                                    className="border border-border p-3 min-w-[150px]"
                                   >
                                     {day ? (
-                                      <div className="bg-blue-100 p-2 rounded-md border-l-4 border-blue-500">
-                                        <div className="font-semibold text-blue-900 mb-1">
+                                      <div className="bg-primary/10 p-2 rounded-md border-l-4 border-primary">
+                                          <div className="font-semibold text-primary mb-1">
                                           {day.disciplina}
                                         </div>
                                         {day.codigo && (
-                                          <div className="text-blue-800 text-xs mb-1 font-medium">
-                                            <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+                                          <div className="text-primary text-xs mb-1 font-medium">
+                                            <span className="inline-block w-2 h-2 bg-primary rounded-full mr-1"></span>
                                             {day.codigo}
                                           </div>
                                         )}
-                                        <div className="text-blue-700 text-xs mb-1">
-                                          <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+                                        <div className="text-primary/80 text-xs mb-1">
+                                            <span className="inline-block w-2 h-2 bg-secondary-foreground rounded-full mr-1"></span>
                                           {day.professor}
                                         </div>
-                                        <div className="text-blue-600 text-xs">
+                                        <div className="text-primary/70 text-xs">
                                           <span className="inline-block w-2 h-2 bg-orange-500 rounded-full mr-1"></span>
                                           {day.sala}
                                         </div>
                                       </div>
                                     ) : (
-                                      <div className="text-gray-400 text-center py-4">
+                                      <div className="text-muted-foreground text-center py-4">
                                         <span className="text-xs">Livre</span>
                                       </div>
                                     )}
@@ -829,7 +1011,7 @@ export default function AlocacaoAutomaticaPage() {
                     {/* Legenda */}
                     <div className="mt-4 flex flex-wrap gap-4 text-xs">
                       <div className="flex items-center gap-1">
-                        <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                        <span className="inline-block w-2 h-2 bg-secondary-foreground rounded-full"></span>
                         <span>Professor</span>
                       </div>
                       <div className="flex items-center gap-1">
@@ -837,7 +1019,7 @@ export default function AlocacaoAutomaticaPage() {
                         <span>Sala</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="inline-block w-3 h-3 bg-blue-100 border border-blue-300 rounded"></span>
+                        <span className="inline-block w-3 h-3 bg-primary/10 border border-primary/30 rounded"></span>
                         <span>Aula agendada</span>
                       </div>
                     </div>
@@ -855,9 +1037,9 @@ export default function AlocacaoAutomaticaPage() {
                         (conflict: any, index: number) => (
                           <div
                             key={index}
-                            className="bg-orange-50 border border-orange-200 p-3 rounded"
+                            className="bg-destructive/10 border border-destructive/20 p-3 rounded"
                           >
-                            <div className="text-sm text-orange-800">
+                            <div className="text-sm text-destructive">
                               {conflict.message}
                             </div>
                           </div>

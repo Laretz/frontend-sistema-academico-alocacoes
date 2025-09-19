@@ -443,8 +443,8 @@ export default function GradeMensalPage() {
         {/* Cabeçalho */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Grade Mensal</h1>
-            <p className="text-gray-600">
+            <h1 className="text-3xl font-bold text-foreground">Grade Mensal</h1>
+            <p className="text-muted-foreground">
               Visualize e gerencie a programação das disciplinas
             </p>
           </div>
@@ -595,7 +595,7 @@ export default function GradeMensalPage() {
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="font-medium text-lg">{disciplina.nome}</h3>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Carga horária: {disciplina.carga_horaria}/
                         {disciplina.total_aulas}h
                       </p>
@@ -615,16 +615,16 @@ export default function GradeMensalPage() {
                       {disciplina.alocacoes.map((alocacao) => (
                         <div
                           key={alocacao.id}
-                          className="bg-blue-50 border border-blue-200 rounded p-2"
+                          className="bg-primary/10 border border-primary/20 rounded p-2"
                         >
                           <div className="text-sm font-medium">
                             {alocacao.horario.dia_semana} -{" "}
                             {alocacao.horario.codigo}
                           </div>
-                          <div className="text-xs text-gray-600">
+                          <div className="text-xs text-muted-foreground">
                             {alocacao.sala.nome} ({alocacao.sala.predio})
                           </div>
-                          <div className="text-xs text-gray-600">
+                          <div className="text-xs text-muted-foreground">
                             {alocacao.horario.horario_inicio} -{" "}
                             {alocacao.horario.horario_fim}
                           </div>
@@ -645,7 +645,7 @@ export default function GradeMensalPage() {
                           .map((modulo) => (
                             <div
                               key={modulo.id}
-                              className="bg-orange-50 border border-orange-200 rounded p-2"
+                              className="bg-secondary/50 border border-secondary rounded p-2"
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex-1">
@@ -653,14 +653,14 @@ export default function GradeMensalPage() {
                                     {modulo.horario.dia_semana} -{" "}
                                     {modulo.horario.codigo}
                                   </div>
-                                  <div className="text-xs text-gray-600">
+                                  <div className="text-xs text-muted-foreground">
                                     {modulo.sala.nome} ({modulo.sala.predio})
                                   </div>
-                                  <div className="text-xs text-gray-600">
+                                  <div className="text-xs text-muted-foreground">
                                     {modulo.horario.horario_inicio} -{" "}
                                     {modulo.horario.horario_fim}
                                   </div>
-                                  <div className="text-xs text-gray-600">
+                                  <div className="text-xs text-muted-foreground">
                                     {format(
                                       new Date(modulo.data_inicio),
                                       "dd/MM/yyyy",
@@ -683,7 +683,7 @@ export default function GradeMensalPage() {
                                       modulo.id
                                     )
                                   }
-                                  className="text-red-600 hover:text-red-800"
+                                  className="text-destructive hover:text-destructive/80"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>

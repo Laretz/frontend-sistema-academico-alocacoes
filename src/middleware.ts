@@ -16,12 +16,26 @@ const protectedRoutes = [
 // Rotas que só podem ser acessadas sem autenticação
 const authRoutes = ["/login", "/register"];
 
-export function middleware(request: NextRequest) {
+// Função para verificar se o token é válido
+async function verifyToken(token: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'}/verify-token`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('Erro ao verificar token:', error);
+    return false;
+  }
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("token")?.value;
   
-
-
   // Verificar se é uma rota protegida
   const isProtectedRoute = protectedRoutes.some((route) =>
     pathname.startsWith(route)
@@ -30,11 +44,23 @@ export function middleware(request: NextRequest) {
   // Verificar se é uma rota de autenticação
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
-  // Se é uma rota protegida e não tem token, redirecionar para login
-  if (isProtectedRoute && !token) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
+  // Se é uma rota protegida
+  if (isProtectedRoute) {
+    // Se não tem token, redirecionar para login
+    if (!token) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    
+    // Verificar se o token é válido
+    const isValidToken = await verifyToken(token);
+    if (!isValidToken) {
+      // Token inválido ou expirado, limpar cookie e redirecionar
+      const response = NextResponse.redirect(new URL("/login", request.url));
+      response.cookies.delete("token");
+      return response;
+    }
   }
 
   // Se é uma rota de autenticação e tem token, redirecionar para dashboard

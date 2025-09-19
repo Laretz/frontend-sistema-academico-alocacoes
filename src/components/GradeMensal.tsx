@@ -64,14 +64,14 @@ interface GradeMensalProps {
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 const CORES_DISCIPLINAS = [
-  "bg-blue-100 text-blue-800 border-blue-200",
-  "bg-green-100 text-green-800 border-green-200",
-  "bg-purple-100 text-purple-800 border-purple-200",
-  "bg-orange-100 text-orange-800 border-orange-200",
-  "bg-pink-100 text-pink-800 border-pink-200",
-  "bg-indigo-100 text-indigo-800 border-indigo-200",
-  "bg-yellow-100 text-yellow-800 border-yellow-200",
-  "bg-red-100 text-red-800 border-red-200",
+  "bg-primary/10 text-primary border-primary/20",
+  "bg-secondary/50 text-secondary-foreground border-secondary",
+  "bg-accent/50 text-accent-foreground border-accent",
+  "bg-muted/50 text-muted-foreground border-muted",
+  "bg-destructive/10 text-destructive border-destructive/20",
+  "bg-primary/20 text-primary border-primary/30",
+  "bg-secondary/30 text-secondary-foreground border-secondary/50",
+  "bg-accent/30 text-accent-foreground border-accent/50",
 ];
 
 export function GradeMensal({ disciplinas }: GradeMensalProps) {
@@ -262,7 +262,7 @@ export function GradeMensal({ disciplinas }: GradeMensalProps) {
             {DIAS_SEMANA.map((dia) => (
               <div
                 key={dia}
-                className="p-2 text-center font-medium text-gray-500 text-sm"
+                className="p-2 text-center font-medium text-muted-foreground text-sm"
               >
                 {dia}
               </div>
@@ -280,17 +280,17 @@ export function GradeMensal({ disciplinas }: GradeMensalProps) {
                   key={dia.toISOString()}
                   className={`
                     min-h-[100px] p-2 border rounded-lg
-                    ${isSameMonth(dia, mesAtual) ? "bg-white" : "bg-gray-50"}
-                    ${isHoje ? "ring-2 ring-blue-500" : ""}
+                    ${isSameMonth(dia, mesAtual) ? "bg-background" : "bg-muted/30"}
+                    ${isHoje ? "ring-2 ring-primary" : ""}
                   `}
                 >
                   <div
                     className={`text-sm font-medium mb-1 ${
                       isHoje
-                        ? "text-blue-600"
+                        ? "text-primary"
                         : isSameMonth(dia, mesAtual)
-                        ? "text-gray-900"
-                        : "text-gray-400"
+                        ? "text-foreground"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {format(dia, "d")}
@@ -320,7 +320,7 @@ export function GradeMensal({ disciplinas }: GradeMensalProps) {
                       </div>
                     ))}
                     {disciplinasNoDia.length > 3 && (
-                      <div className="text-xs text-gray-500 p-1">
+                      <div className="text-xs text-muted-foreground p-1">
                         +{disciplinasNoDia.length - 3} mais
                       </div>
                     )}
@@ -353,20 +353,20 @@ export function GradeMensal({ disciplinas }: GradeMensalProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm text-gray-600">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
                       <span>Progresso temporal:</span>
                       <span>{progresso.toFixed(1)}%</span>
                     </div>
 
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        className="bg-primary h-2 rounded-full transition-all duration-300"
                         style={{ width: `${progresso}%` }}
                       />
                     </div>
 
                     {disciplina.data_inicio && (
-                      <div className="flex items-center justify-between text-sm text-gray-600">
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
                         <span>Início:</span>
                         <span>
                           {format(
@@ -379,7 +379,7 @@ export function GradeMensal({ disciplinas }: GradeMensalProps) {
                     )}
 
                     {disciplina.data_fim_real && (
-                      <div className="flex items-center justify-between text-sm text-gray-600">
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
                         <span>Fim previsto:</span>
                         <span>
                           {format(
@@ -393,8 +393,8 @@ export function GradeMensal({ disciplinas }: GradeMensalProps) {
 
                     {modulosAtivos.length > 0 && (
                       <div className="flex items-center gap-2 text-sm">
-                        <Clock className="h-4 w-4 text-orange-500" />
-                        <span className="text-orange-600">
+                        <Clock className="h-4 w-4 text-secondary-foreground" />
+                        <span className="text-secondary-foreground">
                           {modulosAtivos.length} módulo(s) extra(s) ativo(s)
                         </span>
                       </div>

@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { MainLayout } from '@/components/layout/main-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Building, MapPin } from 'lucide-react';
+import { Plus, Building, MapPin, ArrowLeft } from 'lucide-react';
 import { predioService } from '@/services/entities';
 import { Predio } from '@/types/entities';
 import { toast } from 'sonner';
@@ -49,20 +50,32 @@ export default function PrediosPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-6">
+      <MainLayout>
         <div className="flex justify-center items-center h-64">
           <div className="text-lg">Carregando prédios...</div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <MainLayout>
+      <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Prédios</h1>
-          <p className="text-muted-foreground">Gerencie os prédios da instituição</p>
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => router.back()}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Prédios</h1>
+            <p className="text-muted-foreground">Gerencie os prédios da instituição</p>
+          </div>
         </div>
         <Button onClick={() => router.push('/predios/criar')}>
           <Plus className="h-4 w-4 mr-2" />
@@ -126,6 +139,7 @@ export default function PrediosPage() {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </MainLayout>
   );
 }

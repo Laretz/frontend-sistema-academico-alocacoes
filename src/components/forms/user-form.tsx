@@ -119,7 +119,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false }: UserFo
                 disabled={isLoading}
               />
               {errors.nome && (
-                <p className="text-sm text-red-500">{errors.nome.message}</p>
+                <p className="text-sm text-destructive">{errors.nome.message}</p>
               )}
             </div>
 
@@ -133,7 +133,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false }: UserFo
                 disabled={isLoading}
               />
               {errors.email && (
-                <p className="text-sm text-red-500">{errors.email.message}</p>
+                <p className="text-sm text-destructive">{errors.email.message}</p>
               )}
             </div>
           </div>
@@ -165,7 +165,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false }: UserFo
                 </Button>
               </div>
               {!isEditing && (errors as any).senha && (
-                <p className="text-sm text-red-500">{(errors as any).senha.message}</p>
+                <p className="text-sm text-destructive">{(errors as any).senha.message}</p>
               )}
             </div>
           )}
@@ -188,7 +188,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false }: UserFo
                 </SelectContent>
               </Select>
               {errors.role && (
-                <p className="text-sm text-red-500">{errors.role.message}</p>
+                <p className="text-sm text-destructive">{errors.role.message}</p>
               )}
             </div>
 
@@ -217,7 +217,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false }: UserFo
                   disabled={isLoading}
                 />
                 {errors.cargaHorariaMax && (
-                  <p className="text-sm text-red-500">{errors.cargaHorariaMax.message}</p>
+                  <p className="text-sm text-destructive">{errors.cargaHorariaMax.message}</p>
                 )}
               </div>
 
