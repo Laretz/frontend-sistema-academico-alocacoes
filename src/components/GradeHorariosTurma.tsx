@@ -10,7 +10,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, GraduationCap, User } from "lucide-react";
 import { Turma } from "@/types/entities";
@@ -95,8 +101,10 @@ const horariosDisponiveis = [
 // Função para mapear períodos para horários usando tema shadcn/ui
 const getStatusColor = (vagas: number, demanda: number) => {
   if (demanda === 0) return "bg-muted text-muted-foreground";
-  if (vagas >= demanda) return "bg-secondary/50 text-secondary-foreground border-secondary";
-  if (vagas >= demanda * 0.8) return "bg-warning/10 text-warning border-warning/20";
+  if (vagas >= demanda)
+    return "bg-secondary/50 text-secondary-foreground border-secondary";
+  if (vagas >= demanda * 0.8)
+    return "bg-warning/10 text-warning border-warning/20";
   return "bg-destructive/10 text-destructive border-destructive/20";
 };
 
@@ -185,40 +193,40 @@ export function GradeHorariosTurma({
   const getAlocacaoColor = (codigoHorario: string) => {
     const turnoTurma = turma.turno.toUpperCase();
     const periodoHorario = codigoHorario.charAt(0); // M, T ou N
-    
+
     // Se o horário está no turno correto da turma, usa primary (normal)
     if (
-      (turnoTurma === 'MATUTINO' && periodoHorario === 'M') ||
-      (turnoTurma === 'VESPERTINO' && periodoHorario === 'T') ||
-      (turnoTurma === 'NOTURNO' && periodoHorario === 'N')
+      (turnoTurma === "MATUTINO" && periodoHorario === "M") ||
+      (turnoTurma === "VESPERTINO" && periodoHorario === "T") ||
+      (turnoTurma === "NOTURNO" && periodoHorario === "N")
     ) {
       return {
-        border: 'border-primary/20',
-        bg: 'bg-primary/5',
-        textPrimary: 'text-primary',
-        textSecondary: 'text-primary/80',
-        textTertiary: 'text-primary/60'
+        border: "border-primary/20",
+        bg: "bg-primary/5",
+        textPrimary: "text-primary",
+        textSecondary: "text-primary/80",
+        textTertiary: "text-primary/60",
       };
     }
-    
+
     // Se é horário noturno fora do turno, usa destructive
-    if (periodoHorario === 'N') {
+    if (periodoHorario === "N") {
       return {
-        border: 'border-destructive/20',
-        bg: 'bg-destructive/5',
-        textPrimary: 'text-destructive',
-        textSecondary: 'text-destructive/80',
-        textTertiary: 'text-destructive/60'
+        border: "border-destructive/20",
+        bg: "bg-destructive/5",
+        textPrimary: "text-destructive",
+        textSecondary: "text-destructive/80",
+        textTertiary: "text-destructive/60",
       };
     }
-    
+
     // Para outros casos (manhã em turma vespertina, tarde em turma matutina), usa warning
     return {
-      border: 'border-warning/20',
-        bg: 'bg-warning/10',
-        textPrimary: 'text-warning',
-        textSecondary: 'text-warning/80',
-        textTertiary: 'text-warning/70'
+      border: "border-warning/20",
+      bg: "bg-warning/10",
+      textPrimary: "text-warning",
+      textSecondary: "text-warning/80",
+      textTertiary: "text-warning/70",
     };
   };
 
@@ -234,14 +242,19 @@ export function GradeHorariosTurma({
     const colors = getAlocacaoColor(alocacao.horario.codigo);
 
     return (
-      <div className={`h-16 border ${colors.border} ${colors.bg} rounded-md p-2 text-xs overflow-hidden hover:shadow-sm transition-shadow`}>
+      <div
+        className={`h-16 border ${colors.border} ${colors.bg} rounded-md p-2 text-xs overflow-hidden hover:shadow-sm transition-shadow`}
+      >
         <div
           className={`font-semibold ${colors.textPrimary} truncate leading-tight`}
           title={alocacao.disciplina.nome}
         >
           {alocacao.disciplina.nome}
         </div>
-        <div className={`${colors.textSecondary} truncate mt-1 leading-tight`} title={alocacao.professor.nome}>
+        <div
+          className={`${colors.textSecondary} truncate mt-1 leading-tight`}
+          title={alocacao.professor.nome}
+        >
           {alocacao.professor.nome}
         </div>
         <div
@@ -333,7 +346,9 @@ export function GradeHorariosTurma({
                       <p className="text-sm font-medium">
                         {gradeData.resumo.disciplinasUnicas}
                       </p>
-                      <p className="text-xs text-muted-foreground">Disciplinas</p>
+                      <p className="text-xs text-muted-foreground">
+                        Disciplinas
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -346,7 +361,9 @@ export function GradeHorariosTurma({
                       <p className="text-sm font-medium">
                         {gradeData.resumo.professoresUnicos}
                       </p>
-                      <p className="text-xs text-muted-foreground">Professores</p>
+                      <p className="text-xs text-muted-foreground">
+                        Professores
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -400,11 +417,15 @@ export function GradeHorariosTurma({
                     </thead>
                     <tbody className="bg-background divide-y divide-border">
                       {Object.values(gradeData.grade)
-                        .flatMap(dia => Object.values(dia))
-                        .filter((alocacao): alocacao is AlocacaoInfo => alocacao !== null)
+                        .flatMap((dia) => Object.values(dia))
+                        .filter(
+                          (alocacao): alocacao is AlocacaoInfo =>
+                            alocacao !== null
+                        )
                         .reduce((unique, alocacao) => {
-                          const exists = unique.find(item => 
-                            item.disciplina.id === alocacao.disciplina.id
+                          const exists = unique.find(
+                            (item) =>
+                              item.disciplina.id === alocacao.disciplina.id
                           );
                           if (!exists) {
                             unique.push(alocacao);
@@ -413,31 +434,49 @@ export function GradeHorariosTurma({
                         }, [] as AlocacaoInfo[])
                         .map((alocacao, index) => {
                           // Usar horário consolidado da disciplina se disponível, senão buscar dos horários
-                          let horarioConsolidado = alocacao.disciplina.horario_consolidado || "";
-                          
+                          let horarioConsolidado =
+                            alocacao.disciplina.horario_consolidado || "";
+
                           if (!horarioConsolidado) {
                             // Buscar todos os horários desta disciplina
                             const horariosAlocacao: string[] = [];
-                            Object.entries(gradeData.grade).forEach(([dia, horarios]) => {
-                              Object.entries(horarios).forEach(([horario, alocacaoHorario]) => {
-                                if (alocacaoHorario?.disciplina.codigo === alocacao.disciplina.codigo) {
-                                  horariosAlocacao.push(horario);
-                                }
-                              });
-                            });
-                            horarioConsolidado = horariosAlocacao.length > 0 ? horariosAlocacao.join(', ') : "-";
+                            Object.entries(gradeData.grade).forEach(
+                              ([dia, horarios]) => {
+                                Object.entries(horarios).forEach(
+                                  ([horario, alocacaoHorario]) => {
+                                    if (
+                                      alocacaoHorario?.disciplina.codigo ===
+                                      alocacao.disciplina.codigo
+                                    ) {
+                                      horariosAlocacao.push(horario);
+                                    }
+                                  }
+                                );
+                              }
+                            );
+                            horarioConsolidado =
+                              horariosAlocacao.length > 0
+                                ? horariosAlocacao.join(", ")
+                                : "-";
                           }
-                          
+
                           return (
                             <tr
                               key={alocacao.disciplina.id}
-                              className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}
+                              className={
+                                index % 2 === 0
+                                  ? "bg-background"
+                                  : "bg-muted/30"
+                              }
                             >
                               <td className="px-3 py-2 text-sm font-medium text-foreground border-r border-border">
                                 {alocacao.disciplina.codigo || "---"}
                               </td>
                               <td className="px-3 py-2 border-r border-border">
-                                <Badge variant="outline" className="font-mono text-xs">
+                                <Badge
+                                  variant="outline"
+                                  className="font-mono text-xs"
+                                >
                                   ---
                                 </Badge>
                               </td>
@@ -464,9 +503,15 @@ export function GradeHorariosTurma({
                               </td>
                               <td className="px-3 py-2">
                                 <Badge
-                                  className={getStatusColor(turma.num_alunos, turma.num_alunos)}
+                                  className={getStatusColor(
+                                    turma.num_alunos,
+                                    turma.num_alunos
+                                  )}
                                 >
-                                  {getStatusText(turma.num_alunos, turma.num_alunos)}
+                                  {getStatusText(
+                                    turma.num_alunos,
+                                    turma.num_alunos
+                                  )}
                                 </Badge>
                               </td>
                             </tr>
@@ -506,9 +551,14 @@ export function GradeHorariosTurma({
                     </thead>
                     <tbody>
                       {horariosDisponiveis.map((horario) => (
-                        <tr key={horario} className="hover:bg-muted/50 transition-colors">
+                        <tr
+                          key={horario}
+                          className="hover:bg-muted/50 transition-colors"
+                        >
                           <td className="border border-border p-3 bg-muted/30 text-sm font-medium text-center w-[10%]">
-                            <div className="font-semibold text-foreground">{horario}</div>
+                            <div className="font-semibold text-foreground">
+                              {horario}
+                            </div>
                             <div className="text-muted-foreground text-xs">
                               {getPeriodoHorario(horario)}
                             </div>

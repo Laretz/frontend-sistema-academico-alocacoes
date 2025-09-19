@@ -34,6 +34,14 @@ import { toast } from "sonner";
 import { disciplinaService, cursoService } from "@/services/entities";
 import { Disciplina, CreateDisciplinaRequest, Curso } from "@/types/entities";
 import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function DisciplinasPage() {
   const [disciplinas, setDisciplinas] = useState<Disciplina[]>([]);
@@ -41,6 +49,7 @@ export default function DisciplinasPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCurso, setSelectedCurso] = useState<string>("todos");
+  const [selectedSemestre, setSelectedSemestre] = useState<string>("todos");
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingDisciplina, setEditingDisciplina] = useState<Disciplina | null>(
@@ -64,8 +73,24 @@ export default function DisciplinasPage() {
     disciplinas?.filter((disciplina) => {
       const matchesSearch = disciplina.nome.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCurso = selectedCurso === "todos" || selectedCurso === "" || disciplina.id_curso === selectedCurso;
-      return matchesSearch && matchesCurso;
+      const matchesSemestre = selectedSemestre === "todos" || selectedSemestre === "" || disciplina.semestre?.toString() === selectedSemestre;
+      return matchesSearch && matchesCurso && matchesSemestre;
     }) || [];
+
+  // Agrupar disciplinas por semestre
+  const disciplinasPorSemestre = filteredDisciplinas.reduce((acc, disciplina) => {
+    const semestre = disciplina.semestre || 1;
+    if (!acc[semestre]) {
+      acc[semestre] = [];
+    }
+    acc[semestre].push(disciplina);
+    return acc;
+  }, {} as Record<number, typeof disciplinas>);
+
+  // Ordenar semestres
+  const semestresOrdenados = Object.keys(disciplinasPorSemestre)
+    .map(Number)
+    .sort((a, b) => a - b);
 
   const fetchDisciplinas = async () => {
     try {
@@ -456,6 +481,24 @@ export default function DisciplinasPage() {
               </SelectContent>
             </Select>
           </div>
+          <div className="w-48">
+            <Select value={selectedSemestre} onValueChange={setSelectedSemestre}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar por semestre" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os semestres</SelectItem>
+                <SelectItem value="1">1º Semestre</SelectItem>
+                <SelectItem value="2">2º Semestre</SelectItem>
+                <SelectItem value="3">3º Semestre</SelectItem>
+                <SelectItem value="4">4º Semestre</SelectItem>
+                <SelectItem value="5">5º Semestre</SelectItem>
+                <SelectItem value="6">6º Semestre</SelectItem>
+                <SelectItem value="7">7º Semestre</SelectItem>
+                <SelectItem value="8">8º Semestre</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         {loading ? (
           <div className="flex justify-center items-center py-12">
@@ -463,94 +506,111 @@ export default function DisciplinasPage() {
             <span className="ml-2">Carregando disciplinas...</span>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredDisciplinas.map((disciplina) => (
-              <Card key={disciplina.id}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{disciplina.nome}</CardTitle>
-                      <CardDescription className="space-y-1">
-                        <div>Curso: {disciplina.curso?.nome || 'N/A'}</div>
-                        <div>Código: {disciplina.codigo || 'N/A'}</div>
-                        <div>Carga horária: {disciplina.carga_horaria === 30 ? '30h (36 aulas)' : disciplina.carga_horaria === 45 ? '45h (54 aulas)' : disciplina.carga_horaria === 60 ? '60h (72 aulas)' : '90h (108 aulas)'}</div>
-                        <div>Semestre: {disciplina.semestre}º | Período: {disciplina.periodo_letivo}</div>
-                      </CardDescription>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <Badge
-                        variant={disciplina.tipo_de_sala === "Lab" ? "default" : "secondary"}
-                      >
-                        {disciplina.tipo_de_sala}
-                      </Badge>
-                      <Badge
-                        variant={disciplina.obrigatoria ? "default" : "outline"}
-                      >
-                        {disciplina.obrigatoria ? "Obrigatória" : "Optativa"}
-                      </Badge>
-                    </div>
+          <div className="space-y-6">
+            {semestresOrdenados.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Nenhuma disciplina encontrada.</p>
+              </div>
+            ) : (
+              semestresOrdenados.map((semestre) => (
+                <div key={semestre} className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <h2 className="text-2xl font-bold">{semestre}º Semestre</h2>
+                    <Badge variant="secondary" className="text-sm">
+                      {disciplinasPorSemestre[semestre].length} disciplina{disciplinasPorSemestre[semestre].length !== 1 ? 's' : ''}
+                    </Badge>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Carga Horária Total:
-                      </span>
-                      <span>{disciplina.carga_horaria}h</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Carga Horária:
-                      </span>
-                      <span>{disciplina.carga_horaria_atual || 0}h</span>
-                    </div>
-                    {disciplina.data_inicio && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          Data Início:
-                        </span>
-                        <span>{disciplina.data_inicio.slice(0, 10)}</span>
-                      </div>
-                    )}
-                    {disciplina.data_fim_prevista && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          Data Fim Prevista:
-                        </span>
-                        <span>{disciplina.data_fim_prevista.slice(0, 10)}</span>
-                      </div>
-                    )}
-                    {disciplina.horario_consolidado && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          Horário Consolidado:
-                        </span>
-                        <span className="font-medium text-primary">{disciplina.horario_consolidado}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex justify-end space-x-2 mt-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      title="Editar disciplina"
-                      onClick={() => handleEdit(disciplina)}
-                    >
-                      <Edit className="h-4 w-4 text-blue-600" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      title="Excluir disciplina"
-                      onClick={() => handleDelete(disciplina.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  <Card>
+                    <CardContent className="p-0">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Nome</TableHead>
+                            <TableHead>Código</TableHead>
+                            <TableHead>Curso</TableHead>
+                            <TableHead>Carga Horária</TableHead>
+                            <TableHead>Tipo de Sala</TableHead>
+                            <TableHead>Obrigatória</TableHead>
+                            <TableHead>Horário</TableHead>
+                            <TableHead>Período</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {disciplinasPorSemestre[semestre].map((disciplina) => (
+                            <TableRow key={disciplina.id}>
+                              <TableCell className="font-medium">
+                                {disciplina.nome}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">
+                                  {disciplina.codigo || 'N/A'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {disciplina.curso?.nome || 'N/A'}
+                              </TableCell>
+                              <TableCell>
+                                {disciplina.carga_horaria === 30 ? '30h (36 aulas)' : 
+                                 disciplina.carga_horaria === 45 ? '45h (54 aulas)' : 
+                                 disciplina.carga_horaria === 60 ? '60h (72 aulas)' : 
+                                 '90h (108 aulas)'}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={disciplina.tipo_de_sala === "Lab" ? "default" : "secondary"}
+                                >
+                                  {disciplina.tipo_de_sala}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={disciplina.obrigatoria ? "default" : "outline"}
+                                >
+                                  {disciplina.obrigatoria ? "Sim" : "Não"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {disciplina.horario_consolidado ? (
+                                  <span className="font-medium text-primary">
+                                    {disciplina.horario_consolidado}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {disciplina.periodo_letivo || '-'}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    title="Editar disciplina"
+                                    onClick={() => handleEdit(disciplina)}
+                                  >
+                                    <Edit className="h-4 w-4 text-blue-600" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    title="Excluir disciplina"
+                                    onClick={() => handleDelete(disciplina.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </div>
+              ))
+            )}
           </div>
         )}
 

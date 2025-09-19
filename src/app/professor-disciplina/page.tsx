@@ -31,6 +31,9 @@ import {
   DisciplinaComVinculo,
   ProfessorComVinculo,
 } from "@/types/entities";
+import { FilterSection } from "@/components/forms/filter-section";
+import { VinculationForm } from "@/components/forms/vinculation-form";
+import { ProfessorDisciplinaCard } from "@/components/forms/professor-disciplina-card";
 
 export default function ProfessorDisciplinaPage() {
   const router = useRouter();
@@ -49,10 +52,25 @@ export default function ProfessorDisciplinaPage() {
   const [viewMode, setViewMode] = useState<"professor" | "disciplina">(
     "professor"
   );
+  
+  // Novos estados para filtros
+  const [selectedSemestre, setSelectedSemestre] = useState<string>("all");
+  const [selectedCurso, setSelectedCurso] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [cursos, setCursos] = useState<{id: string, nome: string}[]>([]);
 
   useEffect(() => {
     carregarDados();
   }, []);
+
+  // useEffect para carregar dados quando viewMode ou seleções mudarem
+  useEffect(() => {
+    if (viewMode === "professor" && selectedProfessor) {
+      carregarDisciplinasProfessor(selectedProfessor);
+    } else if (viewMode === "disciplina" && selectedDisciplina) {
+      carregarProfessoresDisciplina(selectedDisciplina);
+    }
+  }, [viewMode, selectedProfessor, selectedDisciplina]);
 
   const carregarDados = async () => {
     try {
@@ -62,6 +80,15 @@ export default function ProfessorDisciplinaPage() {
       ]);
       setProfessores(professoresData.usuarios || []);
       setDisciplinas(disciplinasData.disciplinas || []);
+      
+      // Extrair cursos únicos das disciplinas
+      const cursosUnicos = (disciplinasData.disciplinas || []).reduce((acc: {id: string, nome: string}[], disciplina) => {
+        if (!acc.find(curso => curso.id === disciplina.curso.id)) {
+          acc.push({ id: disciplina.curso.id, nome: disciplina.curso.nome });
+        }
+        return acc;
+      }, []);
+      setCursos(cursosUnicos);
     } catch (error) {
       toast.error("Erro ao carregar dados");
     }
@@ -193,11 +220,45 @@ export default function ProfessorDisciplinaPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedDisciplinas.length === disciplinas.length) {
+    const disciplinasFiltradas = getFilteredDisciplinas();
+    if (selectedDisciplinas.length === disciplinasFiltradas.length) {
       setSelectedDisciplinas([]);
     } else {
-      setSelectedDisciplinas(disciplinas.map(d => d.id));
+      setSelectedDisciplinas(disciplinasFiltradas.map((d) => d.id));
     }
+  };
+
+  // Função para filtrar disciplinas
+  const getFilteredDisciplinas = () => {
+    return disciplinas.filter((disciplina) => {
+      const matchesSemestre = !selectedSemestre || selectedSemestre === "all" || disciplina.semestre.toString() === selectedSemestre;
+      const matchesCurso = !selectedCurso || selectedCurso === "all" || disciplina.curso.id === selectedCurso;
+      const matchesSearch = !searchTerm || 
+        disciplina.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        disciplina.codigo.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      return matchesSemestre && matchesCurso && matchesSearch;
+    });
+  };
+
+  // Função para agrupar disciplinas por semestre
+  const getDisciplinasGroupedBySemestre = () => {
+    const disciplinasFiltradas = getFilteredDisciplinas();
+    const grouped = disciplinasFiltradas.reduce((acc, disciplina) => {
+      const semestre = disciplina.semestre.toString();
+      if (!acc[semestre]) {
+        acc[semestre] = [];
+      }
+      acc[semestre].push(disciplina);
+      return acc;
+    }, {} as Record<string, Disciplina[]>);
+
+    // Ordenar semestres
+    const sortedSemestres = Object.keys(grouped).sort((a, b) => parseInt(a) - parseInt(b));
+    return sortedSemestres.map(semestre => ({
+      semestre,
+      disciplinas: grouped[semestre]
+    }));
   };
 
   return (
@@ -222,9 +283,21 @@ export default function ProfessorDisciplinaPage() {
             </p>
           </div>
         </div>
-
-
       </div>
+
+      {/* Filtros */}
+      <FilterSection
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        selectedSemestre={selectedSemestre}
+        onSemestreChange={setSelectedSemestre}
+        selectedCurso={selectedCurso}
+        onCursoChange={setSelectedCurso}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        cursos={cursos}
+        searchPlaceholder="Buscar disciplina por nome ou código..."
+      />
 
       {/* Formulário de Vinculação Múltipla */}
       <Card>
@@ -267,39 +340,67 @@ export default function ProfessorDisciplinaPage() {
                   variant="outline"
                   size="sm"
                   onClick={toggleSelectAll}
-                  disabled={disciplinas.length === 0}
+                  disabled={getFilteredDisciplinas().length === 0}
                 >
                   <CheckSquare className="w-4 h-4 mr-2 text-blue-600" />
-                  {selectedDisciplinas.length === disciplinas.length ? "Desmarcar Todas" : "Selecionar Todas"}
+                  {selectedDisciplinas.length === getFilteredDisciplinas().length && getFilteredDisciplinas().length > 0 ? "Desmarcar Todas" : "Selecionar Todas"}
                 </Button>
               </div>
               
-              <div className="max-h-60 overflow-y-auto border rounded-lg p-3 space-y-2">
-                {disciplinas.length === 0 ? (
+              <div className="max-h-80 overflow-y-auto border rounded-lg p-3">
+                {getFilteredDisciplinas().length === 0 ? (
                   <p className="text-muted-foreground text-center py-4">
-                    Nenhuma disciplina disponível
+                    {disciplinas.length === 0 ? "Nenhuma disciplina disponível" : "Nenhuma disciplina encontrada com os filtros aplicados"}
                   </p>
                 ) : (
-                  disciplinas.map((disciplina) => (
-                    <div key={disciplina.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
-                      <Checkbox
-                        id={`disciplina-${disciplina.id}`}
-                        checked={selectedDisciplinas.includes(disciplina.id)}
-                        onCheckedChange={(checked) => 
-                          handleDisciplinaSelection(disciplina.id, checked as boolean)
-                        }
-                      />
-                      <label 
-                        htmlFor={`disciplina-${disciplina.id}`}
-                        className="flex-1 cursor-pointer"
-                      >
-                        <div className="font-medium">{disciplina.nome}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {disciplina.codigo} - {disciplina.carga_horaria}h
+                  <div className="space-y-4">
+                    {getDisciplinasGroupedBySemestre().map(({ semestre, disciplinas: disciplinasSemestre }) => (
+                      <div key={semestre} className="space-y-2">
+                        <div className="flex items-center gap-2 pb-2 border-b">
+                          <Badge variant="outline" className="font-semibold">
+                            {semestre}º Semestre
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            ({disciplinasSemestre.length} disciplina{disciplinasSemestre.length !== 1 ? 's' : ''})
+                          </span>
                         </div>
-                      </label>
-                    </div>
-                  ))
+                        <div className="space-y-2 pl-4">
+                          {disciplinasSemestre.map((disciplina) => (
+                            <div key={disciplina.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
+                              <Checkbox
+                                id={`disciplina-${disciplina.id}`}
+                                checked={selectedDisciplinas.includes(disciplina.id)}
+                                onCheckedChange={(checked) => 
+                                  handleDisciplinaSelection(disciplina.id, checked as boolean)
+                                }
+                              />
+                              <label 
+                                htmlFor={`disciplina-${disciplina.id}`}
+                                className="flex-1 cursor-pointer"
+                              >
+                                <div className="font-medium">{disciplina.nome}</div>
+                                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                  <span>{disciplina.codigo}</span>
+                                  <span>•</span>
+                                  <span>{disciplina.carga_horaria}h</span>
+                                  <span>•</span>
+                                  <span>{disciplina.curso.nome}</span>
+                                </div>
+                                <div className="flex gap-1 mt-1">
+                                  <Badge variant={disciplina.obrigatoria ? "default" : "secondary"} className="text-xs">
+                                    {disciplina.obrigatoria ? "Obrigatória" : "Optativa"}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    {disciplina.tipo_de_sala}
+                                  </Badge>
+                                </div>
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
@@ -317,204 +418,45 @@ export default function ProfessorDisciplinaPage() {
         </CardContent>
       </Card>
 
-      {/* Formulário de Vinculação */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Novo Vínculo</CardTitle>
-              <CardDescription>
-                Selecione um professor e uma disciplina para criar um novo vínculo
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant={viewMode === "professor" ? "default" : "outline"}
-                onClick={() => setViewMode("professor")}
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Por Professor
-              </Button>
-              <Button
-                variant={viewMode === "disciplina" ? "default" : "outline"}
-                onClick={() => setViewMode("disciplina")}
-              >
-                <BookOpen className="w-4 h-4 mr-2" />
-                Por Disciplina
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Professor
-                </label>
-                <Select
-                  value={selectedProfessor}
-                  onValueChange={setSelectedProfessor}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um professor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {professores.map((professor) => (
-                      <SelectItem key={professor.id} value={professor.id}>
-                        {professor.nome} -{" "}
-                        {professor.especializacao || "Sem especialização"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Disciplina
-                </label>
-                <Select
-                  value={selectedDisciplina}
-                  onValueChange={setSelectedDisciplina}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma disciplina" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {disciplinas.map((disciplina) => (
-                      <SelectItem key={disciplina.id} value={disciplina.id}>
-                        {disciplina.nome} ({disciplina.codigo})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Button
-                  onClick={vincularProfessorDisciplina}
-                  disabled={loading || !selectedProfessor || !selectedDisciplina}
-                  className="w-full"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Vincular
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Formulário de Vinculação Individual */}
+      <VinculationForm
+        title="Novo Vínculo Individual"
+        description="Selecione um professor e uma disciplina para criar um novo vínculo"
+        professores={professores}
+        disciplinas={disciplinas}
+        selectedProfessor={selectedProfessor}
+        onProfessorChange={handleProfessorChange}
+        selectedDisciplina={selectedDisciplina}
+        onDisciplinaChange={handleDisciplinaChange}
+        onSubmit={vincularProfessorDisciplina}
+        loading={loading}
+        submitText="Vincular"
+        type="individual"
+      />
 
       {/* Lista de Vínculos */}
       {viewMode === "professor" && selectedProfessor && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Disciplinas do Professor</CardTitle>
-            <CardDescription>
-              {professores.find((p) => p.id === selectedProfessor)?.nome}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {disciplinasProfessor.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                Este professor não está vinculado a nenhuma disciplina
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {disciplinasProfessor.map((disciplina) => (
-                  <div
-                    key={disciplina.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <h4 className="font-medium">{disciplina.nome}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {disciplina.curso.nome} - {disciplina.codigo} -{" "}
-                        {disciplina.carga_horaria.toString()}
-                      </p>
-                      <div className="flex gap-2 mt-2">
-                        <Badge
-                          variant={
-                            disciplina.obrigatoria ? "default" : "secondary"
-                          }
-                        >
-                          {disciplina.obrigatoria ? "Obrigatória" : "Optativa"}
-                        </Badge>
-                        <Badge variant="outline">
-                          {disciplina.tipo_de_sala}
-                        </Badge>
-                      </div>
-                    </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() =>
-                        desvincularProfessorDisciplina(
-                          selectedProfessor,
-                          disciplina.id
-                        )
-                      }
-                    >
-                      <Trash2 className="w-4 h-4 text-white" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <ProfessorDisciplinaCard
+          title="Disciplinas do Professor"
+          description={professores.find((p) => p.id === selectedProfessor)?.nome || ""}
+          items={disciplinasProfessor}
+          type="disciplinas"
+          onRemove={desvincularProfessorDisciplina}
+          selectedId={selectedProfessor}
+          emptyMessage="Este professor não está vinculado a nenhuma disciplina"
+        />
       )}
 
       {viewMode === "disciplina" && selectedDisciplina && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Professores da Disciplina</CardTitle>
-            <CardDescription>
-              {disciplinas.find((d) => d.id === selectedDisciplina)?.nome}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {professoresDisciplina.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                Esta disciplina não possui professores vinculados
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {professoresDisciplina.map((professor) => (
-                  <div
-                    key={professor.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <h4 className="font-medium">{professor.nome}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {professor.email}
-                      </p>
-                      {professor.especializacao && (
-                        <Badge variant="outline" className="mt-2">
-                          {professor.especializacao}
-                        </Badge>
-                      )}
-                    </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() =>
-                        desvincularProfessorDisciplina(
-                          professor.id,
-                          selectedDisciplina
-                        )
-                      }
-                    >
-                      <Trash2 className="w-4 h-4 text-white" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <ProfessorDisciplinaCard
+          title="Professores da Disciplina"
+          description={disciplinas.find((d) => d.id === selectedDisciplina)?.nome || ""}
+          items={professoresDisciplina}
+          type="professores"
+          onRemove={desvincularProfessorDisciplina}
+          selectedId={selectedDisciplina}
+          emptyMessage="Esta disciplina não possui professores vinculados"
+        />
       )}
       </div>
     </MainLayout>

@@ -21,8 +21,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Brain, AlertTriangle, Play, Calendar, Eye } from "lucide-react";
-import { formatCargaHoraria } from "@/utils/carga-horaria";
+import { Input } from "@/components/ui/input";
+import { Brain, AlertTriangle, Play, Calendar, Eye, Search, Filter } from "lucide-react";
 import { gerarHorarioConsolidadoPorDisciplina } from "@/utils/horario-consolidado";
 import { toast } from "sonner";
 import { turmaService, disciplinaService } from "@/services/entities";
@@ -81,6 +81,10 @@ export default function AlocacaoAutomaticaPage() {
   const [previewData, setPreviewData] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  
+  // Estados para filtros
+  const [selectedSemestre, setSelectedSemestre] = useState<string>("todos");
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   useEffect(() => {
     fetchData();
@@ -120,6 +124,77 @@ export default function AlocacaoAutomaticaPage() {
         : [...prev, disciplinaId]
     );
   };
+
+  // Função para filtrar disciplinas
+  const getFilteredDisciplinas = () => {
+    return disciplinas.filter((disciplina) => {
+      const matchesSemestre = selectedSemestre === "todos" || disciplina.semestre?.toString() === selectedSemestre;
+      const matchesSearch = !searchTerm || 
+        disciplina.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        disciplina.codigo?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      return matchesSemestre && matchesSearch;
+    });
+  };
+
+  // Função para agrupar disciplinas por semestre
+  const getDisciplinasGroupedBySemestre = () => {
+    const disciplinasFiltradas = getFilteredDisciplinas();
+    const grouped = disciplinasFiltradas.reduce((acc, disciplina) => {
+      const semestre = disciplina.semestre?.toString() || "1";
+      if (!acc[semestre]) {
+        acc[semestre] = [];
+      }
+      acc[semestre].push(disciplina);
+      return acc;
+    }, {} as Record<string, Disciplina[]>);
+
+    // Ordenar semestres
+    const sortedSemestres = Object.keys(grouped).sort((a, b) => parseInt(a) - parseInt(b));
+    return sortedSemestres.map(semestre => ({
+      semestre,
+      disciplinas: grouped[semestre]
+    }));
+  };
+
+  // Função para selecionar todas as disciplinas filtradas
+  const handleSelectAll = () => {
+    const disciplinasFiltradas = getFilteredDisciplinas();
+    const allSelected = disciplinasFiltradas.every(d => selectedDisciplinas.includes(d.id));
+    
+    if (allSelected) {
+      // Desmarcar todas as disciplinas filtradas
+      setSelectedDisciplinas(prev => 
+        prev.filter(id => !disciplinasFiltradas.some(d => d.id === id))
+      );
+    } else {
+      // Selecionar todas as disciplinas filtradas
+      const newSelections = disciplinasFiltradas.map(d => d.id);
+      setSelectedDisciplinas(prev => {
+        const combined = [...prev, ...newSelections];
+        return [...new Set(combined)]; // Remove duplicatas
+      });
+    }
+  };
+
+  // Função para selecionar todas as disciplinas de um semestre
+  const handleSelectSemestre = (disciplinasSemestre: Disciplina[]) => {
+    const allSelected = disciplinasSemestre.every(d => selectedDisciplinas.includes(d.id));
+    
+    if (allSelected) {
+      // Desmarcar todas as disciplinas do semestre
+      setSelectedDisciplinas(prev => 
+        prev.filter(id => !disciplinasSemestre.some(d => d.id === id))
+      );
+    } else {
+      // Selecionar todas as disciplinas do semestre
+      const newSelections = disciplinasSemestre.map(d => d.id);
+      setSelectedDisciplinas(prev => {
+        const combined = [...prev, ...newSelections];
+        return [...new Set(combined)]; // Remove duplicatas
+      });
+     }
+   };
 
   const handleGeneratePreview = async () => {
     if (!selectedTurma || selectedDisciplinas.length === 0) {
@@ -461,11 +536,25 @@ export default function AlocacaoAutomaticaPage() {
 
             {/* Seleção de Disciplinas */}
             <div className="space-y-4">
-              <Label>Disciplinas {selectedTurma && disciplinas.length > 0 && (
-                <span className="text-muted-foreground text-sm">
-                  ({disciplinas.length} disponíveis para esta turma)
-                </span>
-              )}</Label>
+              <div className="flex items-center justify-between">
+                <Label>Disciplinas {selectedTurma && disciplinas.length > 0 && (
+                  <span className="text-muted-foreground text-sm">
+                    ({disciplinas.length} disponíveis para esta turma)
+                  </span>
+                )}</Label>
+                {selectedTurma && disciplinas.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAll}
+                    className="flex items-center gap-2"
+                  >
+                    <Filter className="h-4 w-4" />
+                    {getFilteredDisciplinas().every(d => selectedDisciplinas.includes(d.id)) ? 'Desmarcar Todas' : 'Selecionar Todas'}
+                  </Button>
+                )}
+              </div>
+              
               {!selectedTurma ? (
                 <div className="text-center py-8 text-muted-foreground">
                   Selecione uma turma para ver as disciplinas disponíveis
@@ -475,45 +564,98 @@ export default function AlocacaoAutomaticaPage() {
                   Nenhuma disciplina encontrada para esta turma
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-64 overflow-y-auto border rounded-lg p-4">
-                  {disciplinas.map((disciplina) => (
-                  <div
-                    key={disciplina.id}
-                    className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50"
-                  >
-                    <Checkbox
-                      id={disciplina.id}
-                      checked={selectedDisciplinas.includes(disciplina.id)}
-                      onCheckedChange={() =>
-                        handleDisciplinaToggle(disciplina.id)
-                      }
-                    />
-                    <div className="flex-1 min-w-0">
-                      <Label
-                        htmlFor={disciplina.id}
-                        className="text-sm font-medium cursor-pointer"
-                      >
-                        {disciplina.nome}
-                      </Label>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        <Badge variant="secondary" className="text-xs">
-                          {disciplina.carga_horaria}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          {disciplina.tipo_de_sala}
-                        </Badge>
-                        {disciplina.horario_consolidado && (
-                          <Badge
-                            variant="default"
-                            className="text-xs bg-primary/10 text-primary"
-                          >
-                            {disciplina.horario_consolidado}
-                          </Badge>
-                        )}
+                <div className="space-y-4">
+                  {/* Filtros */}
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                          placeholder="Buscar disciplinas..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10"
+                        />
                       </div>
                     </div>
+                    <div className="w-full sm:w-48">
+                      <Select value={selectedSemestre} onValueChange={setSelectedSemestre}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Filtrar por semestre" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todos">Todos os semestres</SelectItem>
+                          {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                            <SelectItem key={sem} value={sem.toString()}>
+                              {sem}º Semestre
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                ))}
+                  
+                  {/* Disciplinas agrupadas por semestre */}
+                  <div className="max-h-64 overflow-y-auto border rounded-lg p-4 space-y-6">
+                    {getDisciplinasGroupedBySemestre().map(({ semestre, disciplinas: disciplinasSemestre }) => (
+                      <div key={semestre} className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium text-base flex items-center gap-2">
+                            <Badge variant="outline">{semestre}º Semestre</Badge>
+                            <span className="text-sm text-muted-foreground">({disciplinasSemestre.length} disciplinas)</span>
+                          </h4>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSelectSemestre(disciplinasSemestre)}
+                            className="text-xs"
+                          >
+                            {disciplinasSemestre.every(d => selectedDisciplinas.includes(d.id)) ? 'Desmarcar' : 'Selecionar'} Semestre
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pl-4">
+                          {disciplinasSemestre.map((disciplina) => (
+                            <div
+                              key={disciplina.id}
+                              className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50"
+                            >
+                              <Checkbox
+                                id={disciplina.id}
+                                checked={selectedDisciplinas.includes(disciplina.id)}
+                                onCheckedChange={() =>
+                                  handleDisciplinaToggle(disciplina.id)
+                                }
+                              />
+                              <div className="flex-1 min-w-0">
+                                <Label
+                                  htmlFor={disciplina.id}
+                                  className="text-sm font-medium cursor-pointer"
+                                >
+                                  {disciplina.nome}
+                                </Label>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {disciplina.carga_horaria}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    {disciplina.tipo_de_sala}
+                                  </Badge>
+                                  {disciplina.horario_consolidado && (
+                                    <Badge
+                                      variant="default"
+                                      className="text-xs bg-primary/10 text-primary"
+                                    >
+                                      {disciplina.horario_consolidado}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

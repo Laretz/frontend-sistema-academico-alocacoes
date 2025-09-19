@@ -277,12 +277,12 @@ export default function AlocacoesPage() {
       if (dataAlocacao > dataFim) return false;
     }
 
-    if (filtroDiaSemana) {
+    if (filtroDiaSemana && filtroDiaSemana !== "todos") {
       const diaSemanaAlocacao = alocacao.horario?.dia_semana?.toLowerCase();
       if (diaSemanaAlocacao !== filtroDiaSemana.toLowerCase()) return false;
     }
 
-    if (filtroPeriodo) {
+    if (filtroPeriodo && filtroPeriodo !== "todos") {
       const codigoHorario = alocacao.horario?.codigo?.toLowerCase();
       if (filtroPeriodo === 'M' || filtroPeriodo === 'T' || filtroPeriodo === 'N') {
         if (!codigoHorario?.startsWith(filtroPeriodo.toLowerCase())) return false;
@@ -291,7 +291,7 @@ export default function AlocacoesPage() {
       }
     }
 
-    if (filtroTurmaId) {
+    if (filtroTurmaId && filtroTurmaId !== "todas") {
       if (alocacao.id_turma !== filtroTurmaId) return false;
     }
 
@@ -340,7 +340,7 @@ export default function AlocacoesPage() {
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="id_user">Professor</Label>
                     <Select
@@ -386,7 +386,9 @@ export default function AlocacoesPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
 
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="id_turma">Turma</Label>
                     <Select
@@ -402,8 +404,7 @@ export default function AlocacoesPage() {
                       <SelectContent>
                         {turmas.map((turma) => (
                           <SelectItem key={turma.id} value={turma.id}>
-                            {turma.nome} - {turma.periodo}º período (
-                            {turma.turno})
+                            {turma.nome} - {turma.periodo}º período ({turma.turno})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -543,19 +544,20 @@ export default function AlocacoesPage() {
                 <label className="text-sm font-medium text-foreground mb-1 block">
                   Dia da Semana
                 </label>
-                <select
-                  value={filtroDiaSemana}
-                  onChange={(e) => setFiltroDiaSemana(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">Todos os dias</option>
-                  <option value="segunda">Segunda-feira</option>
-                  <option value="terca">Terça-feira</option>
-                  <option value="quarta">Quarta-feira</option>
-                  <option value="quinta">Quinta-feira</option>
-                  <option value="sexta">Sexta-feira</option>
-                  <option value="sabado">Sábado</option>
-                </select>
+                <Select value={filtroDiaSemana} onValueChange={setFiltroDiaSemana}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os dias" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os dias</SelectItem>
+                    <SelectItem value="segunda">Segunda-feira</SelectItem>
+                    <SelectItem value="terca">Terça-feira</SelectItem>
+                    <SelectItem value="quarta">Quarta-feira</SelectItem>
+                    <SelectItem value="quinta">Quinta-feira</SelectItem>
+                    <SelectItem value="sexta">Sexta-feira</SelectItem>
+                    <SelectItem value="sabado">Sábado</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Filtro por período */}
@@ -563,38 +565,33 @@ export default function AlocacoesPage() {
                 <label className="text-sm font-medium text-foreground mb-1 block">
                   Período
                 </label>
-                <select
-                  value={filtroPeriodo}
-                  onChange={(e) => setFiltroPeriodo(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Todos os períodos</option>
-                  <option value="M">Manhã</option>
-                  <option value="T">Tarde</option>
-                  <option value="N">Noite</option>
-                  <optgroup label="Manhã - Específicos">
-                    <option value="M1">M1</option>
-                    <option value="M2">M2</option>
-                    <option value="M3">M3</option>
-                    <option value="M4">M4</option>
-                    <option value="M5">M5</option>
-                    <option value="M6">M6</option>
-                  </optgroup>
-                  <optgroup label="Tarde - Específicos">
-                    <option value="T1">T1</option>
-                    <option value="T2">T2</option>
-                    <option value="T3">T3</option>
-                    <option value="T4">T4</option>
-                    <option value="T5">T5</option>
-                    <option value="T6">T6</option>
-                  </optgroup>
-                  <optgroup label="Noite - Específicos">
-                    <option value="N1">N1</option>
-                    <option value="N2">N2</option>
-                    <option value="N3">N3</option>
-                    <option value="N4">N4</option>
-                  </optgroup>
-                </select>
+                <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os períodos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os períodos</SelectItem>
+                    <SelectItem value="M">Manhã</SelectItem>
+                    <SelectItem value="T">Tarde</SelectItem>
+                    <SelectItem value="N">Noite</SelectItem>
+                    <SelectItem value="M1">M1 - Manhã</SelectItem>
+                    <SelectItem value="M2">M2 - Manhã</SelectItem>
+                    <SelectItem value="M3">M3 - Manhã</SelectItem>
+                    <SelectItem value="M4">M4 - Manhã</SelectItem>
+                    <SelectItem value="M5">M5 - Manhã</SelectItem>
+                    <SelectItem value="M6">M6 - Manhã</SelectItem>
+                    <SelectItem value="T1">T1 - Tarde</SelectItem>
+                    <SelectItem value="T2">T2 - Tarde</SelectItem>
+                    <SelectItem value="T3">T3 - Tarde</SelectItem>
+                    <SelectItem value="T4">T4 - Tarde</SelectItem>
+                    <SelectItem value="T5">T5 - Tarde</SelectItem>
+                    <SelectItem value="T6">T6 - Tarde</SelectItem>
+                    <SelectItem value="N1">N1 - Noite</SelectItem>
+                    <SelectItem value="N2">N2 - Noite</SelectItem>
+                    <SelectItem value="N3">N3 - Noite</SelectItem>
+                    <SelectItem value="N4">N4 - Noite</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -605,20 +602,21 @@ export default function AlocacoesPage() {
                 {/* Filtro por Turma */}
                 <div>
                   <label className="text-sm font-medium text-foreground mb-1 block">
-                  Turma
-                </label>
-                  <select
-                    value={filtroTurmaId}
-                    onChange={(e) => setFiltroTurmaId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Selecione uma turma</option>
-                    {turmas.map((turma) => (
-                      <option key={turma.id} value={turma.id}>
-                        {turma.nome} - {turma.periodo}º período ({turma.turno})
-                      </option>
-                    ))}
-                  </select>
+                    Turma
+                  </label>
+                  <Select value={filtroTurmaId} onValueChange={setFiltroTurmaId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma turma" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todas as turmas</SelectItem>
+                      {turmas.map((turma) => (
+                        <SelectItem key={turma.id} value={turma.id}>
+                          {turma.nome} - {turma.periodo}º período ({turma.turno})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Botões de Ação */}

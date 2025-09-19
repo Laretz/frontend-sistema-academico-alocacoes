@@ -10,6 +10,7 @@ interface AuthStore extends AuthState {
   setUser: (user: User) => void;
   setLoading: (loading: boolean) => void;
   checkAuth: () => void;
+  refreshToken: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
@@ -67,6 +68,40 @@ export const useAuthStore = create<AuthStore>((set) => ({
   setUser: (user: User) => set({ user }),
   setLoading: (loading: boolean) => set({ isLoading: loading }),
 
+  refreshToken: async () => {
+    try {
+      const response = await api.patch("/token/refresh");
+      const { token } = response.data;
+
+      if (!token) {
+        throw new Error("Token não recebido");
+      }
+
+      localStorage.setItem("token", token);
+      setCookie("token", token, 7);
+
+      set({ token });
+
+      return true;
+    } catch (error: unknown) {
+      console.error("Erro ao renovar token:", error);
+      
+      // Se falhar, fazer logout
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      deleteCookie("token");
+
+      set({
+        user: null,
+        token: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+
+      return false;
+    }
+  },
+
   checkAuth: () => {
     if (typeof window === "undefined") return;
 
@@ -74,11 +109,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
     const token = localStorage.getItem("token");
     const cookieToken = getCookie("token");
 
+    // Se não há token ou dados de usuário, apenas definir como não autenticado
     if (!token || !userStr || userStr === "undefined" || userStr === "null") {
-      // Limpar dados corrompidos
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      deleteCookie("token");
       set({
         user: null,
         token: null,
@@ -101,11 +133,13 @@ export const useAuthStore = create<AuthStore>((set) => ({
         isLoading: false,
       });
 
+      // Sincronizar cookie apenas se necessário
       if (token !== cookieToken) {
         setCookie("token", token, 7);
       }
-    } catch {
-      // Se parsing falhar, limpar
+    } catch (error) {
+      console.warn("Erro ao fazer parse dos dados de usuário:", error);
+      // Limpar apenas se houver erro de parsing
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       deleteCookie("token");

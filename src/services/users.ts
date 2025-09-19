@@ -24,12 +24,21 @@ export interface UpdateUserRequest {
 export const userService = {
   getAll: async (page = 1): Promise<{ usuarios: User[] }> => {
     const response = await api.get<{ usuarios: User[] }>(`/users?page=${page}`);
-    return response.data;
+    // Transformar os dados para compatibilidade com o frontend
+    const usuarios = response.data.usuarios.map(user => ({
+      ...user,
+      curso: user.cursos?.map(uc => uc.curso) || []
+    }));
+    return { usuarios };
   },
 
   getById: async (id: string): Promise<User> => {
     const response = await api.get<{ usuario: User }>(`/users/${id}`);
-    return response.data.usuario;
+    const usuario = {
+      ...response.data.usuario,
+      curso: response.data.usuario.cursos?.map(uc => uc.curso) || []
+    };
+    return usuario;
   },
 
   create: async (data: CreateUserRequest): Promise<User> => {

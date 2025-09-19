@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/auth";
+import { useTokenRefresh } from "@/hooks/useTokenRefresh";
+
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -29,6 +31,7 @@ import {
   Building,
   UserCheck,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -48,6 +51,8 @@ const navigation = [
 ];
 
 export function MainLayout({ children }: MainLayoutProps) {
+  // Ativar refresh automático de token
+  useTokenRefresh();
   const { user, logout, checkAuth } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
@@ -213,9 +218,6 @@ export function MainLayout({ children }: MainLayoutProps) {
             <div className="flex items-center space-x-4">
               {user && (
                 <>
-                  <Badge className={getPerfilColor(user.role)}>
-                    {user.role}
-                  </Badge>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -253,8 +255,12 @@ export function MainLayout({ children }: MainLayoutProps) {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  <Badge className={getPerfilColor(user.role)}>
+                    {user.role}
+                  </Badge>
                 </>
               )}
+              <ThemeToggle />
             </div>
           </div>
         </div>
