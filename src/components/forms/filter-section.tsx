@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -7,6 +8,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Filter } from "lucide-react";
 
@@ -44,10 +51,11 @@ export function FilterSection({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="space-y-2">
+        <div className="flex flex-col space-y-4">
+          {/* Primeira linha - Busca */}
+          <div className="w-full">
             <Label htmlFor="search">Buscar</Label>
-            <div className="relative">
+            <div className="relative mt-2">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 id="search"
@@ -59,56 +67,80 @@ export function FilterSection({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Semestre</Label>
-            <Select value={selectedSemestre} onValueChange={onSemestreChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o semestre" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os semestres</SelectItem>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((semestre) => (
-                  <SelectItem key={semestre} value={semestre.toString()}>
-                    {semestre}º Semestre
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Segunda linha - Filtros com rolagem horizontal */}
+          <div className="overflow-x-auto">
+            <div className="flex gap-4 min-w-max pb-2">
+              <div className="space-y-2 min-w-[200px]">
+                <Label>Semestre</Label>
+                <Select value={selectedSemestre} onValueChange={onSemestreChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o semestre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os semestres</SelectItem>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((semestre) => (
+                      <SelectItem key={semestre} value={semestre.toString()}>
+                        {semestre}º Semestre
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-2">
-            <Label>Curso</Label>
-            <Select value={selectedCurso} onValueChange={onCursoChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o curso" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os cursos</SelectItem>
-                {cursos.map((curso) => (
-                  <SelectItem key={curso.id} value={curso.id}>
-                    {curso.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2 min-w-[250px]">
+                <Label>Curso</Label>
+                <Select value={selectedCurso} onValueChange={onCursoChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o curso" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px] overflow-y-auto">
+                    <SelectItem value="all">Todos os cursos</SelectItem>
+                    {cursos.map((curso) => (
+                      <SelectItem key={curso.id} value={curso.id}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="truncate max-w-[200px] block">
+                                {curso.nome}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs p-2 text-sm bg-popover text-popover-foreground border rounded shadow-lg">
+                              <p className="break-words">
+                                {curso.nome}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-2">
-            <Label>Modo de Visualização</Label>
-            <Select
-              value={viewMode}
-              onValueChange={(value) =>
-                onViewModeChange(value as "professor" | "disciplina")
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="professor">Por Professor</SelectItem>
-                <SelectItem value="disciplina">Por Disciplina</SelectItem>
-              </SelectContent>
-            </Select>
+              <div className="space-y-2 min-w-[200px]">
+                <Label className="text-sm font-medium text-foreground/80">
+                  Modo de Visualização
+                </Label>
+                <div className="flex rounded-md border border-input bg-background p-1">
+                  <Button
+                    variant={viewMode === 'professor' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => onViewModeChange('professor')}
+                    className="flex-1 h-8"
+                  >
+                    Professor
+                  </Button>
+                  <Button
+                    variant={viewMode === 'disciplina' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => onViewModeChange('disciplina')}
+                    className="flex-1 h-8"
+                  >
+                    Disciplina
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </CardContent>

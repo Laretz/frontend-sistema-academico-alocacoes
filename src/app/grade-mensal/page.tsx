@@ -3,7 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { GradeMensal } from "@/components/GradeMensal";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CalendarioProgressoDisciplinas } from "@/components/CalendarioProgressoDisciplinas";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,66 +28,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Calendar, Clock, Trash2, Edit } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Calendar, Clock, Trash2, Edit, BarChart3, Users } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { disciplinaService, salaService, turmaService, alocacaoService } from "@/services/entities";
+import { disciplinasProgressoService } from "@/services/disciplinas-progresso";
 
-interface Disciplina {
-  id: string;
-  nome: string;
-  carga_horaria: number;
-  total_aulas: number;
+// Usando as interfaces do sistema de tipos
+import type { Disciplina as DisciplinaBase, Turma, Sala, Horario, Alocacao } from '@/types/entities';
 
-  carga_horaria_atual?: number;
-  data_inicio?: string;
-  data_fim_prevista?: string;
-  data_fim_real?: string;
-  tipo_de_sala: string;
-  alocacoes: Array<{
-    id: string;
-    horario: {
-      codigo: string;
-      dia_semana: string;
-      horario_inicio: string;
-      horario_fim: string;
-    };
-    sala: {
-      nome: string;
-      predio: string;
-    };
-  }>;
-  modulos: Array<{
-    id: string;
-    data_inicio: string;
-    data_fim: string;
-    ativo: boolean;
-    horario: {
-      codigo: string;
-      dia_semana: string;
-      horario_inicio: string;
-      horario_fim: string;
-    };
-    sala: {
-      nome: string;
-      predio: string;
-    };
-  }>;
+// Interface local estendida para compatibilidade com o componente
+interface Disciplina extends Omit<DisciplinaBase, 'periodo_letivo' | 'semestre' | 'obrigatoria'> {
+  aulas_ministradas?: number; // Campo essencial para exibir progresso correto
+  horario_consolidado?: string;
+  alocacoes: AlocacaoLocal[];
+  modulos: NovoModulo[];
 }
 
-interface Sala {
+interface AlocacaoLocal {
   id: string;
-  nome: string;
-  predio: string;
-  capacidade: number;
-  tipo: string;
-}
-
-interface Horario {
-  id: string;
-  codigo: string;
-  dia_semana: string;
-  horario_inicio: string;
-  horario_fim: string;
+  horario: {
+    codigo: string;
+    dia_semana: string;
+    horario_inicio: string;
+    horario_fim: string;
+  };
+  sala: {
+    nome: string;
+    predio: string;
+  };
 }
 
 interface NovoModulo {
@@ -97,276 +73,123 @@ export default function GradeMensalPage() {
   const [disciplinas, setDisciplinas] = useState<Disciplina[]>([]);
   const [salas, setSalas] = useState<Sala[]>([]);
   const [horarios, setHorarios] = useState<Horario[]>([]);
+  const [turmas, setTurmas] = useState<Turma[]>([]);
+  const [turmaSelecionada, setTurmaSelecionada] = useState<Turma | null>(null);
   const [loading, setLoading] = useState(true);
   const [dialogAberto, setDialogAberto] = useState(false);
   const [novoModulo, setNovoModulo] = useState<Partial<NovoModulo>>({});
   const [disciplinaSelecionada, setDisciplinaSelecionada] =
     useState<string>("");
 
-  // Mock data - em produção, isso viria da API
+  const carregarTurmas = async () => {
+    try {
+      const response = await turmaService.getAll(1, 50);
+      setTurmas(response.turmas);
+      
+      // Selecionar a primeira turma por padrão
+      if (response.turmas.length > 0 && !turmaSelecionada) {
+        setTurmaSelecionada(response.turmas[0]);
+      }
+      console.log('Turmas carregadas:', response.turmas.length);
+    } catch (error) {
+      console.error("Erro ao carregar turmas:", error);
+      setTurmas([]);
+    }
+  };
+
+  // Função para carregar disciplinas da turma selecionada
+  const carregarDisciplinasDaTurma = async (turmaId: string) => {
+    console.log('🔍 Carregando disciplinas para turma:', turmaId);
+    try {
+      // Primeiro, atualizar o progresso das disciplinas
+      await disciplinasProgressoService.atualizarProgresso({ turmaId });
+      
+      // Buscar disciplinas com progresso atualizado
+      const { disciplinas: disciplinasComProgresso } = await disciplinasProgressoService.buscarComProgresso({ turmaId });
+      console.log('📊 Disciplinas com progresso encontradas:', disciplinasComProgresso.length);
+      
+      if (disciplinasComProgresso.length === 0) {
+        console.log('Nenhuma disciplina encontrada para a turma:', turmaId);
+        setDisciplinas([]);
+        setSalas([]);
+        setHorarios([]);
+        return;
+      }
+      
+      // Buscar alocações para obter informações de salas e horários
+      const { alocacoes } = await alocacaoService.getAll(1);
+      const alocacoesDaTurma = alocacoes.filter(alocacao => alocacao.id_turma === turmaId);
+      
+      // Converter disciplinas com progresso para o formato esperado pelo componente
+      const disciplinasFormatadas: Disciplina[] = disciplinasComProgresso.map(disciplina => {
+        // Buscar alocações desta disciplina
+        const alocacoesDisciplina = alocacoesDaTurma.filter(alocacao => alocacao.id_disciplina === disciplina.id);
+        
+        return {
+          id: disciplina.id,
+          nome: disciplina.nome,
+          codigo: disciplina.codigo,
+          carga_horaria: disciplina.carga_horaria,
+          total_aulas: disciplina.total_aulas,
+          aulas_ministradas: disciplina.aulas_ministradas, // Campo importante com progresso real
+          carga_horaria_atual: disciplina.carga_horaria_atual,
+          id_curso: disciplina.id_curso,
+          tipo_de_sala: disciplina.tipo_de_sala,
+          horario_consolidado: disciplina.horario_consolidado || '',
+          data_inicio: disciplina.data_inicio ? new Date(disciplina.data_inicio).toISOString().split('T')[0] : '2024-01-01',
+          data_fim_prevista: disciplina.data_fim_prevista ? new Date(disciplina.data_fim_prevista).toISOString().split('T')[0] : '2024-12-31',
+          data_fim_real: disciplina.data_fim_real ? new Date(disciplina.data_fim_real).toISOString().split('T')[0] : undefined,
+          alocacoes: alocacoesDisciplina.map(alocacao => ({
+            id: alocacao.id,
+            horario: {
+              codigo: alocacao.horario?.codigo || '',
+              dia_semana: alocacao.horario?.dia_semana || '',
+              horario_inicio: alocacao.horario?.horario_inicio || '',
+              horario_fim: alocacao.horario?.horario_fim || '',
+            },
+            sala: {
+              nome: alocacao.sala?.nome || 'Sala não informada',
+              predio: alocacao.sala?.predio?.nome || 'Prédio não informado',
+            }
+          })),
+          modulos: []
+        };
+      });
+      
+      setDisciplinas(disciplinasFormatadas);
+      console.log('✅ Disciplinas carregadas com progresso:', disciplinasFormatadas.map(d => ({ nome: d.nome, aulas_ministradas: d.aulas_ministradas, total_aulas: d.total_aulas })));
+      
+      // Extrair salas e horários únicos das alocações
+      const salasMap = new Map<string, Sala>();
+      const horariosMap = new Map<string, Horario>();
+      
+      alocacoesDaTurma.forEach(alocacao => {
+        if (alocacao.sala && !salasMap.has(alocacao.id_sala)) {
+          salasMap.set(alocacao.id_sala, alocacao.sala);
+        }
+        if (alocacao.horario && !horariosMap.has(alocacao.id_horario)) {
+          horariosMap.set(alocacao.id_horario, alocacao.horario);
+        }
+      });
+      
+      setSalas(Array.from(salasMap.values()));
+      setHorarios(Array.from(horariosMap.values()));
+      
+    } catch (error) {
+      console.error('Erro ao carregar disciplinas da turma:', error);
+      // Em caso de erro, limpar os dados
+      setDisciplinas([]);
+      setSalas([]);
+      setHorarios([]);
+    }
+  };
+
+  // Carregar dados iniciais
   useEffect(() => {
     const carregarDados = async () => {
       try {
-        // Simulando dados das disciplinas com módulos
-        const disciplinasMock: Disciplina[] = [
-          {
-            id: "1",
-            nome: "Matemática Aplicada",
-            carga_horaria: 60,
-            total_aulas: 72,
-            carga_horaria_atual: 24,
-            data_inicio: "2025-01-20",
-            data_fim_prevista: "2025-05-20",
-            data_fim_real: "2025-04-15",
-            tipo_de_sala: "Sala",
-            alocacoes: [
-              {
-                id: "1",
-                horario: {
-                  codigo: "M12",
-                  dia_semana: "segunda",
-                  horario_inicio: "07:30",
-                  horario_fim: "09:10",
-                },
-                sala: {
-                  nome: "Sala 101",
-                  predio: "Bloco A",
-                },
-              },
-              {
-                id: "2",
-                horario: {
-                  codigo: "M12",
-                  dia_semana: "quarta",
-                  horario_inicio: "07:30",
-                  horario_fim: "09:10",
-                },
-                sala: {
-                  nome: "Sala 101",
-                  predio: "Bloco A",
-                },
-              },
-            ],
-            modulos: [
-              {
-                id: "1",
-                data_inicio: "2025-01-20",
-                data_fim: "2025-04-15",
-                ativo: true,
-                horario: {
-                  codigo: "M12",
-                  dia_semana: "sexta",
-                  horario_inicio: "07:30",
-                  horario_fim: "09:10",
-                },
-                sala: {
-                  nome: "Sala 102",
-                  predio: "Bloco A",
-                },
-              },
-            ],
-          },
-          {
-            id: "2",
-            nome: "Programação Web",
-            carga_horaria: 90,
-            total_aulas: 108,
-            carga_horaria_atual: 32,
-            data_inicio: "2025-01-22",
-            data_fim_prevista: "2025-06-22",
-            data_fim_real: "2025-05-10",
-            tipo_de_sala: "Lab",
-            alocacoes: [
-              {
-                id: "3",
-                horario: {
-                  codigo: "T34",
-                  dia_semana: "terca",
-                  horario_inicio: "13:30",
-                  horario_fim: "15:10",
-                },
-                sala: {
-                  nome: "Lab 201",
-                  predio: "Bloco B",
-                },
-              },
-              {
-                id: "4",
-                horario: {
-                  codigo: "T34",
-                  dia_semana: "quinta",
-                  horario_inicio: "13:30",
-                  horario_fim: "15:10",
-                },
-                sala: {
-                  nome: "Lab 201",
-                  predio: "Bloco B",
-                },
-              },
-            ],
-            modulos: [
-              {
-                id: "2",
-                data_inicio: "2025-02-01",
-                data_fim: "2025-05-10",
-                ativo: true,
-                horario: {
-                  codigo: "T56",
-                  dia_semana: "sexta",
-                  horario_inicio: "15:30",
-                  horario_fim: "17:10",
-                },
-                sala: {
-                  nome: "Lab 202",
-                  predio: "Bloco B",
-                },
-              },
-            ],
-          },
-        ];
-
-        const salasMock: Sala[] = [
-          {
-            id: "1",
-            nome: "Sala 101",
-            predio: "Bloco A",
-            capacidade: 40,
-            tipo: "Sala",
-          },
-          {
-            id: "2",
-            nome: "Sala 102",
-            predio: "Bloco A",
-            capacidade: 35,
-            tipo: "Sala",
-          },
-          {
-            id: "3",
-            nome: "Lab 201",
-            predio: "Bloco B",
-            capacidade: 30,
-            tipo: "Lab",
-          },
-          {
-            id: "4",
-            nome: "Lab 202",
-            predio: "Bloco B",
-            capacidade: 25,
-            tipo: "Lab",
-          },
-        ];
-
-        const horariosMock: Horario[] = [
-          {
-            id: "1",
-            codigo: "M12",
-            dia_semana: "segunda",
-            horario_inicio: "07:30",
-            horario_fim: "09:10",
-          },
-          {
-            id: "2",
-            codigo: "M12",
-            dia_semana: "terca",
-            horario_inicio: "07:30",
-            horario_fim: "09:10",
-          },
-          {
-            id: "3",
-            codigo: "M12",
-            dia_semana: "quarta",
-            horario_inicio: "07:30",
-            horario_fim: "09:10",
-          },
-          {
-            id: "4",
-            codigo: "M12",
-            dia_semana: "quinta",
-            horario_inicio: "07:30",
-            horario_fim: "09:10",
-          },
-          {
-            id: "5",
-            codigo: "M12",
-            dia_semana: "sexta",
-            horario_inicio: "07:30",
-            horario_fim: "09:10",
-          },
-          {
-            id: "6",
-            codigo: "T34",
-            dia_semana: "segunda",
-            horario_inicio: "13:30",
-            horario_fim: "15:10",
-          },
-          {
-            id: "7",
-            codigo: "T34",
-            dia_semana: "terca",
-            horario_inicio: "13:30",
-            horario_fim: "15:10",
-          },
-          {
-            id: "8",
-            codigo: "T34",
-            dia_semana: "quarta",
-            horario_inicio: "13:30",
-            horario_fim: "15:10",
-          },
-          {
-            id: "9",
-            codigo: "T34",
-            dia_semana: "quinta",
-            horario_inicio: "13:30",
-            horario_fim: "15:10",
-          },
-          {
-            id: "10",
-            codigo: "T34",
-            dia_semana: "sexta",
-            horario_inicio: "13:30",
-            horario_fim: "15:10",
-          },
-          {
-            id: "11",
-            codigo: "T56",
-            dia_semana: "segunda",
-            horario_inicio: "15:30",
-            horario_fim: "17:10",
-          },
-          {
-            id: "12",
-            codigo: "T56",
-            dia_semana: "terca",
-            horario_inicio: "15:30",
-            horario_fim: "17:10",
-          },
-          {
-            id: "13",
-            codigo: "T56",
-            dia_semana: "quarta",
-            horario_inicio: "15:30",
-            horario_fim: "17:10",
-          },
-          {
-            id: "14",
-            codigo: "T56",
-            dia_semana: "quinta",
-            horario_inicio: "15:30",
-            horario_fim: "17:10",
-          },
-          {
-            id: "15",
-            codigo: "T56",
-            dia_semana: "sexta",
-            horario_inicio: "15:30",
-            horario_fim: "17:10",
-          },
-        ];
-
-        setDisciplinas(disciplinasMock);
-        setSalas(salasMock);
-        setHorarios(horariosMock);
+        // Carregar turmas primeiro
+        await carregarTurmas();
       } catch (error) {
         console.error("Erro ao carregar dados:", error);
       } finally {
@@ -376,6 +199,13 @@ export default function GradeMensalPage() {
 
     carregarDados();
   }, []);
+
+  // Carregar disciplinas quando a turma selecionada mudar
+  useEffect(() => {
+    if (turmaSelecionada) {
+      carregarDisciplinasDaTurma(turmaSelecionada.id);
+    }
+  }, [turmaSelecionada]);
 
   const handleAdicionarModulo = async () => {
     try {
@@ -497,7 +327,7 @@ export default function GradeMensalPage() {
                     <SelectContent>
                       {salas.map((sala) => (
                         <SelectItem key={sala.id} value={sala.id}>
-                          {sala.nome} - {sala.predio}
+                          {sala.nome} - {sala.predio?.nome || 'Prédio não informado'}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -580,15 +410,93 @@ export default function GradeMensalPage() {
           </Dialog>
         </div>
 
-        {/* Grade Mensal */}
-        <GradeMensal disciplinas={disciplinas} />
-
-        {/* Gerenciamento de Módulos */}
+        {/* Seleção de Turma */}
         <Card>
           <CardHeader>
-            <CardTitle>Gerenciar Módulos</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Turma Selecionada
+            </CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <Label htmlFor="turma-select">Selecionar Turma</Label>
+                <Select
+                  value={turmaSelecionada?.id || ""}
+                  onValueChange={(value) => {
+                    const turma = turmas.find(t => t.id === value);
+                    if (turma) {
+                      setTurmaSelecionada(turma);
+                    }
+                  }}
+                >
+                  <SelectTrigger id="turma-select">
+                    <SelectValue placeholder="Selecione uma turma" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {turmas.map((turma) => (
+                      <SelectItem key={turma.id} value={turma.id}>
+                        {turma.nome} - {turma.turno} ({turma.num_alunos} alunos)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {turmaSelecionada && (
+                <div className="flex gap-2">
+                  <Badge variant="outline">
+                    {turmaSelecionada.periodo}º Período
+                  </Badge>
+                  <Badge variant="outline">
+                    {turmaSelecionada.turno}
+                  </Badge>
+                  <Badge variant="outline">
+                    {turmaSelecionada.num_alunos} alunos
+                  </Badge>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Abas principais */}
+         <Tabs defaultValue="calendario" className="space-y-6">
+           <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="calendario" className="flex items-center space-x-2">
+              <BarChart3 className="h-4 w-4" />
+              <span>Calendário de Progresso</span>
+            </TabsTrigger>
+            <TabsTrigger value="grade" className="flex items-center space-x-2">
+              <Calendar className="h-4 w-4" />
+              <span>Grade Mensal</span>
+            </TabsTrigger>
+            <TabsTrigger value="modulos" className="flex items-center space-x-2">
+              <Clock className="h-4 w-4" />
+              <span>Gerenciar Módulos</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Calendário de Progresso das Disciplinas */}
+          <TabsContent value="calendario">
+            <CalendarioProgressoDisciplinas 
+              disciplinas={disciplinas} 
+              turma={turmaSelecionada || undefined}
+            />
+          </TabsContent>
+
+          {/* Grade Mensal Original */}
+          <TabsContent value="grade">
+            <GradeMensal disciplinas={disciplinas} turma={turmaSelecionada || undefined} />
+          </TabsContent>
+
+          {/* Gerenciamento de Módulos */}
+          <TabsContent value="modulos">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gerenciar Módulos</CardTitle>
+              </CardHeader>
+              <CardContent>
             <div className="space-y-6">
               {disciplinas.map((disciplina) => (
                 <div key={disciplina.id} className="border rounded-lg p-4">
@@ -622,7 +530,7 @@ export default function GradeMensalPage() {
                             {alocacao.horario.codigo}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {alocacao.sala.nome} ({alocacao.sala.predio})
+                            {alocacao.sala.nome} ({alocacao.sala.predio.nome})
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {alocacao.horario.horario_inicio} -{" "}
@@ -698,6 +606,8 @@ export default function GradeMensalPage() {
             </div>
           </CardContent>
         </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </MainLayout>
   );

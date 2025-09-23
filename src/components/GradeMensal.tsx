@@ -14,6 +14,7 @@ import {
   isSameDay,
   addMonths,
   subMonths,
+  getDay,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -22,6 +23,8 @@ interface Disciplina {
   nome: string;
   carga_horaria: number;
   total_aulas: number;
+  aulas_ministradas?: number;
+  carga_horaria_atual?: number;
   data_inicio?: string;
   data_fim_prevista?: string;
   data_fim_real?: string;
@@ -36,7 +39,11 @@ interface Disciplina {
     };
     sala: {
       nome: string;
-      predio: string;
+      predio: {
+        id: string;
+        nome: string;
+        codigo: string;
+      };
     };
   }>;
   modulos: Array<{
@@ -52,13 +59,18 @@ interface Disciplina {
     };
     sala: {
       nome: string;
-      predio: string;
+      predio: {
+        id: string;
+        nome: string;
+        codigo: string;
+      };
     };
   }>;
 }
 
 interface GradeMensalProps {
   disciplinas: Disciplina[];
+  turma?: any;
 }
 
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -74,11 +86,13 @@ const CORES_DISCIPLINAS = [
   "bg-accent/30 text-accent-foreground border-accent/50",
 ];
 
-export function GradeMensal({ disciplinas }: GradeMensalProps) {
+export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
   const [mesAtual, setMesAtual] = useState(new Date());
   const [disciplinasSelecionadas, setDisciplinasSelecionadas] = useState<
     string[]
   >([]);
+
+
 
   const inicioMes = startOfMonth(mesAtual);
   const fimMes = endOfMonth(mesAtual);
@@ -101,26 +115,30 @@ export function GradeMensal({ disciplinas }: GradeMensalProps) {
   };
 
   const getDisciplinasNoDia = (dia: Date) => {
-    return disciplinas
+    const resultado = disciplinas
       .filter((disciplina) => {
-        if (!disciplina.data_inicio) return false;
+        
+        if (!disciplina.data_inicio) {
+          return false;
+        }
 
         const dataInicio = new Date(disciplina.data_inicio);
-        const dataFim = disciplina.data_fim_real
-          ? new Date(disciplina.data_fim_real)
-          : disciplina.data_fim_prevista
+        const dataFim = disciplina.data_fim_prevista
           ? new Date(disciplina.data_fim_prevista)
           : null;
 
-        if (!dataFim) return false;
+        if (!dataFim) {
+          return false;
+        }
 
         // Verificar se o dia está no período da disciplina
         const dentroPeríodo = dia >= dataInicio && dia <= dataFim;
 
         if (!dentroPeríodo) return false;
-
+    
         // Verificar se há aula neste dia da semana
         const diaSemana = dia.getDay(); // 0 = domingo, 1 = segunda, etc.
+        
         const diasSemanaMap: { [key: string]: number } = {
           domingo: 0,
           segunda: 1,
@@ -130,29 +148,30 @@ export function GradeMensal({ disciplinas }: GradeMensalProps) {
           sexta: 5,
           sabado: 6,
         };
-
+    
         // Verificar alocações principais
-        const temAulaRegular = disciplina.alocacoes.some((alocacao) => {
+        const temAulaRegular = disciplina.alocacoes?.some((alocacao) => {
           const diaAlocacao =
             diasSemanaMap[alocacao.horario.dia_semana.toLowerCase()];
           return diaAlocacao === diaSemana;
-        });
-
+        }) || false;
+    
         // Verificar módulos extras
-        const temModulo = disciplina.modulos.some((modulo) => {
+        const temModulo = disciplina.modulos?.some((modulo) => {
           if (!modulo.ativo) return false;
           const dataInicioModulo = new Date(modulo.data_inicio);
           const dataFimModulo = new Date(modulo.data_fim);
           const dentroPeríodoModulo =
             dia >= dataInicioModulo && dia <= dataFimModulo;
-
+    
           if (!dentroPeríodoModulo) return false;
-
-          const diaModulo =
-            diasSemanaMap[modulo.horario.dia_semana.toLowerCase()];
+    
+          const diaModulo = diasSemanaMap[modulo.horario.dia_semana.toLowerCase()];
           return diaModulo === diaSemana;
-        });
+        }) || false;
+    
 
+    
         return temAulaRegular || temModulo;
       })
       .filter(
@@ -160,6 +179,8 @@ export function GradeMensal({ disciplinas }: GradeMensalProps) {
           disciplinasSelecionadas.length === 0 ||
           disciplinasSelecionadas.includes(disciplina.id)
       );
+    
+    return resultado;
   };
 
   const getCorDisciplina = (disciplinaId: string) => {
@@ -168,6 +189,12 @@ export function GradeMensal({ disciplinas }: GradeMensalProps) {
   };
 
   const calcularProgresso = (disciplina: Disciplina) => {
+    // Usar dados reais de aulas ministradas se disponíveis
+    if (disciplina.aulas_ministradas !== undefined && disciplina.total_aulas > 0) {
+      return Math.min((disciplina.aulas_ministradas / disciplina.total_aulas) * 100, 100);
+    }
+
+    // Fallback para cálculo temporal se dados de aulas não estiverem disponíveis
     if (!disciplina.data_inicio) return 0;
 
     const dataInicio = new Date(disciplina.data_inicio);
@@ -271,6 +298,10 @@ export function GradeMensal({ disciplinas }: GradeMensalProps) {
 
           {/* Dias do mês */}
           <div className="grid grid-cols-7 gap-1">
+            {/* Células vazias para alinhar o primeiro dia do mês */}
+            {Array.from({ length: getDay(inicioMes) }).map((_, index) => (
+              <div key={`empty-${index}`} className="min-h-[100px] p-2"></div>
+            ))}
             {diasDoMes.map((dia) => {
               const disciplinasNoDia = getDisciplinasNoDia(dia);
               const isHoje = isSameDay(dia, new Date());
@@ -303,7 +334,7 @@ export function GradeMensal({ disciplinas }: GradeMensalProps) {
                         className={`text-xs p-1 rounded border ${getCorDisciplina(
                           disciplina.id
                         )}`}
-                        title={`${disciplina.nome} - ${disciplina.carga_horaria}/${disciplina.total_aulas}h`}
+                        title={`${disciplina.nome} - ${disciplina.aulas_ministradas || 0}/${disciplina.total_aulas} aulas (${disciplina.carga_horaria_atual || 0}h/${disciplina.carga_horaria}h)`}
                       >
                         <div className="truncate font-medium">
                           {disciplina.nome}
@@ -347,14 +378,19 @@ export function GradeMensal({ disciplinas }: GradeMensalProps) {
                 <div key={disciplina.id} className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-medium">{disciplina.nome}</h3>
-                    <Badge variant="outline">
-                      {disciplina.carga_horaria}/${disciplina.total_aulas}h
-                    </Badge>
+                    <div className="flex gap-2">
+                      <Badge variant="secondary">
+                        {disciplina.carga_horaria_atual || 0}h/{disciplina.carga_horaria}h
+                      </Badge>
+                      <Badge variant="outline">
+                        {disciplina.aulas_ministradas || 0}/{disciplina.total_aulas} aulas
+                      </Badge>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>Progresso temporal:</span>
+                      <span>Progresso de aulas:</span>
                       <span>{progresso.toFixed(1)}%</span>
                     </div>
 

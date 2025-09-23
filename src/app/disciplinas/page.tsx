@@ -20,6 +20,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -71,21 +77,32 @@ export default function DisciplinasPage() {
 
   const filteredDisciplinas =
     disciplinas?.filter((disciplina) => {
-      const matchesSearch = disciplina.nome.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCurso = selectedCurso === "todos" || selectedCurso === "" || disciplina.id_curso === selectedCurso;
-      const matchesSemestre = selectedSemestre === "todos" || selectedSemestre === "" || disciplina.semestre?.toString() === selectedSemestre;
+      const matchesSearch = disciplina.nome
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchesCurso =
+        selectedCurso === "todos" ||
+        selectedCurso === "" ||
+        disciplina.id_curso === selectedCurso;
+      const matchesSemestre =
+        selectedSemestre === "todos" ||
+        selectedSemestre === "" ||
+        disciplina.semestre?.toString() === selectedSemestre;
       return matchesSearch && matchesCurso && matchesSemestre;
     }) || [];
 
   // Agrupar disciplinas por semestre
-  const disciplinasPorSemestre = filteredDisciplinas.reduce((acc, disciplina) => {
-    const semestre = disciplina.semestre || 1;
-    if (!acc[semestre]) {
-      acc[semestre] = [];
-    }
-    acc[semestre].push(disciplina);
-    return acc;
-  }, {} as Record<number, typeof disciplinas>);
+  const disciplinasPorSemestre = filteredDisciplinas.reduce(
+    (acc, disciplina) => {
+      const semestre = disciplina.semestre || 1;
+      if (!acc[semestre]) {
+        acc[semestre] = [];
+      }
+      acc[semestre].push(disciplina);
+      return acc;
+    },
+    {} as Record<number, typeof disciplinas>
+  );
 
   // Ordenar semestres
   const semestresOrdenados = Object.keys(disciplinasPorSemestre)
@@ -133,7 +150,8 @@ export default function DisciplinasPage() {
       const payload = {
         ...formData,
         data_inicio: formData.data_inicio?.toISOString() || undefined,
-        data_fim_prevista: formData.data_fim_prevista?.toISOString() || undefined,
+        data_fim_prevista:
+          formData.data_fim_prevista?.toISOString() || undefined,
       };
 
       if (editingDisciplina) {
@@ -206,11 +224,18 @@ export default function DisciplinasPage() {
     } catch (error: unknown) {
       console.error(
         "Erro ao excluir disciplina:",
-        (error as { response?: { data?: unknown }; message?: string })?.response?.data || (error as { message?: string })?.message
+        (error as { response?: { data?: unknown }; message?: string })?.response
+          ?.data || (error as { message?: string })?.message
       );
       toast.error(
         "Erro ao excluir disciplina: " +
-((error as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message || (error as { message?: string })?.message)
+          ((
+            error as {
+              response?: { data?: { message?: string } };
+              message?: string;
+            }
+          )?.response?.data?.message ||
+            (error as { message?: string })?.message)
       );
     }
   };
@@ -233,7 +258,7 @@ export default function DisciplinasPage() {
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4 text-white" />
+                <Plus className="mr-2 h-4 w-4 text-primary-foreground" />
                 Nova Disciplina
               </Button>
             </DialogTrigger>
@@ -311,7 +336,11 @@ export default function DisciplinasPage() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          carga_horaria: Number(e.target.value) as 30 | 45 | 60 | 90,
+                          carga_horaria: Number(e.target.value) as
+                            | 30
+                            | 45
+                            | 60
+                            | 90,
                         })
                       }
                       className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -352,7 +381,10 @@ export default function DisciplinasPage() {
                       id="periodo_letivo"
                       value={formData.periodo_letivo}
                       onChange={(e) =>
-                        setFormData({ ...formData, periodo_letivo: e.target.value })
+                        setFormData({
+                          ...formData,
+                          periodo_letivo: e.target.value,
+                        })
                       }
                       className="col-span-3"
                       placeholder="Ex: 2024.1"
@@ -482,7 +514,10 @@ export default function DisciplinasPage() {
             </Select>
           </div>
           <div className="w-48">
-            <Select value={selectedSemestre} onValueChange={setSelectedSemestre}>
+            <Select
+              value={selectedSemestre}
+              onValueChange={setSelectedSemestre}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Filtrar por semestre" />
               </SelectTrigger>
@@ -509,7 +544,9 @@ export default function DisciplinasPage() {
           <div className="space-y-6">
             {semestresOrdenados.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-muted-foreground">Nenhuma disciplina encontrada.</p>
+                <p className="text-muted-foreground">
+                  Nenhuma disciplina encontrada.
+                </p>
               </div>
             ) : (
               semestresOrdenados.map((semestre) => (
@@ -517,7 +554,8 @@ export default function DisciplinasPage() {
                   <div className="flex items-center space-x-2">
                     <h2 className="text-2xl font-bold">{semestre}º Semestre</h2>
                     <Badge variant="secondary" className="text-sm">
-                      {disciplinasPorSemestre[semestre].length} disciplina{disciplinasPorSemestre[semestre].length !== 1 ? 's' : ''}
+                      {disciplinasPorSemestre[semestre].length} disciplina
+                      {disciplinasPorSemestre[semestre].length !== 1 ? "s" : ""}
                     </Badge>
                   </div>
                   <Card>
@@ -531,79 +569,110 @@ export default function DisciplinasPage() {
                             <TableHead>Carga Horária</TableHead>
                             <TableHead>Tipo de Sala</TableHead>
                             <TableHead>Obrigatória</TableHead>
-                            <TableHead>Horário</TableHead>
                             <TableHead>Período</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {disciplinasPorSemestre[semestre].map((disciplina) => (
-                            <TableRow key={disciplina.id}>
-                              <TableCell className="font-medium">
-                                {disciplina.nome}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline">
-                                  {disciplina.codigo || 'N/A'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                {disciplina.curso?.nome || 'N/A'}
-                              </TableCell>
-                              <TableCell>
-                                {disciplina.carga_horaria === 30 ? '30h (36 aulas)' : 
-                                 disciplina.carga_horaria === 45 ? '45h (54 aulas)' : 
-                                 disciplina.carga_horaria === 60 ? '60h (72 aulas)' : 
-                                 '90h (108 aulas)'}
-                              </TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant={disciplina.tipo_de_sala === "Lab" ? "default" : "secondary"}
-                                >
-                                  {disciplina.tipo_de_sala}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant={disciplina.obrigatoria ? "default" : "outline"}
-                                >
-                                  {disciplina.obrigatoria ? "Sim" : "Não"}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                {disciplina.horario_consolidado ? (
-                                  <span className="font-medium text-primary">
-                                    {disciplina.horario_consolidado}
-                                  </span>
-                                ) : (
-                                  <span className="text-muted-foreground">-</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {disciplina.periodo_letivo || '-'}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex justify-end space-x-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    title="Editar disciplina"
-                                    onClick={() => handleEdit(disciplina)}
+                          {disciplinasPorSemestre[semestre].map(
+                            (disciplina) => (
+                              <TableRow key={disciplina.id}>
+                                <TableCell className="font-medium">
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="truncate max-w-[200px] block">
+                                          {disciplina.nome}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-xs p-2 text-sm bg-popover text-popover-foreground border rounded shadow-lg">
+                                        <p className="break-words">
+                                          {disciplina.nome}
+                                        </p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline">
+                                    {disciplina.codigo || "N/A"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="truncate max-w-[150px] block">
+                                          {disciplina.curso?.nome || "N/A"}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-xs p-2 text-sm bg-popover text-popover-foreground border rounded shadow-lg">
+                                        <p className="break-words">
+                                          {disciplina.curso?.nome || "N/A"}
+                                        </p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </TableCell>
+                                <TableCell>
+                                  {disciplina.carga_horaria === 30
+                                    ? "30h (36 aulas)"
+                                    : disciplina.carga_horaria === 45
+                                    ? "45h (54 aulas)"
+                                    : disciplina.carga_horaria === 60
+                                    ? "60h (72 aulas)"
+                                    : "90h (108 aulas)"}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={
+                                      disciplina.tipo_de_sala === "Lab"
+                                        ? "default"
+                                        : "secondary"
+                                    }
                                   >
-                                    <Edit className="h-4 w-4 text-blue-600" />
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    title="Excluir disciplina"
-                                    onClick={() => handleDelete(disciplina.id)}
+                                    {disciplina.tipo_de_sala}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={
+                                      disciplina.obrigatoria
+                                        ? "default"
+                                        : "outline"
+                                    }
                                   >
-                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                                    {disciplina.obrigatoria ? "Sim" : "Não"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {disciplina.periodo_letivo || "-"}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end space-x-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      title="Editar disciplina"
+                                      onClick={() => handleEdit(disciplina)}
+                                    >
+                                      <Edit className="h-4 w-4 text-blue-600" />
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      title="Excluir disciplina"
+                                      onClick={() =>
+                                        handleDelete(disciplina.id)
+                                      }
+                                    >
+                                      <Trash2 className="h-4 w-4 text-red-600" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          )}
                         </TableBody>
                       </Table>
                     </CardContent>

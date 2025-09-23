@@ -71,7 +71,11 @@ export interface Predio {
 export interface Sala {
   id: string;
   nome: string;
-  predio: string;
+  predio: {
+    id: string;
+    nome: string;
+    codigo: string;
+  };
   predioId?: string;
   capacidade: number;
   tipo: string;
@@ -137,6 +141,28 @@ export interface DisciplinaComVinculo {
     ativo: boolean;
     created_at: string;
   };
+}
+
+export interface DisciplinaComProgresso {
+  id: string;
+  nome: string;
+  codigo: string | null;
+  carga_horaria: number;
+  total_aulas: number;
+  carga_horaria_atual: number;
+  aulas_ministradas: number;
+  tipo_de_sala: string;
+  data_inicio: string | null;
+  data_fim_prevista: string | null;
+  data_fim_real: string | null;
+  periodo_letivo: string | null;
+  horario_consolidado: string | null;
+  id_curso: string;
+  semestre: number;
+  obrigatoria: boolean;
+  progresso_temporal: number;
+  progresso_aulas: number;
+  aulas_previstas_ate_hoje: number;
 }
 
 export interface ProfessorComVinculo {

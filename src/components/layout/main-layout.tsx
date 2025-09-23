@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useTokenRefresh } from "@/hooks/useTokenRefresh";
-
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "@/components/ui/user-avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,7 +42,12 @@ const navigation = [
   { name: "Cursos", href: "/cursos", icon: School, adminOnly: true },
   { name: "Prédios", href: "/predios", icon: Building, adminOnly: true },
   { name: "Disciplinas", href: "/disciplinas", icon: BookOpen },
-  { name: "Professor-Disciplina", href: "/professor-disciplina", icon: UserCheck, adminOnly: true },
+  {
+    name: "Professor-Disciplina",
+    href: "/professor-disciplina",
+    icon: UserCheck,
+    adminOnly: true,
+  },
   { name: "Turmas", href: "/turmas", icon: GraduationCap },
   { name: "Salas", href: "/salas", icon: MapPin },
   { name: "Alocações", href: "/alocacoes", icon: Calendar },
@@ -222,13 +226,9 @@ export function MainLayout({ children }: MainLayoutProps) {
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
-                        className="relative h-8 w-8 rounded-full"
+                        className="relative h-12 w-12 rounded-full p-0 flex items-center justify-center"
                       >
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback>
-                            {getInitials(user.nome)}
-                          </AvatarFallback>
-                        </Avatar>
+                        <UserAvatar name={user?.nome || "Usuário"} size={55} />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56" align="end">
@@ -241,7 +241,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                         </div>
                       </div>
                       <DropdownMenuItem asChild>
-                        <Link href="/profile" className="cursor-pointer">
+                        <Link href="/perfil" className="cursor-pointer">
                           <User className="mr-2 h-4 w-4" />
                           Perfil
                         </Link>

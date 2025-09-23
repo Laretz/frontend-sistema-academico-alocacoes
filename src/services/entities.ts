@@ -95,6 +95,11 @@ export const disciplinaService = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/disciplinas/${id}`);
   },
+
+  getByProfessor: async (id_user: string): Promise<{ disciplinas: Disciplina[] }> => {
+    const response = await api.get<{ disciplinas: Disciplina[] }>(`/professores/${id_user}/disciplinas`);
+    return response.data;
+  },
 };
 
 // Turmas
@@ -134,6 +139,11 @@ export const salaService = {
   getById: async (id: string): Promise<Sala> => {
     const response = await api.get<{ sala: Sala }>(`/salas/${id}`);
     return response.data.sala;
+  },
+
+  getByPredioId: async (predioId: string): Promise<{ salas: Sala[] }> => {
+    const response = await api.get<{ salas: Sala[] }>(`/predios/${predioId}/salas`);
+    return response.data;
   },
 
   create: async (data: CreateSalaRequest): Promise<Sala> => {
@@ -223,7 +233,15 @@ export const alocacaoService = {
 
   // Excluir todas as alocações de uma turma
   deleteAllByTurma: async (id_turma: string): Promise<{ message: string }> => {
-    const response = await api.delete<{ message: string }>(`/alocacoes/turma/${id_turma}/todas`);
+    const response = await api.delete<{ message: string }>(`/alocacoes/turma/${id_turma}`);
+    return response.data;
+  },
+};
+
+// Professor-Disciplina
+export const professorDisciplinaService = {
+  vincular: async (data: { id_user: string; id_disciplina: string }): Promise<any> => {
+    const response = await api.post('/professor-disciplina/vincular', data);
     return response.data;
   },
 };

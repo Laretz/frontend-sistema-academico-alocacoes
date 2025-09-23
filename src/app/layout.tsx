@@ -35,7 +35,7 @@ export default function RootLayout({
   }));
 
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <title>Sistema de Alocação Acadêmica - UFRN</title>
         <meta name="description" content="Sistema de Alocação Acadêmica da Escola Agrícola de Jundiaí - UFRN" />
