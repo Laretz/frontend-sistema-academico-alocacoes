@@ -18,6 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, Users, BookOpen, CheckSquare, ArrowLeft } from "lucide-react";
@@ -117,64 +123,114 @@ export default function ProfessorDisciplinaPage() {
   };
 
   const vincularProfessorDisciplina = async () => {
-    if (!selectedProfessor || !selectedDisciplina) {
-      toast.error("Selecione um professor e uma disciplina");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await professorDisciplinaService.vincular({
-        id_user: selectedProfessor,
-        id_disciplina: selectedDisciplina,
-      });
-      toast.success("Professor vinculado à disciplina com sucesso!");
-
-      // Atualizar as listas
-      if (viewMode === "professor") {
-        carregarDisciplinasProfessor(selectedProfessor);
-      } else {
-        carregarProfessoresDisciplina(selectedDisciplina);
+    if (viewMode === "professor") {
+      if (!selectedProfessor || selectedDisciplinas.length !== 1) {
+        toast.error("Selecione um professor e uma disciplina");
+        return;
       }
 
-      setSelectedDisciplina("");
-      setSelectedProfessor("");
-    } catch (error) {
-      toast.error("Erro ao vincular professor à disciplina");
-    } finally {
-      setLoading(false);
+      setLoading(true);
+      try {
+        await professorDisciplinaService.vincular({
+          id_user: selectedProfessor,
+          id_disciplina: selectedDisciplinas[0],
+        });
+        toast.success("Professor vinculado à disciplina com sucesso!");
+
+        // Atualizar as listas
+        carregarDisciplinasProfessor(selectedProfessor);
+        
+        setSelectedDisciplinas([]);
+      } catch (error) {
+        toast.error("Erro ao vincular professor à disciplina");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Modo disciplina - vincular um professor à disciplina selecionada
+      if (!selectedDisciplina || selectedDisciplinas.length !== 1) {
+        toast.error("Selecione uma disciplina e um professor");
+        return;
+      }
+
+      setLoading(true);
+      try {
+        await professorDisciplinaService.vincular({
+          id_user: selectedDisciplinas[0], // No modo disciplina, selectedDisciplinas contém IDs de professores
+          id_disciplina: selectedDisciplina,
+        });
+        toast.success("Professor vinculado à disciplina com sucesso!");
+
+        // Atualizar as listas
+        carregarProfessoresDisciplina(selectedDisciplina);
+        
+        setSelectedDisciplinas([]);
+      } catch (error) {
+        toast.error("Erro ao vincular professor à disciplina");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
   const vincularMultiplasDisciplinas = async () => {
-    if (!selectedProfessor || selectedDisciplinas.length === 0) {
-      toast.error("Selecione um professor e pelo menos uma disciplina");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Vincular cada disciplina selecionada
-      const promises = selectedDisciplinas.map(disciplinaId =>
-        professorDisciplinaService.vincular({
-          id_user: selectedProfessor,
-          id_disciplina: disciplinaId,
-        })
-      );
-      
-      await Promise.all(promises);
-      toast.success(`Professor vinculado a ${selectedDisciplinas.length} disciplina(s) com sucesso!`);
-
-      // Atualizar as listas
-      if (viewMode === "professor") {
-        carregarDisciplinasProfessor(selectedProfessor);
+    if (viewMode === "professor") {
+      if (!selectedProfessor || selectedDisciplinas.length === 0) {
+        toast.error("Selecione um professor e pelo menos uma disciplina");
+        return;
       }
 
-      setSelectedDisciplinas([]);
-    } catch (error) {
-      toast.error("Erro ao vincular professor às disciplinas");
-    } finally {
-      setLoading(false);
+      setLoading(true);
+      try {
+        // Vincular cada disciplina selecionada
+        const promises = selectedDisciplinas.map(disciplinaId =>
+          professorDisciplinaService.vincular({
+            id_user: selectedProfessor,
+            id_disciplina: disciplinaId,
+          })
+        );
+        
+        await Promise.all(promises);
+        toast.success(`Professor vinculado a ${selectedDisciplinas.length} disciplina(s) com sucesso!`);
+
+        // Atualizar as listas
+        carregarDisciplinasProfessor(selectedProfessor);
+
+        setSelectedDisciplinas([]);
+      } catch (error) {
+        toast.error("Erro ao vincular professor às disciplinas");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Modo disciplina - vincular múltiplos professores à disciplina selecionada
+      if (!selectedDisciplina || selectedDisciplinas.length === 0) {
+        toast.error("Selecione uma disciplina e pelo menos um professor");
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // Vincular cada professor selecionado
+        const promises = selectedDisciplinas.map(professorId =>
+          professorDisciplinaService.vincular({
+            id_user: professorId, // No modo disciplina, selectedDisciplinas contém IDs de professores
+            id_disciplina: selectedDisciplina,
+          })
+        );
+        
+        await Promise.all(promises);
+        toast.success(`${selectedDisciplinas.length} professor(es) vinculado(s) à disciplina com sucesso!`);
+
+        // Atualizar as listas
+        carregarProfessoresDisciplina(selectedDisciplina);
+
+        setSelectedDisciplinas([]);
+      } catch (error) {
+        toast.error("Erro ao vincular professores à disciplina");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -211,11 +267,19 @@ export default function ProfessorDisciplinaPage() {
     }
   };
 
-  const handleDisciplinaSelection = (disciplinaId: string, checked: boolean) => {
+  const handleDisciplinaSelection = (itemId: string, checked: boolean) => {
     if (checked) {
-      setSelectedDisciplinas(prev => [...prev, disciplinaId]);
+      setSelectedDisciplinas(prev => [...prev, itemId]);
     } else {
-      setSelectedDisciplinas(prev => prev.filter(id => id !== disciplinaId));
+      setSelectedDisciplinas(prev => prev.filter(id => id !== itemId));
+    }
+  };
+
+  const handleProfessorSelection = (professorId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedDisciplinas(prev => [...prev, professorId]); // Reutilizando o mesmo estado
+    } else {
+      setSelectedDisciplinas(prev => prev.filter(id => id !== professorId));
     }
   };
 
@@ -299,140 +363,296 @@ export default function ProfessorDisciplinaPage() {
         searchPlaceholder="Buscar disciplina por nome ou código..."
       />
 
-      {/* Formulário de Vinculação Múltipla */}
+      {/* Formulário de Vinculação Consolidado */}
       <Card>
         <CardHeader>
-          <CardTitle>Novos Vínculos</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            {viewMode === "professor" ? (
+              <>
+                <Users className="w-5 h-5" />
+                Vincular Professor às Disciplinas
+              </>
+            ) : (
+              <>
+                <BookOpen className="w-5 h-5" />
+                Vincular Professores à Disciplina
+              </>
+            )}
+          </CardTitle>
           <CardDescription>
-            Selecione um professor e múltiplas disciplinas para criar vários vínculos de uma vez
+            {viewMode === "professor" 
+              ? "Selecione um professor e as disciplinas que deseja vincular"
+              : "Selecione uma disciplina e os professores que deseja vincular"
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">
-                Professor
-              </label>
-              <Select
-                value={selectedProfessor}
-                onValueChange={handleProfessorChange}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um professor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {professores.map((professor) => (
-                    <SelectItem key={professor.id} value={professor.id}>
-                      {professor.nome} -{" "}
-                      {professor.especializacao || "Sem especialização"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-6">
+            {viewMode === "professor" ? (
+              <>
+                {/* Seleção de Professor */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Professor
+                  </label>
+                  <Select
+                    value={selectedProfessor}
+                    onValueChange={handleProfessorChange}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione um professor" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px] overflow-y-auto">
+                      {professores.map((professor) => (
+                        <SelectItem key={professor.id} value={professor.id}>
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">{professor.nome}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {professor.especializacao || "Sem especialização"}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-medium">
-                  Disciplinas ({selectedDisciplinas.length} selecionadas)
-                </label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleSelectAll}
-                  disabled={getFilteredDisciplinas().length === 0}
-                >
-                  <CheckSquare className="w-4 h-4 mr-2 text-blue-600" />
-                  {selectedDisciplinas.length === getFilteredDisciplinas().length && getFilteredDisciplinas().length > 0 ? "Desmarcar Todas" : "Selecionar Todas"}
-                </Button>
-              </div>
-              
-              <div className="max-h-80 overflow-y-auto border rounded-lg p-3">
-                {getFilteredDisciplinas().length === 0 ? (
-                  <p className="text-muted-foreground text-center py-4">
-                    {disciplinas.length === 0 ? "Nenhuma disciplina disponível" : "Nenhuma disciplina encontrada com os filtros aplicados"}
-                  </p>
-                ) : (
+                {/* Seleção de Disciplinas */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-sm font-medium">
+                        Disciplinas
+                      </label>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedDisciplinas.length} disciplina{selectedDisciplinas.length !== 1 ? 's' : ''} selecionada{selectedDisciplinas.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleSelectAll}
+                        disabled={getFilteredDisciplinas().length === 0}
+                      >
+                        <CheckSquare className="w-4 h-4 mr-2" />
+                        {selectedDisciplinas.length === getFilteredDisciplinas().length && getFilteredDisciplinas().length > 0 ? "Desmarcar Todas" : "Selecionar Todas"}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="max-h-96 overflow-y-auto border rounded-lg bg-muted/20">
+                    {getFilteredDisciplinas().length === 0 ? (
+                      <div className="p-8 text-center">
+                        <BookOpen className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground font-medium">
+                          {disciplinas.length === 0 ? "Nenhuma disciplina disponível" : "Nenhuma disciplina encontrada"}
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {disciplinas.length === 0 ? "Cadastre disciplinas primeiro" : "Tente ajustar os filtros"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-3 space-y-4">
+                        {getDisciplinasGroupedBySemestre().map(({ semestre, disciplinas: disciplinasSemestre }) => (
+                          <div key={semestre} className="space-y-3">
+                            <div className="flex items-center gap-3 pb-2 border-b border-border/50 sticky top-0 bg-background/95 backdrop-blur-sm">
+                              <Badge variant="default" className="font-semibold">
+                                {semestre}º Semestre
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">
+                                {disciplinasSemestre.length} disciplina{disciplinasSemestre.length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {disciplinasSemestre.map((disciplina) => (
+                                <div key={disciplina.id} className="flex items-start space-x-3 p-3 hover:bg-background/80 rounded-lg border border-transparent hover:border-border/50 transition-all duration-200">
+                                  <Checkbox
+                                     id={`disciplina-${disciplina.id}`}
+                                     checked={selectedDisciplinas.includes(disciplina.id)}
+                                     onCheckedChange={(checked) => 
+                                       handleDisciplinaSelection(disciplina.id, checked as boolean)
+                                     }
+                                     className="mt-1"
+                                   />
+                                  <label 
+                                    htmlFor={`disciplina-${disciplina.id}`}
+                                    className="flex-1 cursor-pointer space-y-2"
+                                  >
+                                    <div className="font-medium text-foreground leading-tight">{disciplina.nome}</div>
+                                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                                      <Badge variant="outline" className="text-xs">
+                                        {disciplina.codigo}
+                                      </Badge>
+                                      <span>{disciplina.carga_horaria}h</span>
+                                      <span>•</span>
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="truncate max-w-[150px]">
+                                              {disciplina.curso.nome}
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>{disciplina.curso.nome}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Badge variant={disciplina.obrigatoria ? "default" : "secondary"} className="text-xs">
+                                        {disciplina.obrigatoria ? "Obrigatória" : "Optativa"}
+                                      </Badge>
+                                      <Badge variant="outline" className="text-xs">
+                                        {disciplina.tipo_de_sala}
+                                      </Badge>
+                                    </div>
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Seleção de Disciplina (modo disciplina) */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Disciplina</label>
+                  <Select
+                    value={selectedDisciplina}
+                    onValueChange={handleDisciplinaChange}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione uma disciplina" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px] overflow-y-auto">
+                      {getFilteredDisciplinas().map((disciplina) => (
+                        <SelectItem key={disciplina.id} value={disciplina.id}>
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">{disciplina.nome}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {disciplina.codigo} - {disciplina.curso.nome}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Seleção de Professores (modo disciplina) */}
+                {selectedDisciplina && (
                   <div className="space-y-4">
-                    {getDisciplinasGroupedBySemestre().map(({ semestre, disciplinas: disciplinasSemestre }) => (
-                      <div key={semestre} className="space-y-2">
-                        <div className="flex items-center gap-2 pb-2 border-b">
-                          <Badge variant="outline" className="font-semibold">
-                            {semestre}º Semestre
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">
-                            ({disciplinasSemestre.length} disciplina{disciplinasSemestre.length !== 1 ? 's' : ''})
-                          </span>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium">
+                          Professores
+                        </label>
+                        <p className="text-sm text-muted-foreground">
+                          Selecione os professores para vincular à disciplina
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="max-h-96 overflow-y-auto border rounded-lg bg-muted/20">
+                      {professores.length === 0 ? (
+                        <div className="p-8 text-center">
+                          <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                          <p className="text-muted-foreground font-medium">
+                            Nenhum professor disponível
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Cadastre professores primeiro
+                          </p>
                         </div>
-                        <div className="space-y-2 pl-4">
-                          {disciplinasSemestre.map((disciplina) => (
-                            <div key={disciplina.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
+                      ) : (
+                        <div className="p-3 space-y-2">
+                          {professores.map((professor) => (
+                            <div key={professor.id} className="flex items-start space-x-3 p-3 hover:bg-background/80 rounded-lg border border-transparent hover:border-border/50 transition-all duration-200">
                               <Checkbox
-                                id={`disciplina-${disciplina.id}`}
-                                checked={selectedDisciplinas.includes(disciplina.id)}
-                                onCheckedChange={(checked) => 
-                                  handleDisciplinaSelection(disciplina.id, checked as boolean)
-                                }
-                              />
+                                 id={`professor-${professor.id}`}
+                                 checked={selectedDisciplinas.includes(professor.id)}
+                                 onCheckedChange={(checked) => 
+                                   handleProfessorSelection(professor.id, checked as boolean)
+                                 }
+                                 className="mt-1"
+                               />
                               <label 
-                                htmlFor={`disciplina-${disciplina.id}`}
-                                className="flex-1 cursor-pointer"
+                                htmlFor={`professor-${professor.id}`}
+                                className="flex-1 cursor-pointer space-y-1"
                               >
-                                <div className="font-medium">{disciplina.nome}</div>
-                                <div className="text-sm text-muted-foreground flex items-center gap-2">
-                                  <span>{disciplina.codigo}</span>
-                                  <span>•</span>
-                                  <span>{disciplina.carga_horaria}h</span>
-                                  <span>•</span>
-                                  <span>{disciplina.curso.nome}</span>
+                                <div className="font-medium text-foreground leading-tight">{professor.nome}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {professor.email}
                                 </div>
-                                <div className="flex gap-1 mt-1">
-                                  <Badge variant={disciplina.obrigatoria ? "default" : "secondary"} className="text-xs">
-                                    {disciplina.obrigatoria ? "Obrigatória" : "Optativa"}
-                                  </Badge>
+                                {professor.especializacao && (
                                   <Badge variant="outline" className="text-xs">
-                                    {disciplina.tipo_de_sala}
+                                    {professor.especializacao}
                                   </Badge>
-                                </div>
+                                )}
                               </label>
                             </div>
                           ))}
                         </div>
-                      </div>
-                    ))}
+                      )}
+                    </div>
                   </div>
                 )}
-              </div>
-            </div>
+              </>
+            )}
 
-            <div className="flex justify-end">
-              <Button
-                onClick={vincularMultiplasDisciplinas}
-                disabled={loading || !selectedProfessor || selectedDisciplinas.length === 0}
-              >
-                <Plus className="w-4 h-4 mr-2 text-white" />
-                Vincular {selectedDisciplinas.length} Disciplina(s)
-              </Button>
+            {/* Ações */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground mb-2">
+                  {viewMode === "professor" ? (
+                    !selectedProfessor ? "Selecione um professor primeiro" : 
+                    selectedDisciplinas.length === 0 ? "Selecione pelo menos uma disciplina" :
+                    `Pronto para vincular ${selectedDisciplinas.length} disciplina${selectedDisciplinas.length !== 1 ? 's' : ''}`
+                  ) : (
+                    !selectedDisciplina ? "Selecione uma disciplina primeiro" : 
+                    selectedDisciplinas.length === 0 ? "Selecione pelo menos um professor" :
+                    `Pronto para vincular ${selectedDisciplinas.length} professor${selectedDisciplinas.length !== 1 ? 'es' : ''}`
+                  )}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedDisciplinas([]);
+                    setSelectedProfessor("");
+                    setSelectedDisciplina("");
+                  }}
+                  disabled={loading || (viewMode === "professor" ? (!selectedProfessor && selectedDisciplinas.length === 0) : (!selectedDisciplina && selectedDisciplinas.length === 0))}
+                >
+                  Limpar Seleção
+                </Button>
+                <Button
+                  onClick={selectedDisciplinas.length > 1 ? vincularMultiplasDisciplinas : vincularProfessorDisciplina}
+                  disabled={loading || (viewMode === "professor" ? (!selectedProfessor || selectedDisciplinas.length === 0) : (!selectedDisciplina || selectedDisciplinas.length === 0))}
+                  className="min-w-[140px]"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  {loading ? "Vinculando..." : 
+                   viewMode === "professor" ? (
+                     selectedDisciplinas.length > 1 ? `Vincular ${selectedDisciplinas.length} Disciplinas` :
+                     selectedDisciplinas.length === 1 ? "Vincular Disciplina" : "Vincular"
+                   ) : (
+                     selectedDisciplinas.length > 1 ? `Vincular ${selectedDisciplinas.length} Professores` :
+                     selectedDisciplinas.length === 1 ? "Vincular Professor" : "Vincular"
+                   )}
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Formulário de Vinculação Individual */}
-      <VinculationForm
-        title="Novo Vínculo Individual"
-        description="Selecione um professor e uma disciplina para criar um novo vínculo"
-        professores={professores}
-        disciplinas={disciplinas}
-        selectedProfessor={selectedProfessor}
-        onProfessorChange={handleProfessorChange}
-        selectedDisciplina={selectedDisciplina}
-        onDisciplinaChange={handleDisciplinaChange}
-        onSubmit={vincularProfessorDisciplina}
-        loading={loading}
-        submitText="Vincular"
-        type="individual"
-      />
 
       {/* Lista de Vínculos */}
       {viewMode === "professor" && selectedProfessor && (

@@ -213,7 +213,7 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
             Grade de Horários - {sala.nome}
           </DialogTitle>
           <DialogDescription>
-            {sala.predio} • Capacidade: {sala.capacidade} pessoas
+            {sala.predio.nome} • Capacidade: {sala.capacidade} pessoas
             {gradeData && (
               <span className="ml-4">
                 {gradeData.resumo.totalAlocacoes} alocações •

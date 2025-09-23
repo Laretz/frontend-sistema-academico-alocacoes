@@ -111,7 +111,7 @@ export default function SalasPage() {
     setEditingSala(sala);
     setFormData({
       nome: sala.nome,
-      predioId: sala.predioId || "",
+      predioId: sala.predio.id,
       capacidade: sala.capacidade,
       tipo: sala.tipo,
       computadores: sala.computadores || 0,
@@ -165,11 +165,11 @@ export default function SalasPage() {
   const filteredSalas = salas.filter((sala) => {
     const matchesSearch =
       sala.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sala.predio.toLowerCase().includes(searchTerm.toLowerCase());
+      sala.predio.nome.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesPredio =
       selectedPredio === "todos" ||
       selectedPredio === "" ||
-      sala.predio === selectedPredio;
+      sala.predio.nome === selectedPredio;
     return matchesSearch && matchesPredio;
   });
 
@@ -266,7 +266,7 @@ export default function SalasPage() {
                       <span className="text-muted-foreground">Prédio:</span>
                       <div className="flex items-center gap-1">
                         <MapPin className="h-3 w-3" />
-                        <span>{sala.predio}</span>
+                        <span>{sala.predio.nome}</span>
                       </div>
                     </div>
                     <div className="flex justify-between text-sm">

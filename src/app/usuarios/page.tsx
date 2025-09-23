@@ -361,7 +361,7 @@ export default function UsuariosPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end space-x-2">
-                      {usuario.role === "PROFESSOR" && (
+                      {(usuario.role === "PROFESSOR" || usuario.role === "ADMIN" || usuario.role === "COORDENADOR") && (
                         <Button
                           variant="outline"
                           size="sm"

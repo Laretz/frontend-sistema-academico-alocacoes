@@ -22,6 +22,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -40,13 +46,16 @@ import {
   BookOpen,
   GraduationCap,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import {
   alocacaoService,
   disciplinaService,
   turmaService,
   salaService,
   horarioService,
+  professorDisciplinaService,
 } from "@/services/entities";
 import { userService } from "@/services/users";
 import {
@@ -89,12 +98,24 @@ export default function AlocacoesPage() {
   const [usuarios, setUsuarios] = useState<User[]>([]);
 
   const [disciplinas, setDisciplinas] = useState<Disciplina[]>([]);
+  const [disciplinasProfessor, setDisciplinasProfessor] = useState<
+    Disciplina[]
+  >([]);
+  const [todasDisciplinas, setTodasDisciplinas] = useState<Disciplina[]>([]);
+  const [mostrarTodasDisciplinas, setMostrarTodasDisciplinas] = useState(false);
+  const [conflictingHorarios, setConflictingHorarios] = useState<
+    Map<string, "professor" | "sala" | "ambos">
+  >(new Map());
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [salas, setSalas] = useState<Sala[]>([]);
   const [horarios, setHorarios] = useState<Horario[]>([]);
   //estados para filtros
-  const [filtroDataInicio, setFiltroDataInicio] = useState<Date | undefined>(undefined);
-  const [filtroDataFim, setFiltroDataFim] = useState<Date | undefined>(undefined);
+  const [filtroDataInicio, setFiltroDataInicio] = useState<Date | undefined>(
+    undefined
+  );
+  const [filtroDataFim, setFiltroDataFim] = useState<Date | undefined>(
+    undefined
+  );
   const [filtroDiaSemana, setFiltroDiaSemana] = useState("");
   const [filtroPeriodo, setFiltroPeriodo] = useState("");
   const [filtroTurmaId, setFiltroTurmaId] = useState("");
@@ -102,6 +123,10 @@ export default function AlocacoesPage() {
     fetchAlocacoes();
     fetchSelectData();
   }, []);
+
+  useEffect(() => {
+    checkHorarioConflicts(formData.id_user, formData.id_sala);
+  }, [formData.id_user, formData.id_sala]);
 
   const fetchAlocacoes = async () => {
     try {
@@ -116,16 +141,14 @@ export default function AlocacoesPage() {
     }
   };
 
-
-
-
-
   const excluirTodasAlocacoesTurma = async () => {
     if (!filtroTurmaId) {
       alert("Selecione uma turma");
       return;
     }
-    if (!confirm("Tem certeza que deseja excluir todas as alocações desta turma?")) {
+    if (
+      !confirm("Tem certeza que deseja excluir todas as alocações desta turma?")
+    ) {
       return;
     }
     try {
@@ -158,6 +181,7 @@ export default function AlocacoesPage() {
       ]);
 
       setUsuarios(usuariosData.usuarios || []);
+      setTodasDisciplinas(disciplinasData.disciplinas || []);
       setDisciplinas(disciplinasData.disciplinas || []);
       setTurmas(turmasData.turmas || []);
       setSalas(salasData.salas || []);
@@ -167,12 +191,106 @@ export default function AlocacoesPage() {
     }
   };
 
+  const fetchDisciplinasProfessor = async (id_user: string) => {
+    try {
+      const response = await disciplinaService.getByProfessor(id_user);
+      setDisciplinasProfessor(response.disciplinas || []);
+
+      // Se não está mostrando todas as disciplinas, filtrar apenas as do professor
+      if (!mostrarTodasDisciplinas) {
+        setDisciplinas(response.disciplinas || []);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar disciplinas do professor:", error);
+      setDisciplinasProfessor([]);
+      if (!mostrarTodasDisciplinas) {
+        setDisciplinas([]);
+      }
+    }
+  };
+
+  const checkHorarioConflicts = async (professorId: string, salaId: string) => {
+    if (!professorId && !salaId) {
+      setConflictingHorarios(new Map());
+      return;
+    }
+
+    try {
+      const conflicts = new Map<string, "professor" | "sala" | "ambos">();
+
+      // Verificar conflitos do professor
+      if (professorId) {
+        const response = await alocacaoService.getAll(1);
+        const alocacoes = response.alocacoes || [];
+        alocacoes.forEach((alocacao: any) => {
+          if (alocacao.id_user === professorId) {
+            conflicts.set(alocacao.id_horario, "professor");
+          }
+        });
+      }
+
+      // Verificar conflitos da sala
+      if (salaId) {
+        const response = await alocacaoService.getAll(1);
+        const alocacoes = response.alocacoes || [];
+        alocacoes.forEach((alocacao: any) => {
+          if (alocacao.id_sala === salaId) {
+            const existing = conflicts.get(alocacao.id_horario);
+            if (existing === "professor") {
+              conflicts.set(alocacao.id_horario, "ambos");
+            } else {
+              conflicts.set(alocacao.id_horario, "sala");
+            }
+          }
+        });
+      }
+
+      setConflictingHorarios(conflicts);
+    } catch (error) {
+      console.error("Erro ao verificar conflitos de horário:", error);
+      setConflictingHorarios(new Map());
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
 
     try {
       setSubmitting(true);
+
+      // Verificar se precisa criar relação professor-disciplina
+      const professorSelecionado = usuarios.find(
+        (u) => u.id === formData.id_user
+      );
+      const disciplinaSelecionada = todasDisciplinas.find(
+        (d) => d.id === formData.id_disciplina
+      );
+
+      if (
+        professorSelecionado &&
+        disciplinaSelecionada &&
+        mostrarTodasDisciplinas
+      ) {
+        // Verificar se a disciplina não está nas disciplinas do professor
+        const disciplinaJaVinculada = disciplinasProfessor.some(
+          (d) => d.id === formData.id_disciplina
+        );
+
+        if (!disciplinaJaVinculada) {
+          // Criar relação professor-disciplina automaticamente
+          try {
+            await professorDisciplinaService.vincular({
+              id_user: formData.id_user,
+              id_disciplina: formData.id_disciplina,
+            });
+            console.log("Relação professor-disciplina criada automaticamente");
+          } catch (error) {
+            console.error("Erro ao criar relação professor-disciplina:", error);
+            // Continuar mesmo se houver erro na criação da relação
+          }
+        }
+      }
 
       if (editingAlocacao) {
         // Para edição, enviamos apenas um horário
@@ -198,6 +316,13 @@ export default function AlocacoesPage() {
 
       await fetchAlocacoes();
       handleCloseDialog();
+
+      // Mensagem de confirmação
+      if (editingAlocacao) {
+        toast.success("Alocação atualizada com sucesso!");
+      } else {
+        toast.success("Alocação criada com sucesso!");
+      }
     } catch (error) {
       console.error("Erro ao salvar alocação:", error);
     } finally {
@@ -222,8 +347,10 @@ export default function AlocacoesPage() {
       try {
         await alocacaoService.delete(id);
         await fetchAlocacoes();
+        toast.success("Alocação excluída com sucesso!");
       } catch (error) {
         console.error("Erro ao excluir alocação:", error);
+        toast.error("Erro ao excluir alocação. Tente novamente.");
       }
     }
   };
@@ -232,6 +359,32 @@ export default function AlocacoesPage() {
     setIsDialogOpen(false);
     setEditingAlocacao(null);
     setFormData(initialFormData);
+    setMostrarTodasDisciplinas(false);
+    setDisciplinas(todasDisciplinas);
+    setDisciplinasProfessor([]);
+  };
+
+  const handleProfessorChange = (value: string) => {
+    setFormData({ ...formData, id_user: value, id_disciplina: "" });
+
+    if (value) {
+      fetchDisciplinasProfessor(value);
+    } else {
+      setDisciplinasProfessor([]);
+      setDisciplinas(todasDisciplinas);
+      setMostrarTodasDisciplinas(false);
+    }
+  };
+
+  const handleMostrarTodasDisciplinasChange = (checked: boolean) => {
+    setMostrarTodasDisciplinas(checked);
+    setFormData({ ...formData, id_disciplina: "" });
+
+    if (checked) {
+      setDisciplinas(todasDisciplinas);
+    } else {
+      setDisciplinas(disciplinasProfessor);
+    }
   };
 
   const handleHorarioChange = (horarioId: string, checked: boolean) => {
@@ -284,8 +437,13 @@ export default function AlocacoesPage() {
 
     if (filtroPeriodo && filtroPeriodo !== "todos") {
       const codigoHorario = alocacao.horario?.codigo?.toLowerCase();
-      if (filtroPeriodo === 'M' || filtroPeriodo === 'T' || filtroPeriodo === 'N') {
-        if (!codigoHorario?.startsWith(filtroPeriodo.toLowerCase())) return false;
+      if (
+        filtroPeriodo === "M" ||
+        filtroPeriodo === "T" ||
+        filtroPeriodo === "N"
+      ) {
+        if (!codigoHorario?.startsWith(filtroPeriodo.toLowerCase()))
+          return false;
       } else {
         if (codigoHorario !== filtroPeriodo.toLowerCase()) return false;
       }
@@ -310,6 +468,29 @@ export default function AlocacoesPage() {
     return dias[dia] || dia;
   };
 
+  const getDiaSemanaAbrev = (dia: string) => {
+    const dias: { [key: string]: string } = {
+      SEGUNDA: "Seg",
+      TERCA: "Ter",
+      QUARTA: "Qua",
+      QUINTA: "Qui",
+      SEXTA: "Sex",
+      SABADO: "Sáb",
+    };
+    return dias[dia] || dia;
+  };
+
+  const getHorariosAgrupados = () => {
+    const grupos: { [key: string]: typeof horarios } = {};
+    horarios.forEach((horario) => {
+      if (!grupos[horario.dia_semana]) {
+        grupos[horario.dia_semana] = [];
+      }
+      grupos[horario.dia_semana].push(horario);
+    });
+    return grupos;
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -317,7 +498,7 @@ export default function AlocacoesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Alocações</h1>
-        <p className="text-muted-foreground">
+            <p className="text-muted-foreground">
               Gerencie as alocações de professores, disciplinas e horários
             </p>
           </div>
@@ -328,7 +509,7 @@ export default function AlocacoesPage() {
                 Nova Alocação
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[85vh]">
               <DialogHeader>
                 <DialogTitle>
                   {editingAlocacao ? "Editar Alocação" : "Nova Alocação"}
@@ -345,9 +526,7 @@ export default function AlocacoesPage() {
                     <Label htmlFor="id_user">Professor</Label>
                     <Select
                       value={formData.id_user}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, id_user: value })
-                      }
+                      onValueChange={handleProfessorChange}
                       required
                     >
                       <SelectTrigger>
@@ -366,7 +545,24 @@ export default function AlocacoesPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="id_disciplina">Disciplina</Label>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label htmlFor="id_disciplina" className="font-medium">
+                        Disciplina
+                      </Label>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="mostrar-todas-disciplinas"
+                          checked={mostrarTodasDisciplinas}
+                          onCheckedChange={handleMostrarTodasDisciplinasChange}
+                        />
+                        <Label
+                          htmlFor="mostrar-todas-disciplinas"
+                          className="text-sm font-normal cursor-pointer whitespace-nowrap"
+                        >
+                          Mostrar todas
+                        </Label>
+                      </div>
+                    </div>
                     <Select
                       value={formData.id_disciplina}
                       onValueChange={(value) =>
@@ -374,21 +570,75 @@ export default function AlocacoesPage() {
                       }
                       required
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma disciplina" />
-                      </SelectTrigger>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <SelectTrigger className="w-full">
+                              <div className="truncate max-w-[250px]">
+                                {formData.id_disciplina ? (
+                                  <span className="truncate block">
+                                    {(() => {
+                                      const disciplina = disciplinas.find(
+                                        (d) => d.id === formData.id_disciplina
+                                      );
+                                      if (!disciplina)
+                                        return "Disciplina não encontrada";
+                                      const nome = disciplina.nome;
+                                      return nome.length > 25
+                                        ? nome.substring(0, 25) + "..."
+                                        : nome;
+                                    })()}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">
+                                    Selecione uma disciplina
+                                  </span>
+                                )}
+                              </div>
+                            </SelectTrigger>
+                          </TooltipTrigger>
+                          {formData.id_disciplina && (
+                            <TooltipContent className="max-w-sm p-3 text-sm bg-gray-900 text-white rounded shadow-lg z-50">
+                              <p className="break-words">
+                                {disciplinas.find(
+                                  (d) => d.id === formData.id_disciplina
+                                )?.nome || ""}
+                              </p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
                       <SelectContent>
                         {disciplinas.map((disciplina) => (
                           <SelectItem key={disciplina.id} value={disciplina.id}>
-                            {disciplina.nome}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="truncate max-w-[300px] block">
+                                    {disciplina.nome}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs p-2 text-sm bg-gray-900 text-white rounded shadow-lg">
+                                  <p className="break-words">
+                                    {disciplina.nome}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {mostrarTodasDisciplinas && formData.id_disciplina && (
+                      <p className="text-sm text-muted-foreground">
+                        💡 Se esta disciplina não estiver vinculada ao
+                        professor, o vínculo será criado automaticamente.
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-4 px-4">
                   <div className="space-y-2">
                     <Label htmlFor="id_turma">Turma</Label>
                     <Select
@@ -404,7 +654,8 @@ export default function AlocacoesPage() {
                       <SelectContent>
                         {turmas.map((turma) => (
                           <SelectItem key={turma.id} value={turma.id}>
-                            {turma.nome} - {turma.periodo}º período ({turma.turno})
+                            {turma.nome} - {turma.periodo}º período (
+                            {turma.turno})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -426,7 +677,7 @@ export default function AlocacoesPage() {
                       <SelectContent>
                         {salas.map((sala) => (
                           <SelectItem key={sala.id} value={sala.id}>
-                            {sala.nome} - {sala.predio} (Cap: {sala.capacidade})
+                            {sala.nome} - {sala.predio.nome} (Cap: {sala.capacidade})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -434,43 +685,157 @@ export default function AlocacoesPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label>
                     Horários{" "}
                     {editingAlocacao
                       ? "(selecione apenas um)"
                       : "(selecione um ou mais)"}
                   </Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-48 overflow-y-auto border rounded p-2">
-                    {horarios.map((horario) => (
-                      <label
-                        key={horario.id}
-                        className="flex items-center space-x-2 cursor-pointer"
-                      >
-                        <input
-                          type={editingAlocacao ? "radio" : "checkbox"}
-                          name={editingAlocacao ? "horario" : undefined}
-                          checked={formData.id_horarios.includes(horario.id)}
-                          onChange={(e) => {
-                            if (editingAlocacao) {
-                              setFormData((prev) => ({
-                                ...prev,
-                                id_horarios: e.target.checked
-                                  ? [horario.id]
-                                  : [],
-                              }));
-                            } else {
-                              handleHorarioChange(horario.id, e.target.checked);
-                            }
-                          }}
-                          className="rounded"
-                        />
-                        <span className="text-sm">
-                          {horario.codigo} -{" "}
-                          {getDiaSemanaLabel(horario.dia_semana)}
-                        </span>
-                      </label>
-                    ))}
+                  <div className="max-h-64 overflow-y-auto border rounded-lg p-4 bg-muted/20">
+                    {Object.entries(getHorariosAgrupados()).map(
+                      ([dia, horariosGrupo]) => (
+                        <div key={dia} className="mb-4 last:mb-0">
+                          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
+                            <Badge variant="outline" className="font-medium">
+                              {getDiaSemanaAbrev(dia)}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground font-medium">
+                              {getDiaSemanaLabel(dia)}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-2">
+                            {horariosGrupo.map((horario) => {
+                              const isSelected = formData.id_horarios.includes(
+                                horario.id
+                              );
+                              const conflictType = conflictingHorarios.get(
+                                horario.id
+                              );
+                              const isConflicting = !!conflictType;
+                              const isDisabled = isConflicting && !isSelected;
+
+                              // Definir cores baseadas no tipo de conflito
+                              const getConflictStyles = () => {
+                                if (!isConflicting)
+                                  return "cursor-pointer hover:bg-muted/50";
+
+                                switch (conflictType) {
+                                  case "professor":
+                                    return "bg-warning/10 border border-warning/30 hover:bg-warning/20";
+                                  case "sala":
+                                    return "bg-primary/10 border border-primary/30 hover:bg-primary/20";
+                                  case "ambos":
+                                    return "bg-destructive/10 border border-destructive/30 hover:bg-destructive/20";
+                                  default:
+                                    return "cursor-pointer hover:bg-muted/50";
+                                }
+                              };
+
+                              const getConflictTextColor = () => {
+                                if (!isConflicting) return "";
+
+                                switch (conflictType) {
+                                  case "professor":
+                                    return "text-warning";
+                                  case "sala":
+                                    return "text-chart";
+                                  case "ambos":
+                                    return "text-destructive";
+                                  default:
+                                    return "";
+                                }
+                              };
+
+                              const getConflictLabel = () => {
+                                switch (conflictType) {
+                                  case "professor":
+                                    return "(Conflito)";
+                                  case "sala":
+                                    return "(Conflito)";
+                                  case "ambos":
+                                    return "(Conflito)";
+                                  default:
+                                    return "";
+                                }
+                              };
+
+                              return (
+                                <label
+                                  key={horario.id}
+                                  className={`flex items-center space-x-3 p-2 rounded-md transition-colors ${getConflictStyles()} ${
+                                    isDisabled
+                                      ? "cursor-not-allowed opacity-60"
+                                      : ""
+                                  }`}
+                                >
+                                  <input
+                                    type={
+                                      editingAlocacao ? "radio" : "checkbox"
+                                    }
+                                    name={
+                                      editingAlocacao ? "horario" : undefined
+                                    }
+                                    checked={isSelected}
+                                    disabled={isDisabled}
+                                    onChange={(e) => {
+                                      if (editingAlocacao) {
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          id_horarios: e.target.checked
+                                            ? [horario.id]
+                                            : [],
+                                        }));
+                                      } else {
+                                        handleHorarioChange(
+                                          horario.id,
+                                          e.target.checked
+                                        );
+                                      }
+                                    }}
+                                    className={`rounded ${
+                                      isDisabled ? "cursor-not-allowed" : ""
+                                    }`}
+                                  />
+                                  <span
+                                    className={`text-sm font-medium ${
+                                      isDisabled ? getConflictTextColor() : ""
+                                    }`}
+                                  >
+                                    {horario.codigo}
+                                    {isConflicting && (
+                                      <span
+                                        className={`ml-1 text-xs ${getConflictTextColor()}`}
+                                      >
+                                        {getConflictLabel()}
+                                      </span>
+                                    )}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                {/* Legenda de conflitos */}
+                <div className="px-4 py-2 border-t">
+                  <div className="flex flex-col items-start gap-1 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-sm bg-warning/20 border border-warning/40"></div>
+                      <span className="text-warning">Professor</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-sm bg-primary/20 border border-primary/40"></div>
+                      <span className="text-primary">Sala</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-sm bg-destructive/20 border border-destructive/40"></div>
+                      <span className="text-destructive">Ambos</span>
+                    </div>
                   </div>
                 </div>
 
@@ -544,7 +909,10 @@ export default function AlocacoesPage() {
                 <label className="text-sm font-medium text-foreground mb-1 block">
                   Dia da Semana
                 </label>
-                <Select value={filtroDiaSemana} onValueChange={setFiltroDiaSemana}>
+                <Select
+                  value={filtroDiaSemana}
+                  onValueChange={setFiltroDiaSemana}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Todos os dias" />
                   </SelectTrigger>
@@ -597,14 +965,19 @@ export default function AlocacoesPage() {
 
             {/* Seção de Filtros Avançados */}
             <div className="mt-6 pt-4 border-t border-border">
-            <h3 className="text-lg font-medium text-foreground mb-4">Filtros Avançados</h3>
+              <h3 className="text-lg font-medium text-foreground mb-4">
+                Filtros Avançados
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Filtro por Turma */}
                 <div>
                   <label className="text-sm font-medium text-foreground mb-1 block">
                     Turma
                   </label>
-                  <Select value={filtroTurmaId} onValueChange={setFiltroTurmaId}>
+                  <Select
+                    value={filtroTurmaId}
+                    onValueChange={setFiltroTurmaId}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione uma turma" />
                     </SelectTrigger>
@@ -612,7 +985,8 @@ export default function AlocacoesPage() {
                       <SelectItem value="todas">Todas as turmas</SelectItem>
                       {turmas.map((turma) => (
                         <SelectItem key={turma.id} value={turma.id}>
-                          {turma.nome} - {turma.periodo}º período ({turma.turno})
+                          {turma.nome} - {turma.periodo}º período ({turma.turno}
+                          )
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -621,8 +995,6 @@ export default function AlocacoesPage() {
 
                 {/* Botões de Ação */}
                 <div className="flex flex-col space-y-2 md:col-span-2">
-
-
                   <Button
                     onClick={excluirTodasAlocacoesTurma}
                     variant="destructive"
@@ -637,11 +1009,7 @@ export default function AlocacoesPage() {
 
             {/* Botão para limpar filtros */}
             <div className="mt-4 flex justify-between">
-              <Button
-                onClick={fetchAlocacoes}
-                variant="default"
-                size="sm"
-              >
+              <Button onClick={fetchAlocacoes} variant="default" size="sm">
                 Mostrar Todas as Alocações
               </Button>
               <Button
@@ -672,7 +1040,7 @@ export default function AlocacoesPage() {
           ) : filteredAlocacoes.length === 0 ? (
             <div className="text-center py-8">
               <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-        <p className="text-muted-foreground">
+              <p className="text-muted-foreground">
                 {searchTerm ||
                 filtroDataInicio ||
                 filtroDataFim ||
@@ -723,7 +1091,7 @@ export default function AlocacoesPage() {
                           <span>
                             {alocacao.sala?.nome || "Sala não encontrada"}
                             {alocacao.sala?.predio &&
-                              ` - ${alocacao.sala.predio}`}
+                              ` - ${alocacao.sala.predio.nome}`}
                           </span>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -738,8 +1106,7 @@ export default function AlocacoesPage() {
 
                       {alocacao.horario && (
                         <div className="text-sm text-muted-foreground">
-                          Horário: {alocacao.horario.horario_inicio} -{" "}
-                          {alocacao.horario.horario_fim}
+                          Horário: {alocacao.horario.codigo} - {alocacao.horario.horario_inicio?.split('T')[1]?.substring(0, 5) || alocacao.horario.horario_inicio} - {alocacao.horario.horario_fim?.split('T')[1]?.substring(0, 5) || alocacao.horario.horario_fim}
                         </div>
                       )}
                     </div>

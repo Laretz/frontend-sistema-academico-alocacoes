@@ -28,6 +28,7 @@ interface AlocacaoInfo {
     nome: string;
     codigo: string;
     cargaHoraria: number;
+    horario_consolidado?: string;
   };
   professor: {
     id: string;
@@ -259,7 +260,7 @@ export function GradeHorariosTurma({
         </div>
         <div
           className={`${colors.textTertiary} truncate mt-1 leading-tight`}
-          title={`${alocacao.sala.nome} - ${alocacao.sala.predio}`}
+          title={`${alocacao.sala.nome} - ${alocacao.sala.predio.nome}`}
         >
           {alocacao.sala.nome}
         </div>
@@ -438,8 +439,9 @@ export function GradeHorariosTurma({
                             alocacao.disciplina.horario_consolidado || "";
 
                           if (!horarioConsolidado) {
-                            // Buscar todos os horários desta disciplina
-                            const horariosAlocacao: string[] = [];
+                            // Buscar todos os horários desta disciplina e organizá-los por dia
+                            const horariosPorDia: { [dia: string]: string[] } = {};
+                            
                             Object.entries(gradeData.grade).forEach(
                               ([dia, horarios]) => {
                                 Object.entries(horarios).forEach(
@@ -448,16 +450,63 @@ export function GradeHorariosTurma({
                                       alocacaoHorario?.disciplina.codigo ===
                                       alocacao.disciplina.codigo
                                     ) {
-                                      horariosAlocacao.push(horario);
+                                      if (!horariosPorDia[dia]) {
+                                        horariosPorDia[dia] = [];
+                                      }
+                                      horariosPorDia[dia].push(horario);
                                     }
                                   }
                                 );
                               }
                             );
-                            horarioConsolidado =
-                              horariosAlocacao.length > 0
-                                ? horariosAlocacao.join(", ")
-                                : "-";
+                            
+                            // Consolidar horários por dia
+                            const horariosConsolidados: string[] = [];
+                            const diasSemana = ['SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA', 'SABADO'];
+                            const diasMap: { [key: string]: string } = {
+                              'SEGUNDA': '2',
+                              'TERCA': '3', 
+                              'QUARTA': '4',
+                              'QUINTA': '5',
+                              'SEXTA': '6',
+                              'SABADO': '7'
+                            };
+                            
+                            diasSemana.forEach(dia => {
+                              if (horariosPorDia[dia] && horariosPorDia[dia].length > 0) {
+                                const horariosOrdenados = horariosPorDia[dia].sort();
+                                const turno = horariosOrdenados[0].charAt(0); // M, T, N
+                                
+                                if (horariosOrdenados.length === 1) {
+                                  // Horário isolado
+                                  const numeroHorario = horariosOrdenados[0].charAt(1);
+                                  horariosConsolidados.push(`${diasMap[dia]}${turno}${numeroHorario}`);
+                                } else {
+                                  // Múltiplos horários - verificar se são consecutivos
+                                  const numeros = horariosOrdenados.map(h => parseInt(h.charAt(1)));
+                                  const saoConsecutivos = numeros.every((num, index) => 
+                                    index === 0 || num === numeros[index - 1] + 1
+                                  );
+                                  
+                                  if (saoConsecutivos) {
+                                    // Horários consecutivos - usar formato compacto
+                                    const primeiroNumero = numeros[0];
+                                    const ultimoNumero = numeros[numeros.length - 1];
+                                    const sequencia = numeros.join('');
+                                    horariosConsolidados.push(`${diasMap[dia]}${turno}${sequencia}`);
+                                  } else {
+                                    // Horários não consecutivos - listar separadamente
+                                    numeros.forEach(num => {
+                                      horariosConsolidados.push(`${diasMap[dia]}${turno}${num}`);
+                                    });
+                                  }
+                                }
+                              }
+                            });
+                            
+                            horarioConsolidado = horariosConsolidados.length > 0
+                              ? horariosConsolidados.join(", ")
+                              : "-";
                           }
 
                           return (
@@ -493,7 +542,7 @@ export function GradeHorariosTurma({
                                 {alocacao.professor.nome}
                               </td>
                               <td className="px-3 py-2 text-sm text-foreground border-r border-border">
-                                {alocacao.sala.predio} {alocacao.sala.nome}
+                                {alocacao.sala.predio.nome} {alocacao.sala.nome}
                               </td>
                               <td className="px-3 py-2 text-sm text-foreground border-r border-border">
                                 {turma.num_alunos}
