@@ -482,6 +482,7 @@ export default function GradeMensalPage() {
             <CalendarioProgressoDisciplinas 
               disciplinas={disciplinas} 
               turma={turmaSelecionada || undefined}
+              turmaId={turmaSelecionada?.id}
             />
           </TabsContent>
 

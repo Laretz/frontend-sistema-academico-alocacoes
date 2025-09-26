@@ -20,6 +20,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Plus, Search, Edit, Trash2, Users, Calendar } from "lucide-react";
 import { useState, useEffect } from "react";
 import { turmaService, cursoService } from "@/services/entities";
@@ -153,15 +159,27 @@ export default function TurmasPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="nome">Nome da Turma</Label>
-                  <Input
-                    id="nome"
-                    value={formData.nome}
-                    onChange={(e) =>
-                      setFormData({ ...formData, nome: e.target.value })
-                    }
-                    placeholder="Ex: Turma A"
-                    required
-                  />
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Input
+                          id="nome"
+                          value={formData.nome}
+                          onChange={(e) =>
+                            setFormData({ ...formData, nome: e.target.value })
+                          }
+                          placeholder="Ex: Turma A"
+                          className="max-w-full truncate"
+                          required
+                        />
+                      </TooltipTrigger>
+                      {formData.nome && formData.nome.length > 20 && (
+                        <TooltipContent className="max-w-xs p-2 text-sm bg-popover text-popover-foreground border rounded shadow-lg">
+                          <p className="break-words">{formData.nome}</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="num_alunos">Número de Alunos</Label>
@@ -197,15 +215,27 @@ export default function TurmasPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="turno">Turno</Label>
-                  <Input
-                    id="turno"
-                    value={formData.turno}
-                    onChange={(e) =>
-                      setFormData({ ...formData, turno: e.target.value })
-                    }
-                    placeholder="Ex: MATUTINO, VESPERTINO, NOTURNO"
-                    required
-                  />
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Input
+                          id="turno"
+                          value={formData.turno}
+                          onChange={(e) =>
+                            setFormData({ ...formData, turno: e.target.value })
+                          }
+                          placeholder="Ex: MATUTINO, VESPERTINO, NOTURNO"
+                          className="max-w-full truncate"
+                          required
+                        />
+                      </TooltipTrigger>
+                      {formData.turno && formData.turno.length > 15 && (
+                        <TooltipContent className="max-w-xs p-2 text-sm bg-popover text-popover-foreground border rounded shadow-lg">
+                          <p className="break-words">{formData.turno}</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="id_curso">Curso</Label>
@@ -216,13 +246,63 @@ export default function TurmasPage() {
                     }
                     required
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um curso" />
-                    </SelectTrigger>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <SelectTrigger className="max-w-full">
+                            <div className="truncate">
+                              {formData.id_curso ? (
+                                <span className="truncate block">
+                                  {(() => {
+                                    const curso = cursos.find(c => c.id === formData.id_curso);
+                                    if (!curso) return "Curso não encontrado";
+                                    const nomeCompleto = `${curso.nome} - ${curso.turno}`;
+                                    return nomeCompleto.length > 30 
+                                      ? nomeCompleto.substring(0, 30) + "..."
+                                      : nomeCompleto;
+                                  })()} 
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">
+                                  Selecione um curso
+                                </span>
+                              )}
+                            </div>
+                          </SelectTrigger>
+                        </TooltipTrigger>
+                        {formData.id_curso && (() => {
+                          const curso = cursos.find(c => c.id === formData.id_curso);
+                          const nomeCompleto = curso ? `${curso.nome} - ${curso.turno}` : "";
+                          return nomeCompleto.length > 30;
+                        })() && (
+                          <TooltipContent className="max-w-xs p-2 text-sm bg-popover text-popover-foreground border rounded shadow-lg">
+                            <p className="break-words">
+                              {(() => {
+                                const curso = cursos.find(c => c.id === formData.id_curso);
+                                return curso ? `${curso.nome} - ${curso.turno}` : "";
+                              })()}
+                            </p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
                     <SelectContent>
                       {cursos.map((curso) => (
                         <SelectItem key={curso.id} value={curso.id}>
-                          {curso.nome} - {curso.turno}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="truncate max-w-[250px] block">
+                                  {curso.nome} - {curso.turno}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs p-2 text-sm bg-popover text-popover-foreground border rounded shadow-lg">
+                                <p className="break-words">
+                                  {curso.nome} - {curso.turno}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -51,7 +51,7 @@ export function calcularTotalAulasSemestre(horarioConsolidado: string, semanasSe
 /**
  * Extrai os dias da semana do horário consolidado
  * @param horarioConsolidado - String como "2M123" ou "35M12T34"
- * @returns Array com os números dos dias da semana
+ * @returns Array com os números dos dias da semana (1=domingo, 2=segunda, 3=terça, etc.)
  */
 export function extrairDiasSemana(horarioConsolidado: string): number[] {
   if (!horarioConsolidado) return [];
@@ -65,9 +65,10 @@ export function extrairDiasSemana(horarioConsolidado: string): number[] {
     
     if (diasStr) {
       // Cada dígito representa um dia da semana
+      // Mapeamento: 1=domingo, 2=segunda, 3=terça, 4=quarta, 5=quinta, 6=sexta, 7=sábado
       for (const dia of diasStr) {
         const numeroDia = parseInt(dia);
-        if (numeroDia >= 1 && numeroDia <= 6 && !dias.includes(numeroDia)) {
+        if (numeroDia >= 1 && numeroDia <= 7 && !dias.includes(numeroDia)) {
           dias.push(numeroDia);
         }
       }
@@ -80,7 +81,7 @@ export function extrairDiasSemana(horarioConsolidado: string): number[] {
 /**
  * Verifica se uma disciplina tem aula em um determinado dia da semana
  * @param horarioConsolidado - String como "2M123"
- * @param diaSemana - Número do dia da semana (1=segunda, 2=terça, etc.)
+ * @param diaSemana - Número do dia da semana (1=domingo, 2=segunda, 3=terça, etc.)
  * @returns true se tem aula no dia
  */
 export function temAulaNoDia(horarioConsolidado: string, diaSemana: number): boolean {
@@ -91,7 +92,7 @@ export function temAulaNoDia(horarioConsolidado: string, diaSemana: number): boo
 /**
  * Calcula quantas aulas acontecem em um dia específico
  * @param horarioConsolidado - String como "2M123"
- * @param diaSemana - Número do dia da semana (1=segunda, 2=terça, etc.)
+ * @param diaSemana - Número do dia da semana (1=domingo, 2=segunda, 3=terça, etc.)
  * @returns Número de aulas no dia
  */
 export function calcularAulasNoDia(horarioConsolidado: string, diaSemana: number): number {
@@ -121,7 +122,7 @@ export function calcularAulasNoDia(horarioConsolidado: string, diaSemana: number
  * const horario = "2M123"; // Segunda-feira, manhã, horários 1, 2 e 3
  * console.log(calcularAulasPorSemana(horario)); // 3 aulas por semana
  * console.log(calcularTotalAulasSemestre(horario)); // 54 aulas no semestre
- * console.log(extrairDiasSemana(horario)); // [2] (segunda-feira)
+ * console.log(extrairDiasSemana(horario)); // [2] (segunda-feira, pois 2=segunda no mapeamento)
  * console.log(temAulaNoDia(horario, 2)); // true
  * console.log(calcularAulasNoDia(horario, 2)); // 3 aulas
  */

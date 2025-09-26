@@ -76,15 +76,54 @@ interface GradeMensalProps {
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 const CORES_DISCIPLINAS = [
-  "bg-primary/10 text-primary border-primary/20",
-  "bg-secondary/50 text-secondary-foreground border-secondary",
-  "bg-accent/50 text-accent-foreground border-accent",
-  "bg-muted/50 text-muted-foreground border-muted",
-  "bg-destructive/10 text-destructive border-destructive/20",
-  "bg-primary/20 text-primary border-primary/30",
-  "bg-secondary/30 text-secondary-foreground border-secondary/50",
-  "bg-accent/30 text-accent-foreground border-accent/50",
+  'bg-shadred-primary',
+  'bg-shadred-chart-1',
+  'bg-shadred-chart-5',
+  'bg-shadred-destructive',
+  'bg-shadblue-primary',
+  'bg-shadblue-chart-1',
+  'bg-shadblue-chart-5',
+  'bg-shadyellow-primary',
+  'bg-shadyellow-chart-1',
+  'bg-shadyellow-chart-5',
+  'bg-shadviolet-primary',
+  'bg-shadviolet-chart-1',
+  'bg-shadviolet-chart-5',
+  'bg-shadpink-primary',
+  'bg-shadpink-chart-1',
+  'bg-shadpink-chart-5',
+  'bg-shadorange-primary',
+  'bg-shadorange-chart-1',
+  'bg-shadorange-chart-5',
+  'bg-shadgreen-primary',
+  'bg-shadgreen-chart-1',
+  'bg-shadgreen-chart-5',
 ];
+
+// Função para obter cor consistente para cada disciplina baseada no ID
+const obterCorDisciplina = (disciplinaId: string, todasDisciplinas: Disciplina[]): string => {
+  // Criar um array ordenado de IDs únicos para garantir consistência
+  const idsOrdenados = todasDisciplinas
+    .map(d => d.id)
+    .sort(); // Ordenar para garantir ordem consistente
+  
+  // Encontrar o índice da disciplina no array ordenado
+  const indice = idsOrdenados.indexOf(disciplinaId);
+  
+  // Se não encontrar, usar hash do ID como fallback
+  if (indice === -1) {
+    let hash = 0;
+    for (let i = 0; i < disciplinaId.length; i++) {
+      const char = disciplinaId.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Converter para 32bit integer
+    }
+    return CORES_DISCIPLINAS[Math.abs(hash) % CORES_DISCIPLINAS.length];
+  }
+  
+  // Usar o índice para selecionar a cor
+  return CORES_DISCIPLINAS[indice % CORES_DISCIPLINAS.length];
+};
 
 export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
   const [mesAtual, setMesAtual] = useState(new Date());
@@ -184,8 +223,7 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
   };
 
   const getCorDisciplina = (disciplinaId: string) => {
-    const index = disciplinas.findIndex((d) => d.id === disciplinaId);
-    return CORES_DISCIPLINAS[index % CORES_DISCIPLINAS.length];
+    return obterCorDisciplina(disciplinaId, disciplinas);
   };
 
   const calcularProgresso = (disciplina: Disciplina) => {
