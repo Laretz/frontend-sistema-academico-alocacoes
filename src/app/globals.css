@@ -45,6 +45,52 @@
   --radius-xl: calc(var(--radius) + 4px);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-warning2: var(--warning2);
+  --color-warning2-foreground: var(--warning2-foreground);
+  --color-warning3: var(--warning3);
+  --color-warning3-foreground: var(--warning3-foreground);
+  --color-warning4: var(--warning4);
+  --color-warning4-foreground: var(--warning4-foreground);
+
+  /* de outros temas do shad */
+  --color-shadred-primary: var(--shadred-primary);
+  --color-shadred-primary-foreground: var(--shadred-primary-foreground);
+  --color-shadred-destructive: var(--shadred-destructive);
+  --color-shadred-chart-1: var(--shadred-chart-1);
+  --color-shadred-chart-5: var(--shadred-chart-5);
+
+  --color-shadblue-primary: var(--shadblue-primary);
+  --color-shadblue-primary-foreground: var(--shadblue-primary-foreground);
+  --color-shadblue-destructive: var(--shadblue-destructive);
+  --color-shadblue-chart-1: var(--shadblue-chart-1);
+  --color-shadblue-chart-5: var(--shadblue-chart-5);
+
+  --color-shadyellow-primary: var(--shadyellow-primary);
+  --color-shadyellow-primary-foreground: var(--shadyellow-primary-foreground);
+  --color-shadyellow-destructive: var(--shadyellow-destructive);
+  --color-shadyellow-chart-1: var(--shadyellow-chart-1);
+  --color-shadyellow-chart-5: var(--shadyellow-chart-5);
+
+  --color-shadviolet-primary: var(--shadviolet-primary);
+  --color-shadviolet-primary-foreground: var(--shadviolet-primary-foreground);
+  --color-shadviolet-destructive: var(--shadviolet-destructive);
+  --color-shadviolet-chart-1: var(--shadviolet-chart-1);
+  --color-shadviolet-chart-5: var(--shadviolet-chart-5);
+  --color-shadpink-primary: var(--shadpink-primary);
+  --color-shadpink-primary-foreground: var(--shadpink-primary-foreground);
+  --color-shadpink-destructive: var(--shadpink-destructive);
+  --color-shadpink-chart-1: var(--shadpink-chart-1);
+  --color-shadpink-chart-5: var(--shadpink-chart-5);
+  --color-shadorange-primary: var(--shadorange-primary);
+  --color-shadorange-primary-foreground: var(--shadorange-primary-foreground);
+  --color-shadorange-destructive: var(--shadorange-destructive);
+  --color-shadorange-chart-1: var(--shadorange-chart-1);
+  --color-shadorange-chart-5: var(--shadorange-chart-5);
+  --color-shadgreen-primary: var(--shadgreen-primary);
+  --color-shadgreen-primary-foreground: var(--shadgreen-primary-foreground);
+  --color-shadgreen-destructive: var(--shadgreen-destructive);
+  --color-shadgreen-chart-1: var(--shadgreen-chart-1);
+  --color-shadgreen-chart-5: var(--shadgreen-chart-5);
 }
 
 :root {
@@ -80,8 +126,63 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
-  --warning: oklch(0.67 0.16 58);
-  --warning-foreground: oklch(0.28 0.07 46);
+  --warning: oklch(0.75 0.18 84);
+  --warning-foreground: oklch(0.15 0.12 84);
+  --warning2: oklch(0.6 0.118 184.704);
+  --warning2-foreground: oklch(0.15 0.08 184.704);
+  --warning3: oklch(0.578 0.148 255.5);
+  --warning3-foreground: oklch(0.945 0.024 255.5);
+  --warning4: oklch(0.705 0.218 27.33);
+  --warning4-foreground: oklch(0.945 0.042 27.33);
+
+  /* Cores vermelhas do tema shadcn */
+  --shadred-primary: oklch(0.637 0.237 25.331);
+  --shadred-primary-foreground: oklch(0.971 0.013 17.38);
+  --shadred-destructive: oklch(0.577 0.245 27.325);
+  --shadred-chart-1: oklch(0.646 0.222 41.116);
+  --shadred-chart-5: oklch(0.769 0.188 70.08);
+
+  /* Cores azuis do tema shadcn */
+  --shadblue-primary: oklch(0.623 0.214 259.815);
+  --shadblue-primary-foreground: oklch(0.97 0.014 254.604);
+  --shadblue-destructive: oklch(0.577 0.245 27.325);
+  --shadblue-chart-1: oklch(0.646 0.222 41.116);
+  --shadblue-chart-5: oklch(0.769 0.188 70.08);
+
+  /* Cores amarelas do tema shadcn */
+  --shadyellow-primary: oklch(0.795 0.184 86.047);
+  --shadyellow-primary-foreground: oklch(0.421 0.095 57.708);
+  --shadyellow-destructive: oklch(0.577 0.245 27.325);
+  --shadyellow-chart-1: oklch(0.646 0.222 41.116);
+  --shadyellow-chart-5: oklch(0.769 0.188 70.08);
+
+  /* Cores violetas do tema shadcn */
+  --shadviolet-primary: oklch(0.606 0.25 292.717);
+  --shadviolet-primary-foreground: oklch(0.969 0.016 293.756);
+  --shadviolet-destructive: oklch(0.577 0.245 27.325);
+  --shadviolet-chart-1: oklch(0.646 0.222 41.116);
+  --shadviolet-chart-5: oklch(0.769 0.188 70.08);
+
+  /* Cores rosa do tema shadcn */
+  --shadpink-primary: oklch(0.645 0.246 16.439);
+  --shadpink-primary-foreground: oklch(0.969 0.015 12.422);
+  --shadpink-destructive: oklch(0.577 0.245 27.325);
+  --shadpink-chart-1: oklch(0.646 0.222 41.116);
+  --shadpink-chart-5: oklch(0.769 0.188 70.08);
+
+  /* Cores laranja do tema shadcn */
+  --shadorange-primary: oklch(0.705 0.213 47.604);
+  --shadorange-primary-foreground: oklch(0.98 0.016 73.684);
+  --shadorange-destructive: oklch(0.577 0.245 27.325);
+  --shadorange-chart-1: oklch(0.646 0.222 41.116);
+  --shadorange-chart-5: oklch(0.769 0.188 70.08);
+
+  /* Cores verde do tema shadcn */
+  --shadgreen-primary: oklch(0.723 0.219 149.579);
+  --shadgreen-primary-foreground: oklch(0.982 0.018 155.826);
+  --shadgreen-destructive: oklch(0.577 0.245 27.325);
+  --shadgreen-chart-1: oklch(0.646 0.222 41.116);
+  --shadgreen-chart-5: oklch(0.769 0.188 70.08);
 }
 
 .dark {
@@ -116,8 +217,63 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
-  --warning: oklch(00.67 0.16 58);
-  --warning-foreground: oklch(0.99 0.02 95);
+  --warning: oklch(0.35 0.12 84);
+  --warning-foreground: oklch(0.75 0.18 84);
+  --warning2: oklch(0.3 0.08 184.704);
+  --warning2-foreground: oklch(0.6 0.118 184.704);
+  --warning3: oklch(0.278 0.074 255.5);
+  --warning3-foreground: oklch(0.578 0.148 255.5);
+  --warning4: oklch(0.352 0.109 27.33);
+  --warning4-foreground: oklch(0.705 0.218 27.33);
+
+  /* Cores vermelhas do tema shadcn - modo escuro */
+  --shadred-primary: oklch(0.637 0.237 25.331);
+  --shadred-primary-foreground: oklch(0.971 0.013 17.38);
+  --shadred-destructive: oklch(0.704 0.191 22.216);
+  --shadred-chart-1: oklch(0.488 0.243 264.376);
+  --shadred-chart-5: oklch(0.645 0.246 16.439);
+
+  /* Cores azuis do tema shadcn - modo escuro */
+  --shadblue-primary: oklch(0.546 0.245 262.881);
+  --shadblue-primary-foreground: oklch(0.379 0.146 265.522);
+  --shadblue-destructive: oklch(0.704 0.191 22.216);
+  --shadblue-chart-1: oklch(0.488 0.243 264.376);
+  --shadblue-chart-5: oklch(0.645 0.246 16.439);
+
+  /* Cores amarelas do tema shadcn - modo escuro */
+  --shadyellow-primary: oklch(0.795 0.184 86.047);
+  --shadyellow-primary-foreground: oklch(0.421 0.095 57.708);
+  --shadyellow-destructive: oklch(0.704 0.191 22.216);
+  --shadyellow-chart-1: oklch(0.488 0.243 264.376);
+  --shadyellow-chart-5: oklch(0.645 0.246 16.439);
+
+  /* Cores violetas do tema shadcn - modo escuro */
+  --shadviolet-primary: oklch(0.541 0.281 293.009);
+  --shadviolet-primary-foreground: oklch(0.969 0.016 293.756);
+  --shadviolet-destructive: oklch(0.704 0.191 22.216);
+  --shadviolet-chart-1: oklch(0.488 0.243 264.376);
+  --shadviolet-chart-5: oklch(0.645 0.246 16.439);
+
+  /* Cores rosa do tema shadcn - modo escuro */
+  --shadpink-primary: oklch(0.645 0.246 16.439);
+  --shadpink-primary-foreground: oklch(0.969 0.015 12.422);
+  --shadpink-destructive: oklch(0.704 0.191 22.216);
+  --shadpink-chart-1: oklch(0.488 0.243 264.376);
+  --shadpink-chart-5: oklch(0.645 0.246 16.439);
+
+  /* Cores laranja do tema shadcn - modo escuro */
+  --shadorange-primary: oklch(0.646 0.222 41.116);
+  --shadorange-primary-foreground: oklch(0.98 0.016 73.684);
+  --shadorange-destructive: oklch(0.704 0.191 22.216);
+  --shadorange-chart-1: oklch(0.488 0.243 264.376);
+  --shadorange-chart-5: oklch(0.645 0.246 16.439);
+
+  /* Cores verde do tema shadcn - modo escuro */
+  --shadgreen-primary: oklch(0.696 0.17 162.48);
+  --shadgreen-primary-foreground: oklch(0.393 0.095 152.535);
+  --shadgreen-destructive: oklch(0.704 0.191 22.216);
+  --shadgreen-chart-1: oklch(0.488 0.243 264.376);
+  --shadgreen-chart-5: oklch(0.645 0.246 16.439);
 }
 
 @layer base {

@@ -104,7 +104,16 @@ export default function AlocacoesPage() {
   const [todasDisciplinas, setTodasDisciplinas] = useState<Disciplina[]>([]);
   const [mostrarTodasDisciplinas, setMostrarTodasDisciplinas] = useState(false);
   const [conflictingHorarios, setConflictingHorarios] = useState<
-    Map<string, "professor" | "sala" | "ambos">
+    Map<
+      string,
+      | "professor"
+      | "sala"
+      | "turma"
+      | "professor_sala"
+      | "professor_turma"
+      | "sala_turma"
+      | "todos"
+    >
   >(new Map());
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [salas, setSalas] = useState<Sala[]>([]);
@@ -125,8 +134,12 @@ export default function AlocacoesPage() {
   }, []);
 
   useEffect(() => {
-    checkHorarioConflicts(formData.id_user, formData.id_sala);
-  }, [formData.id_user, formData.id_sala]);
+    checkHorarioConflicts(
+      formData.id_user,
+      formData.id_sala,
+      formData.id_turma
+    );
+  }, [formData.id_user, formData.id_sala, formData.id_turma]);
 
   const fetchAlocacoes = async () => {
     try {
@@ -209,41 +222,83 @@ export default function AlocacoesPage() {
     }
   };
 
-  const checkHorarioConflicts = async (professorId: string, salaId: string) => {
-    if (!professorId && !salaId) {
+  const checkHorarioConflicts = async (
+    professorId: string,
+    salaId: string,
+    turmaId: string
+  ) => {
+    if (!professorId && !salaId && !turmaId) {
       setConflictingHorarios(new Map());
       return;
     }
 
     try {
-      const conflicts = new Map<string, "professor" | "sala" | "ambos">();
+      const conflicts = new Map<
+        string,
+        | "professor"
+        | "sala"
+        | "turma"
+        | "professor_sala"
+        | "professor_turma"
+        | "sala_turma"
+        | "todos"
+      >();
 
-      // Verificar conflitos do professor
-      if (professorId) {
-        const response = await alocacaoService.getAll(1);
-        const alocacoes = response.alocacoes || [];
-        alocacoes.forEach((alocacao: any) => {
-          if (alocacao.id_user === professorId) {
-            conflicts.set(alocacao.id_horario, "professor");
-          }
-        });
-      }
+      const response = await alocacaoService.getAll(1);
+      const alocacoes = response.alocacoes || [];
 
-      // Verificar conflitos da sala
-      if (salaId) {
-        const response = await alocacaoService.getAll(1);
-        const alocacoes = response.alocacoes || [];
-        alocacoes.forEach((alocacao: any) => {
-          if (alocacao.id_sala === salaId) {
-            const existing = conflicts.get(alocacao.id_horario);
-            if (existing === "professor") {
-              conflicts.set(alocacao.id_horario, "ambos");
+      alocacoes.forEach((alocacao: any) => {
+        const conflictTypes: string[] = [];
+
+        // Verificar conflitos do professor
+        if (professorId && alocacao.id_user === professorId) {
+          conflictTypes.push("professor");
+        }
+
+        // Verificar conflitos da sala
+        if (salaId && alocacao.id_sala === salaId) {
+          conflictTypes.push("sala");
+        }
+
+        // Verificar conflitos da turma
+        if (turmaId && alocacao.id_turma === turmaId) {
+          conflictTypes.push("turma");
+        }
+
+        // Definir o tipo de conflito baseado nas combinações
+        if (conflictTypes.length > 0) {
+          let conflictType:
+            | "professor"
+            | "sala"
+            | "turma"
+            | "professor_sala"
+            | "professor_turma"
+            | "sala_turma"
+            | "todos";
+
+          if (conflictTypes.length === 3) {
+            conflictType = "todos";
+          } else if (conflictTypes.length === 2) {
+            if (
+              conflictTypes.includes("professor") &&
+              conflictTypes.includes("sala")
+            ) {
+              conflictType = "professor_sala";
+            } else if (
+              conflictTypes.includes("professor") &&
+              conflictTypes.includes("turma")
+            ) {
+              conflictType = "professor_turma";
             } else {
-              conflicts.set(alocacao.id_horario, "sala");
+              conflictType = "sala_turma";
             }
+          } else {
+            conflictType = conflictTypes[0] as "professor" | "sala" | "turma";
           }
-        });
-      }
+
+          conflicts.set(alocacao.id_horario, conflictType);
+        }
+      });
 
       setConflictingHorarios(conflicts);
     } catch (error) {
@@ -677,7 +732,8 @@ export default function AlocacoesPage() {
                       <SelectContent>
                         {salas.map((sala) => (
                           <SelectItem key={sala.id} value={sala.id}>
-                            {sala.nome} - {sala.predio.nome} (Cap: {sala.capacidade})
+                            {sala.nome} - {sala.predio.nome} (Cap:{" "}
+                            {sala.capacidade})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -713,48 +769,45 @@ export default function AlocacoesPage() {
                                 horario.id
                               );
                               const isConflicting = !!conflictType;
-                              const isDisabled = isConflicting && !isSelected;
+                              // Desabilitar horários com conflitos de turma sempre, outros conflitos apenas se não selecionados
+                              const isDisabled =
+                                isConflicting &&
+                                (conflictType === "turma" ||
+                                  conflictType === "professor_turma" ||
+                                  conflictType === "sala_turma" ||
+                                  conflictType === "todos" ||
+                                  !isSelected);
 
                               // Definir cores baseadas no tipo de conflito
                               const getConflictStyles = () => {
                                 if (!isConflicting)
                                   return "cursor-pointer hover:bg-muted/50";
 
-                                switch (conflictType) {
-                                  case "professor":
-                                    return "bg-warning/10 border border-warning/30 hover:bg-warning/20";
-                                  case "sala":
-                                    return "bg-primary/10 border border-primary/30 hover:bg-primary/20";
-                                  case "ambos":
-                                    return "bg-destructive/10 border border-destructive/30 hover:bg-destructive/20";
-                                  default:
-                                    return "cursor-pointer hover:bg-muted/50";
-                                }
+                                return "bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20";
                               };
 
                               const getConflictTextColor = () => {
                                 if (!isConflicting) return "";
 
-                                switch (conflictType) {
-                                  case "professor":
-                                    return "text-warning";
-                                  case "sala":
-                                    return "text-chart";
-                                  case "ambos":
-                                    return "text-destructive";
-                                  default:
-                                    return "";
-                                }
+                                return "text-destructive";
                               };
 
                               const getConflictLabel = () => {
                                 switch (conflictType) {
                                   case "professor":
-                                    return "(Conflito)";
+                                    return "(Prof. ocupado)";
                                   case "sala":
-                                    return "(Conflito)";
-                                  case "ambos":
-                                    return "(Conflito)";
+                                    return "(Sala ocupada)";
+                                  case "turma":
+                                    return "(Turma ocupada)";
+                                  case "professor_sala":
+                                    return "(Prof. e Sala)";
+                                  case "professor_turma":
+                                    return "(Prof. e Turma)";
+                                  case "sala_turma":
+                                    return "(Sala e Turma)";
+                                  case "todos":
+                                    return "(Todos ocupados)";
                                   default:
                                     return "";
                                 }
@@ -823,19 +876,14 @@ export default function AlocacoesPage() {
 
                 {/* Legenda de conflitos */}
                 <div className="px-4 py-2 border-t">
-                  <div className="flex flex-col items-start gap-1 text-xs">
+                  <div className="text-xs font-medium mb-2 text-muted-foreground">
+                    Legenda de Conflitos:
+                  </div>
+                  <div className="grid grid-cols-1 gap-1 text-xs">
                     <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-sm bg-warning/20 border border-warning/40"></div>
-                      <span className="text-warning">Professor</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-sm bg-primary/20 border border-primary/40"></div>
-                      <span className="text-primary">Sala</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-sm bg-destructive/20 border border-destructive/40"></div>
-                      <span className="text-destructive">Ambos</span>
-                    </div>
+                         <div className="w-2.5 h-2.5 rounded-sm bg-destructive/20 border border-destructive"></div>
+                         <span className="text-muted-foreground">Conflito de horário</span>
+                       </div>
                   </div>
                 </div>
 
@@ -1106,7 +1154,15 @@ export default function AlocacoesPage() {
 
                       {alocacao.horario && (
                         <div className="text-sm text-muted-foreground">
-                          Horário: {alocacao.horario.codigo} - {alocacao.horario.horario_inicio?.split('T')[1]?.substring(0, 5) || alocacao.horario.horario_inicio} - {alocacao.horario.horario_fim?.split('T')[1]?.substring(0, 5) || alocacao.horario.horario_fim}
+                          Horário: {alocacao.horario.codigo} -{" "}
+                          {alocacao.horario.horario_inicio
+                            ?.split("T")[1]
+                            ?.substring(0, 5) ||
+                            alocacao.horario.horario_inicio}{" "}
+                          -{" "}
+                          {alocacao.horario.horario_fim
+                            ?.split("T")[1]
+                            ?.substring(0, 5) || alocacao.horario.horario_fim}
                         </div>
                       )}
                     </div>
