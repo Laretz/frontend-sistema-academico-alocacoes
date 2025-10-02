@@ -227,12 +227,22 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
   };
 
   const calcularProgresso = (disciplina: Disciplina) => {
-    // Usar dados reais de aulas ministradas se disponíveis
+    // Prioridade 1: Usar progresso_aulas calculado pelo backend se disponível
+    if (disciplina.progresso_aulas !== undefined && disciplina.progresso_aulas >= 0) {
+      return disciplina.progresso_aulas;
+    }
+
+    // Prioridade 2: Usar dados reais de aulas ministradas se disponíveis
     if (disciplina.aulas_ministradas !== undefined && disciplina.total_aulas > 0) {
       return Math.min((disciplina.aulas_ministradas / disciplina.total_aulas) * 100, 100);
     }
 
-    // Fallback para cálculo temporal se dados de aulas não estiverem disponíveis
+    // Prioridade 3: Usar progresso_temporal calculado pelo backend se disponível
+    if (disciplina.progresso_temporal !== undefined && disciplina.progresso_temporal >= 0) {
+      return disciplina.progresso_temporal;
+    }
+
+    // Fallback: Cálculo temporal local se dados do backend não estiverem disponíveis
     if (!disciplina.data_inicio) return 0;
 
     const dataInicio = new Date(disciplina.data_inicio);

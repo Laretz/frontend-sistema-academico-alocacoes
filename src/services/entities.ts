@@ -45,8 +45,8 @@ export const cursoService = {
 
 // Prédios
 export const predioService = {
-  getAll: async (page = 1): Promise<{ predios: Predio[] }> => {
-    const response = await api.get<{ predios: Predio[] }>(`/predios?page=${page}`);
+  getAll: async (): Promise<{ predios: Predio[] }> => {
+    const response = await api.get<{ predios: Predio[] }>('/predios');
     return response.data;
   },
 
@@ -72,8 +72,8 @@ export const predioService = {
 
 // Disciplinas
 export const disciplinaService = {
-  getAll: async (page = 1): Promise<{ disciplinas: Disciplina[] }> => {
-    const response = await api.get<{ disciplinas: Disciplina[] }>(`/disciplinas?page=${page}`);
+  getAll: async (): Promise<{ disciplinas: Disciplina[] }> => {
+    const response = await api.get<{ disciplinas: Disciplina[] }>('/disciplinas');
     return response.data;
   },
 
