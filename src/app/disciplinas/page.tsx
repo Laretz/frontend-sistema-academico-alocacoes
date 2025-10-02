@@ -112,7 +112,7 @@ export default function DisciplinasPage() {
   const fetchDisciplinas = async () => {
     try {
       setLoading(true);
-      const response = await disciplinaService.getAll(1);
+      const response = await disciplinaService.getAll();
       setDisciplinas(response.disciplinas);
     } catch (error) {
       console.error("Erro ao buscar disciplinas:", error);

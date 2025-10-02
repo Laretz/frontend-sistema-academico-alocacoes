@@ -117,6 +117,54 @@ export function calcularAulasNoDia(horarioConsolidado: string, diaSemana: number
 }
 
 /**
+ * Calcula o último dia de aula baseado no horário consolidado e total de aulas
+ * @param horarioConsolidado - String como "2M123"
+ * @param dataInicio - Data de início da disciplina
+ * @param totalAulas - Total de aulas da disciplina
+ * @returns Data do último dia de aula
+ */
+export function calcularUltimoDiaAula(
+  horarioConsolidado: string, 
+  dataInicio: Date, 
+  totalAulas: number
+): Date | null {
+  if (!horarioConsolidado || !dataInicio || totalAulas <= 0) return null;
+  
+  const diasComAula = extrairDiasSemana(horarioConsolidado);
+  if (diasComAula.length === 0) return null;
+  
+  let aulasContadas = 0;
+  let dataAtual = new Date(dataInicio);
+  
+  // Iterar pelos dias até atingir o total de aulas
+  while (aulasContadas < totalAulas) {
+    // Converter getDay() (0=domingo, 1=segunda, ..., 6=sábado) 
+    // para o formato do horario_consolidado (1=domingo, 2=segunda, ..., 7=sábado)
+    const diaSemanaAtual = dataAtual.getDay() + 1;
+    
+    if (temAulaNoDia(horarioConsolidado, diaSemanaAtual)) {
+      const aulasNesteDia = calcularAulasNoDia(horarioConsolidado, diaSemanaAtual);
+      aulasContadas += aulasNesteDia;
+      
+      // Se atingiu ou ultrapassou o total, este é o último dia
+      if (aulasContadas >= totalAulas) {
+        return new Date(dataAtual);
+      }
+    }
+    
+    // Avançar para o próximo dia
+    dataAtual.setDate(dataAtual.getDate() + 1);
+    
+    // Proteção contra loop infinito (máximo 2 anos)
+    if (dataAtual.getTime() - dataInicio.getTime() > 2 * 365 * 24 * 60 * 60 * 1000) {
+      break;
+    }
+  }
+  
+  return new Date(dataAtual);
+}
+
+/**
  * Exemplo de uso:
  * 
  * const horario = "2M123"; // Segunda-feira, manhã, horários 1, 2 e 3
@@ -125,4 +173,8 @@ export function calcularAulasNoDia(horarioConsolidado: string, diaSemana: number
  * console.log(extrairDiasSemana(horario)); // [2] (segunda-feira, pois 2=segunda no mapeamento)
  * console.log(temAulaNoDia(horario, 2)); // true
  * console.log(calcularAulasNoDia(horario, 2)); // 3 aulas
+ * 
+ * const dataInicio = new Date('2024-08-01');
+ * const ultimoDia = calcularUltimoDiaAula(horario, dataInicio, 72);
+ * console.log(ultimoDia); // Data do último dia de aula
  */

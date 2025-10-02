@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { setCookie, deleteCookie, getCookie } from "@/lib/cookies";
 
 interface AuthStore extends AuthState {
-  login: (credentials: LoginRequest) => Promise<void>;
+  login: (credentials: LoginRequest) => Promise<User>;
   logout: () => void;
   setUser: (user: User) => void;
   setLoading: (loading: boolean) => void;
@@ -42,6 +42,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       });
 
       toast.success("Login realizado com sucesso!");
+      return user;
     } catch (error: unknown) {
       set({ isLoading: false });
       const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Erro ao fazer login";
@@ -80,7 +81,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       localStorage.setItem("token", token);
       setCookie("token", token, 7);
 
-      set({ token });
+      set((state) => ({ ...state, token }));
 
       return true;
     } catch (error: unknown) {

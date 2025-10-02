@@ -95,11 +95,8 @@ export default function UsuariosPage() {
 
     const loadCargaHorariaProfessores = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:3333/alocacoes/aulas-professor"
-        );
-        const data = await response.json();
-        setCargaHorariaProfessores(data.cargaHoraria || {});
+        const response = await api.get("/alocacoes/aulas-professor");
+        setCargaHorariaProfessores(response.data.cargaHoraria || {});
       } catch (error) {
         console.error("Erro ao carregar carga horária dos professores:", error);
       }
