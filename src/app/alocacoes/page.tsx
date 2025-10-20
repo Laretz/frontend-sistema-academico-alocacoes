@@ -1,4 +1,5 @@
 "use client";
+import { HorariosGrid } from "@/app/alocacoes/components/HorariosGrid";
 
 import { MainLayout } from "@/components/layout/main-layout";
 import {
@@ -187,7 +188,7 @@ export default function AlocacoesPage() {
         horariosData,
       ] = await Promise.all([
         userService.getAll(1),
-        disciplinaService.getAll(1),
+        disciplinaService.getAll(),
         turmaService.getAll(1),
         salaService.getAll(1),
         horarioService.getAll(),
@@ -564,7 +565,7 @@ export default function AlocacoesPage() {
                 Nova Alocação
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[85vh]">
+            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {editingAlocacao ? "Editar Alocação" : "Nova Alocação"}
@@ -618,81 +619,83 @@ export default function AlocacoesPage() {
                         </Label>
                       </div>
                     </div>
-                    <Select
-                      value={formData.id_disciplina}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, id_disciplina: value })
-                      }
-                      required
-                    >
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <SelectTrigger className="w-full">
-                              <div className="truncate max-w-[250px]">
-                                {formData.id_disciplina ? (
-                                  <span className="truncate block">
-                                    {(() => {
-                                      const disciplina = disciplinas.find(
-                                        (d) => d.id === formData.id_disciplina
-                                      );
-                                      if (!disciplina)
-                                        return "Disciplina não encontrada";
-                                      const nome = disciplina.nome;
-                                      return nome.length > 25
-                                        ? nome.substring(0, 25) + "..."
-                                        : nome;
-                                    })()}
-                                  </span>
-                                ) : (
-                                  <span className="text-muted-foreground">
-                                    Selecione uma disciplina
-                                  </span>
-                                )}
-                              </div>
-                            </SelectTrigger>
-                          </TooltipTrigger>
-                          {formData.id_disciplina && (
-                            <TooltipContent className="max-w-sm p-3 text-sm bg-gray-900 text-white rounded shadow-lg z-50">
-                              <p className="break-words">
-                                {disciplinas.find(
-                                  (d) => d.id === formData.id_disciplina
-                                )?.nome || ""}
-                              </p>
-                            </TooltipContent>
-                          )}
-                        </Tooltip>
-                      </TooltipProvider>
-                      <SelectContent>
-                        {disciplinas.map((disciplina) => (
-                          <SelectItem key={disciplina.id} value={disciplina.id}>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="truncate max-w-[300px] block">
-                                    {disciplina.nome}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs p-2 text-sm bg-gray-900 text-white rounded shadow-lg">
-                                  <p className="break-words">
-                                    {disciplina.nome}
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {mostrarTodasDisciplinas && formData.id_disciplina && (
-                      <p className="text-sm text-muted-foreground">
-                        💡 Se esta disciplina não estiver vinculada ao
-                        professor, o vínculo será criado automaticamente.
-                      </p>
-                    )}
+                    <div className="relative">
+                      <Select
+                        value={formData.id_disciplina}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, id_disciplina: value })
+                        }
+                        required
+                      >
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <SelectTrigger className="w-full">
+                                <div className="truncate max-w-[250px]">
+                                  {formData.id_disciplina ? (
+                                    <span className="truncate block">
+                                      {(() => {
+                                        const disciplina = disciplinas.find(
+                                          (d) => d.id === formData.id_disciplina
+                                        );
+                                        if (!disciplina)
+                                          return "Disciplina não encontrada";
+                                        const nome = disciplina.nome;
+                                        return nome.length > 25
+                                          ? nome.substring(0, 25) + "..."
+                                          : nome;
+                                      })()}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">
+                                      Selecione uma disciplina
+                                    </span>
+                                  )}
+                                </div>
+                              </SelectTrigger>
+                            </TooltipTrigger>
+                            {formData.id_disciplina && (
+                              <TooltipContent className="max-w-sm p-3 text-sm bg-gray-900 text-white rounded shadow-lg z-50">
+                                <p className="break-words">
+                                  {disciplinas.find(
+                                    (d) => d.id === formData.id_disciplina
+                                  )?.nome || ""}
+                                </p>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                        </TooltipProvider>
+                        <SelectContent>
+                          {disciplinas.map((disciplina) => (
+                            <SelectItem key={disciplina.id} value={disciplina.id}>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="truncate max-w-[300px] block">
+                                      {disciplina.nome}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs p-2 text-sm bg-gray-900 text-white rounded shadow-lg">
+                                    <p className="break-words">
+                                      {disciplina.nome}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {mostrarTodasDisciplinas && formData.id_disciplina && (
+                        <p className="absolute left-0 top-full mt-2 text-sm text-muted-foreground z-10 bg-background px-1">
+                          💡 Se esta disciplina não estiver vinculada ao
+                          professor, o vínculo será criado automaticamente.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-
                 <div className="space-y-4 px-4">
                   <div className="space-y-2">
                     <Label htmlFor="id_turma">Turma</Label>
@@ -740,171 +743,56 @@ export default function AlocacoesPage() {
                     </Select>
                   </div>
                 </div>
+                <HorariosGrid
+                  horarios={horarios}
+                  selectedIds={formData.id_horarios}
+                  onToggle={(horarioId: string, checked: boolean) => {
+                    if (editingAlocacao) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        id_horarios: checked ? [horarioId] : [],
+                      }));
+                    } else {
+                      handleHorarioChange(horarioId, checked);
+                    }
+                  }}
+                  editingAlocacao={!!editingAlocacao}
+                  conflictingHorarios={conflictingHorarios}
+                  getDiaSemanaLabel={getDiaSemanaLabel}
+                  getDiaSemanaAbrev={getDiaSemanaAbrev}
+                  getHorariosAgrupados={getHorariosAgrupados}
+                />
 
-                <div className="space-y-3">
-                  <Label>
-                    Horários{" "}
-                    {editingAlocacao
-                      ? "(selecione apenas um)"
-                      : "(selecione um ou mais)"}
-                  </Label>
-                  <div className="max-h-64 overflow-y-auto border rounded-lg p-4 bg-muted/20">
-                    {Object.entries(getHorariosAgrupados()).map(
-                      ([dia, horariosGrupo]) => (
-                        <div key={dia} className="mb-4 last:mb-0">
-                          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
-                            <Badge variant="outline" className="font-medium">
-                              {getDiaSemanaAbrev(dia)}
-                            </Badge>
-                            <span className="text-sm text-muted-foreground font-medium">
-                              {getDiaSemanaLabel(dia)}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-2">
-                            {horariosGrupo.map((horario) => {
-                              const isSelected = formData.id_horarios.includes(
-                                horario.id
-                              );
-                              const conflictType = conflictingHorarios.get(
-                                horario.id
-                              );
-                              const isConflicting = !!conflictType;
-                              // Desabilitar horários com conflitos de turma sempre, outros conflitos apenas se não selecionados
-                              const isDisabled =
-                                isConflicting &&
-                                (conflictType === "turma" ||
-                                  conflictType === "professor_turma" ||
-                                  conflictType === "sala_turma" ||
-                                  conflictType === "todos" ||
-                                  !isSelected);
-
-                              // Definir cores baseadas no tipo de conflito
-                              const getConflictStyles = () => {
-                                if (!isConflicting)
-                                  return "cursor-pointer hover:bg-muted/50";
-
-                                return "bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20";
-                              };
-
-                              const getConflictTextColor = () => {
-                                if (!isConflicting) return "";
-
-                                return "text-destructive";
-                              };
-
-                              const getConflictLabel = () => {
-                                switch (conflictType) {
-                                  case "professor":
-                                    return "(Prof. ocupado)";
-                                  case "sala":
-                                    return "(Sala ocupada)";
-                                  case "turma":
-                                    return "(Turma ocupada)";
-                                  case "professor_sala":
-                                    return "(Prof. e Sala)";
-                                  case "professor_turma":
-                                    return "(Prof. e Turma)";
-                                  case "sala_turma":
-                                    return "(Sala e Turma)";
-                                  case "todos":
-                                    return "(Todos ocupados)";
-                                  default:
-                                    return "";
-                                }
-                              };
-
-                              return (
-                                <label
-                                  key={horario.id}
-                                  className={`flex items-center space-x-3 p-2 rounded-md transition-colors ${getConflictStyles()} ${
-                                    isDisabled
-                                      ? "cursor-not-allowed opacity-60"
-                                      : ""
-                                  }`}
-                                >
-                                  <input
-                                    type={
-                                      editingAlocacao ? "radio" : "checkbox"
-                                    }
-                                    name={
-                                      editingAlocacao ? "horario" : undefined
-                                    }
-                                    checked={isSelected}
-                                    disabled={isDisabled}
-                                    onChange={(e) => {
-                                      if (editingAlocacao) {
-                                        setFormData((prev) => ({
-                                          ...prev,
-                                          id_horarios: e.target.checked
-                                            ? [horario.id]
-                                            : [],
-                                        }));
-                                      } else {
-                                        handleHorarioChange(
-                                          horario.id,
-                                          e.target.checked
-                                        );
-                                      }
-                                    }}
-                                    className={`rounded ${
-                                      isDisabled ? "cursor-not-allowed" : ""
-                                    }`}
-                                  />
-                                  <span
-                                    className={`text-sm font-medium ${
-                                      isDisabled ? getConflictTextColor() : ""
-                                    }`}
-                                  >
-                                    {horario.codigo}
-                                    {isConflicting && (
-                                      <span
-                                        className={`ml-1 text-xs ${getConflictTextColor()}`}
-                                      >
-                                        {getConflictLabel()}
-                                      </span>
-                                    )}
-                                  </span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )
-                    )}
+                <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t flex items-center w-full">
+                  {/* Texto à esquerda ocupando espaço flexível */}
+                  <div className="flex-1 flex items-center gap-1.5 text-xs pl-4">
+                    <div className="w-2.5 h-2.5 rounded-sm bg-destructive/20 border border-destructive"></div>
+                    <span className="text-muted-foreground">
+                      Conflito de horário
+                    </span>
                   </div>
-                </div>
 
-                {/* Legenda de conflitos */}
-                <div className="px-4 py-2 border-t">
-                  <div className="text-xs font-medium mb-2 text-muted-foreground">
-                    Legenda de Conflitos:
-                  </div>
-                  <div className="grid grid-cols-1 gap-1 text-xs">
-                    <div className="flex items-center gap-1.5">
-                         <div className="w-2.5 h-2.5 rounded-sm bg-destructive/20 border border-destructive"></div>
-                         <span className="text-muted-foreground">Conflito de horário</span>
-                       </div>
-                  </div>
-                </div>
+                  {/* Botões alinhados à direita */}
+                  <div className="flex items-center gap-2 justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCloseDialog}
+                    >
+                      Cancelar
+                    </Button>
 
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleCloseDialog}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={submitting || formData.id_horarios.length === 0}
-                  >
-                    {submitting
-                      ? "Salvando..."
-                      : editingAlocacao
-                      ? "Atualizar Alocação"
-                      : "Criar Alocação"}
-                  </Button>
+                    <Button
+                      type="submit"
+                      disabled={submitting || formData.id_horarios.length === 0}
+                    >
+                      {submitting
+                        ? "Salvando..."
+                        : editingAlocacao
+                        ? "Atualizar Alocação"
+                        : "Criar Alocação"}
+                    </Button>
+                  </div>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -1065,8 +953,8 @@ export default function AlocacoesPage() {
                 size="sm"
                 onClick={() => {
                   setSearchTerm("");
-                  setFiltroDataInicio("");
-                  setFiltroDataFim("");
+                  setFiltroDataInicio(undefined);
+                  setFiltroDataFim(undefined);
                   setFiltroDiaSemana("");
                   setFiltroPeriodo("");
                   setFiltroTurmaId("");
