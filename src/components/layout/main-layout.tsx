@@ -29,8 +29,10 @@ import {
   School,
   Building,
   UserCheck,
+  MessageSquare,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { FeedbackWidget } from "@/components/feedback/FeedbackWidget";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -51,6 +53,7 @@ const navigation = [
   { name: "Turmas", href: "/turmas", icon: GraduationCap },
   { name: "Salas", href: "/salas", icon: MapPin },
   { name: "Alocações", href: "/alocacoes", icon: Calendar },
+  { name: "Feedbacks", href: "/admin/feedbacks", icon: MessageSquare, adminOnly: true },
   { name: "Grade de Horários", href: "/grade-horarios", icon: CalendarDays },
 ];
 
@@ -261,6 +264,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                 </>
               )}
               <ThemeToggle />
+               <FeedbackWidget />
             </div>
           </div>
         </div>

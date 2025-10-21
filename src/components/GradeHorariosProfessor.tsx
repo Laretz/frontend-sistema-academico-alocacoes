@@ -99,10 +99,9 @@ export function GradeHorariosProfessor({
 
   const loadProfessorData = async () => {
     try {
-      const response = await fetch(
-        `http://localhost:3333/users/${professorId}`
-      );
-      const data = await response.json();
+      // Usar axios API com Authorization automático
+      const response = await api.get(`/users/${professorId}`);
+      const data = response.data;
       setProfessor(data.user);
     } catch (error) {
       console.error("Erro ao carregar dados do professor:", error);
@@ -113,10 +112,9 @@ export function GradeHorariosProfessor({
   const loadAlocacoes = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        `http://localhost:3333/alocacoes/professor/${professorId}`
-      );
-      const data = await response.json();
+      // Usar axios API com Authorization automático
+      const response = await api.get(`/alocacoes/professor/${professorId}`);
+      const data = response.data;
       const alocacoesData = data.alocacoes || [];
       setAlocacoes(alocacoesData);
       setCargaHoraria(alocacoesData.length);
