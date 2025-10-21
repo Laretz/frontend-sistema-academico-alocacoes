@@ -1,53 +1,20 @@
 "use client";
-import { HorariosGrid } from "@/app/alocacoes/components/HorariosGrid";
+import { AlocacoesToolbar } from "@/app/alocacoes/components/AlocacoesToolbar";
+
+
 
 import { MainLayout } from "@/components/layout/main-layout";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  Calendar,
-  Clock,
-  MapPin,
-  User as UserIcon,
-  BookOpen,
-  GraduationCap,
-} from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+// Removed Dialog components (encapsulated in AlocacaoDialog)
+// import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+// Keep Select components (used in Filtros Avançados)
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// Clean lucide-react imports: remove Plus, Search (moved to AlocacoesToolbar)
+import { Edit, Trash2, Calendar, Clock, MapPin, User as UserIcon, BookOpen, GraduationCap } from "lucide-react";
+
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
@@ -67,8 +34,8 @@ import {
   Sala,
   Horario,
 } from "@/types/entities";
-import { User } from "@/types/auth";
-import { DatePicker } from "@/components/ui/date-picker";
+import { User } from "@/types/entities";
+
 
 interface FormData {
   id_user: string;
@@ -550,357 +517,47 @@ export default function AlocacoesPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Alocações</h1>
-            <p className="text-muted-foreground">
-              Gerencie as alocações de professores, disciplinas e horários
-            </p>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setEditingAlocacao(null)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Alocação
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingAlocacao ? "Editar Alocação" : "Nova Alocação"}
-                </DialogTitle>
-                <DialogDescription>
-                  {editingAlocacao
-                    ? "Edite as informações da alocação"
-                    : "Preencha as informações para criar uma nova alocação"}
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="id_user">Professor</Label>
-                    <Select
-                      value={formData.id_user}
-                      onValueChange={handleProfessorChange}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um professor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {usuarios
-                          .filter((user) => user.role === "PROFESSOR")
-                          .map((user) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.nome}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+        {/* Header movido para AlocacoesToolbar */}
+        <AlocacoesToolbar
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          filtroDataInicio={filtroDataInicio}
+          setFiltroDataInicio={setFiltroDataInicio}
+          filtroDataFim={filtroDataFim}
+          setFiltroDataFim={setFiltroDataFim}
+          filtroDiaSemana={filtroDiaSemana}
+          setFiltroDiaSemana={setFiltroDiaSemana}
+          filtroPeriodo={filtroPeriodo}
+          setFiltroPeriodo={setFiltroPeriodo}
+          isDialogOpen={isDialogOpen}
+          setIsDialogOpen={setIsDialogOpen}
+          editingAlocacao={editingAlocacao}
+          setEditingAlocacao={setEditingAlocacao}
+          formData={formData}
+          setFormData={setFormData}
+          usuarios={usuarios}
+          disciplinas={disciplinas}
+          mostrarTodasDisciplinas={mostrarTodasDisciplinas}
+          handleProfessorChange={handleProfessorChange}
+          handleMostrarTodasDisciplinasChange={handleMostrarTodasDisciplinasChange}
+          turmas={turmas}
+          salas={salas}
+          horarios={horarios}
+          conflictingHorarios={conflictingHorarios}
+          handleHorarioChange={handleHorarioChange}
+          getDiaSemanaLabel={getDiaSemanaLabel}
+          getDiaSemanaAbrev={getDiaSemanaAbrev}
+          getHorariosAgrupados={getHorariosAgrupados}
+          handleCloseDialog={handleCloseDialog}
+          submitting={submitting}
+          handleSubmit={handleSubmit}
+          todasDisciplinas={todasDisciplinas}
+        />
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <Label htmlFor="id_disciplina" className="font-medium">
-                        Disciplina
-                      </Label>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="mostrar-todas-disciplinas"
-                          checked={mostrarTodasDisciplinas}
-                          onCheckedChange={handleMostrarTodasDisciplinasChange}
-                        />
-                        <Label
-                          htmlFor="mostrar-todas-disciplinas"
-                          className="text-sm font-normal cursor-pointer whitespace-nowrap"
-                        >
-                          Mostrar todas
-                        </Label>
-                      </div>
-                    </div>
-                    <div className="relative">
-                      <Select
-                        value={formData.id_disciplina}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, id_disciplina: value })
-                        }
-                        required
-                      >
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <SelectTrigger className="w-full">
-                                <div className="truncate max-w-[250px]">
-                                  {formData.id_disciplina ? (
-                                    <span className="truncate block">
-                                      {(() => {
-                                        const disciplina = disciplinas.find(
-                                          (d) => d.id === formData.id_disciplina
-                                        );
-                                        if (!disciplina)
-                                          return "Disciplina não encontrada";
-                                        const nome = disciplina.nome;
-                                        return nome.length > 25
-                                          ? nome.substring(0, 25) + "..."
-                                          : nome;
-                                      })()}
-                                    </span>
-                                  ) : (
-                                    <span className="text-muted-foreground">
-                                      Selecione uma disciplina
-                                    </span>
-                                  )}
-                                </div>
-                              </SelectTrigger>
-                            </TooltipTrigger>
-                            {formData.id_disciplina && (
-                              <TooltipContent className="max-w-sm p-3 text-sm bg-gray-900 text-white rounded shadow-lg z-50">
-                                <p className="break-words">
-                                  {disciplinas.find(
-                                    (d) => d.id === formData.id_disciplina
-                                  )?.nome || ""}
-                                </p>
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        </TooltipProvider>
-                        <SelectContent>
-                          {disciplinas.map((disciplina) => (
-                            <SelectItem key={disciplina.id} value={disciplina.id}>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="truncate max-w-[300px] block">
-                                      {disciplina.nome}
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent className="max-w-xs p-2 text-sm bg-gray-900 text-white rounded shadow-lg">
-                                    <p className="break-words">
-                                      {disciplina.nome}
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      {mostrarTodasDisciplinas && formData.id_disciplina && (
-                        <p className="absolute left-0 top-full mt-2 text-sm text-muted-foreground z-10 bg-background px-1">
-                          💡 Se esta disciplina não estiver vinculada ao
-                          professor, o vínculo será criado automaticamente.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4 px-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="id_turma">Turma</Label>
-                    <Select
-                      value={formData.id_turma}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, id_turma: value })
-                      }
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma turma" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {turmas.map((turma) => (
-                          <SelectItem key={turma.id} value={turma.id}>
-                            {turma.nome} - {turma.periodo}º período (
-                            {turma.turno})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="id_sala">Sala</Label>
-                    <Select
-                      value={formData.id_sala}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, id_sala: value })
-                      }
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma sala" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {salas.map((sala) => (
-                          <SelectItem key={sala.id} value={sala.id}>
-                            {sala.nome} - {sala.predio.nome} (Cap:{" "}
-                            {sala.capacidade})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <HorariosGrid
-                  horarios={horarios}
-                  selectedIds={formData.id_horarios}
-                  onToggle={(horarioId: string, checked: boolean) => {
-                    if (editingAlocacao) {
-                      setFormData((prev) => ({
-                        ...prev,
-                        id_horarios: checked ? [horarioId] : [],
-                      }));
-                    } else {
-                      handleHorarioChange(horarioId, checked);
-                    }
-                  }}
-                  editingAlocacao={!!editingAlocacao}
-                  conflictingHorarios={conflictingHorarios}
-                  getDiaSemanaLabel={getDiaSemanaLabel}
-                  getDiaSemanaAbrev={getDiaSemanaAbrev}
-                  getHorariosAgrupados={getHorariosAgrupados}
-                />
-
-                <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t flex items-center w-full">
-                  {/* Texto à esquerda ocupando espaço flexível */}
-                  <div className="flex-1 flex items-center gap-1.5 text-xs pl-4">
-                    <div className="w-2.5 h-2.5 rounded-sm bg-destructive/20 border border-destructive"></div>
-                    <span className="text-muted-foreground">
-                      Conflito de horário
-                    </span>
-                  </div>
-
-                  {/* Botões alinhados à direita */}
-                  <div className="flex items-center gap-2 justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleCloseDialog}
-                    >
-                      Cancelar
-                    </Button>
-
-                    <Button
-                      type="submit"
-                      disabled={submitting || formData.id_horarios.length === 0}
-                    >
-                      {submitting
-                        ? "Salvando..."
-                        : editingAlocacao
-                        ? "Atualizar Alocação"
-                        : "Criar Alocação"}
-                    </Button>
-                  </div>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Filtros */}
+        {/* Filtros Avançados */}
         <Card>
           <CardContent className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="relative">
-                <label className="text-sm font-medium text-foreground mb-1 block">
-                  Filtrar por: Nome/Sala/Horario
-                </label>
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 mt-3" />
-                <Input
-                  placeholder="Buscar alocações..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              {/* Filtro por data de início */}
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">
-                  Data Início
-                </label>
-                <DatePicker
-                  date={filtroDataInicio}
-                  onDateChange={setFiltroDataInicio}
-                  placeholder="Selecione data de início"
-                />
-              </div>
-
-              {/* Filtro por data de fim */}
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">
-                  Data Fim
-                </label>
-                <DatePicker
-                  date={filtroDataFim}
-                  onDateChange={setFiltroDataFim}
-                  placeholder="Selecione data de fim"
-                />
-              </div>
-
-              {/* Filtro por dia da semana */}
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">
-                  Dia da Semana
-                </label>
-                <Select
-                  value={filtroDiaSemana}
-                  onValueChange={setFiltroDiaSemana}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos os dias" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos os dias</SelectItem>
-                    <SelectItem value="segunda">Segunda-feira</SelectItem>
-                    <SelectItem value="terca">Terça-feira</SelectItem>
-                    <SelectItem value="quarta">Quarta-feira</SelectItem>
-                    <SelectItem value="quinta">Quinta-feira</SelectItem>
-                    <SelectItem value="sexta">Sexta-feira</SelectItem>
-                    <SelectItem value="sabado">Sábado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Filtro por período */}
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">
-                  Período
-                </label>
-                <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos os períodos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos os períodos</SelectItem>
-                    <SelectItem value="M">Manhã</SelectItem>
-                    <SelectItem value="T">Tarde</SelectItem>
-                    <SelectItem value="N">Noite</SelectItem>
-                    <SelectItem value="M1">M1 - Manhã</SelectItem>
-                    <SelectItem value="M2">M2 - Manhã</SelectItem>
-                    <SelectItem value="M3">M3 - Manhã</SelectItem>
-                    <SelectItem value="M4">M4 - Manhã</SelectItem>
-                    <SelectItem value="M5">M5 - Manhã</SelectItem>
-                    <SelectItem value="M6">M6 - Manhã</SelectItem>
-                    <SelectItem value="T1">T1 - Tarde</SelectItem>
-                    <SelectItem value="T2">T2 - Tarde</SelectItem>
-                    <SelectItem value="T3">T3 - Tarde</SelectItem>
-                    <SelectItem value="T4">T4 - Tarde</SelectItem>
-                    <SelectItem value="T5">T5 - Tarde</SelectItem>
-                    <SelectItem value="T6">T6 - Tarde</SelectItem>
-                    <SelectItem value="N1">N1 - Noite</SelectItem>
-                    <SelectItem value="N2">N2 - Noite</SelectItem>
-                    <SelectItem value="N3">N3 - Noite</SelectItem>
-                    <SelectItem value="N4">N4 - Noite</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Seção de Filtros Avançados */}
-            <div className="mt-6 pt-4 border-t border-border">
+            <div>
               <h3 className="text-lg font-medium text-foreground mb-4">
                 Filtros Avançados
               </h3>
@@ -910,10 +567,7 @@ export default function AlocacoesPage() {
                   <label className="text-sm font-medium text-foreground mb-1 block">
                     Turma
                   </label>
-                  <Select
-                    value={filtroTurmaId}
-                    onValueChange={setFiltroTurmaId}
-                  >
+                  <Select value={filtroTurmaId} onValueChange={setFiltroTurmaId}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione uma turma" />
                     </SelectTrigger>
@@ -921,8 +575,7 @@ export default function AlocacoesPage() {
                       <SelectItem value="todas">Todas as turmas</SelectItem>
                       {turmas.map((turma) => (
                         <SelectItem key={turma.id} value={turma.id}>
-                          {turma.nome} - {turma.periodo}º período ({turma.turno}
-                          )
+                          {turma.nome} - {turma.periodo}º período ({turma.turno})
                         </SelectItem>
                       ))}
                     </SelectContent>
