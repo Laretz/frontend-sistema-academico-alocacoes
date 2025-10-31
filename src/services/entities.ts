@@ -41,6 +41,23 @@ export const cursoService = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/cursos/${id}`);
   },
+  
+  // Disciplinas por curso (sem paginação, ordenadas por semestre)
+  getDisciplinas: async (id_curso: string): Promise<{ disciplinas: Disciplina[] }> => {
+    const response = await api.get<{ disciplinas: Disciplina[] }>(`/cursos/${id_curso}/disciplinas`);
+    return response.data;
+  },
+
+  // Vincular disciplina a curso
+  vincularDisciplina: async (id_curso: string, id_disciplina: string): Promise<{ message: string }> => {
+    const response = await api.post(`/cursos/${id_curso}/disciplinas`, { idDisciplina: id_disciplina });
+    return response.data;
+  },
+
+  // Desvincular disciplina de curso
+  desvincularDisciplina: async (id_curso: string, id_disciplina: string): Promise<void> => {
+    await api.delete(`/cursos/${id_curso}/disciplinas/${id_disciplina}`);
+  },
 };
 
 // Prédios

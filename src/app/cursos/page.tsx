@@ -21,15 +21,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Loader2, List } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { cursoService } from "@/services/entities";
-import { Curso, CreateCursoRequest } from "@/types/entities";
+import { cursoService, disciplinaService } from "@/services/entities";
+import { Curso, CreateCursoRequest, Disciplina } from "@/types/entities";
+import { useAuthStore } from "@/store/auth";
 
 export default function CursosPage() {
   const router = useRouter();
+  const { user } = useAuthStore();
+  const canManage = user?.role === "ADMIN" || user?.role === "COORDENADOR";
+
   const [cursos, setCursos] = useState<Curso[]>([]);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,6 +47,26 @@ export default function CursosPage() {
     codigo: "123456",
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // Disciplinas por curso (sem paginação, ordenadas por semestre)
+  const [disciplinasPorCurso, setDisciplinasPorCurso] = useState<Record<string, Disciplina[]>>({});
+  const [loadingDisciplinas, setLoadingDisciplinas] = useState<boolean>(false);
+  
+  // Modal de disciplinas
+  const [disciplinasModalOpen, setDisciplinasModalOpen] = useState(false);
+  const [cursoSelecionadoParaDisciplinas, setCursoSelecionadoParaDisciplinas] = useState<Curso | null>(null);
+  const [disciplinasSemestreFilter, setDisciplinasSemestreFilter] = useState<'ALL' | number>('ALL');
+
+  // Vincular/Desvincular
+  const [vincularDialogOpen, setVincularDialogOpen] = useState(false);
+  const [cursoIdForVinculo, setCursoIdForVinculo] = useState<string | null>(null);
+  const [selectedDisciplinaId, setSelectedDisciplinaId] = useState<string>("");
+  const [allDisciplinas, setAllDisciplinas] = useState<Disciplina[]>([]);
+  const [loadingAllDisciplinas, setLoadingAllDisciplinas] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [linkingDisciplinaId, setLinkingDisciplinaId] = useState<string | null>(null);
+  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
+  const [vincularSemestreFilter, setVincularSemestreFilter] = useState<'ALL' | number>('ALL');
 
   const filteredCursos =
     cursos?.filter((curso) =>
@@ -62,6 +86,120 @@ export default function CursosPage() {
     }
   };
 
+  const fetchDisciplinasDoCurso = async (id_curso: string) => {
+    try {
+      setLoadingDisciplinas(true);
+      const response = await cursoService.getDisciplinas(id_curso);
+      setDisciplinasPorCurso((prev) => ({ ...prev, [id_curso]: response.disciplinas }));
+    } catch (error) {
+      console.error("Erro ao buscar disciplinas do curso:", error);
+      toast.error("Erro ao carregar disciplinas do curso");
+    } finally {
+      setLoadingDisciplinas(false);
+    }
+  };
+
+  const openDisciplinasModal = (curso: Curso) => {
+     setCursoSelecionadoParaDisciplinas(curso);
+     setDisciplinasModalOpen(true);
+     setDisciplinasSemestreFilter('ALL');
+     
+     // Carregar disciplinas se ainda não foram carregadas
+     if (!disciplinasPorCurso[curso.id]) {
+       fetchDisciplinasDoCurso(curso.id);
+     }
+   };
+
+  const openVincularDialog = async (id_curso: string) => {
+    setCursoIdForVinculo(id_curso);
+    setVincularDialogOpen(true);
+    setSelectedDisciplinaId("");
+    setVincularSemestreFilter('ALL');
+    try {
+      setLoadingAllDisciplinas(true);
+      const response = await disciplinaService.getAll();
+      setAllDisciplinas(response.disciplinas);
+    } catch (error) {
+      console.error("Erro ao buscar disciplinas:", error);
+      toast.error("Erro ao carregar lista de disciplinas");
+    } finally {
+      setLoadingAllDisciplinas(false);
+    }
+  };
+
+  const handleVincular = async () => {
+    if (!cursoIdForVinculo || !selectedDisciplinaId) {
+      toast.error("Selecione uma disciplina");
+      return;
+    }
+    try {
+      setLinking(true);
+      await cursoService.vincularDisciplina(cursoIdForVinculo, selectedDisciplinaId);
+      toast.success("Disciplina vinculada com sucesso!");
+      await fetchDisciplinasDoCurso(cursoIdForVinculo);
+      setVincularDialogOpen(false);
+      setSelectedDisciplinaId("");
+    } catch (error) {
+      console.error("Erro ao vincular disciplina:", error);
+      const errorMessage = (error as any)?.response?.data?.message || (error as any)?.message || "Erro ao vincular disciplina";
+      toast.error(errorMessage);
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const handleVincularPorId = async (id_disciplina: string) => {
+    if (!cursoIdForVinculo) {
+      toast.error("Curso não definido para vínculo");
+      return;
+    }
+    try {
+      setLinking(true);
+      setLinkingDisciplinaId(id_disciplina);
+      await cursoService.vincularDisciplina(cursoIdForVinculo, id_disciplina);
+      toast.success("Disciplina vinculada com sucesso!");
+      await fetchDisciplinasDoCurso(cursoIdForVinculo);
+    } catch (error) {
+      console.error("Erro ao vincular disciplina:", error);
+      const errorMessage = (error as any)?.response?.data?.message || (error as any)?.message || "Erro ao vincular disciplina";
+      toast.error(errorMessage);
+    } finally {
+      setLinking(false);
+      setLinkingDisciplinaId(null);
+    }
+  };
+
+  const handleDesvincular = async (id_curso: string, id_disciplina: string) => {
+    try {
+      setUnlinkingId(id_disciplina);
+      await cursoService.desvincularDisciplina(id_curso, id_disciplina);
+      toast.success("Disciplina desvinculada!");
+      // Atualizar local sem refetch completo
+      setDisciplinasPorCurso((prev) => ({
+        ...prev,
+        [id_curso]: (prev[id_curso] || []).filter((d) => d.id !== id_disciplina),
+      }));
+    } catch (error) {
+      console.error("Erro ao desvincular disciplina:", error);
+      const errorMessage = (error as any)?.response?.data?.message || (error as any)?.message || "Erro ao desvincular disciplina";
+      toast.error(errorMessage);
+    } finally {
+      setUnlinkingId(null);
+    }
+  };
+
+  useEffect(() => {
+    fetchCursos();
+  }, []);
+
+  // Disciplinas disponíveis para vincular (exclui as já vinculadas)
+  const availableDisciplinas = cursoIdForVinculo
+    ? allDisciplinas.filter(
+        (d) => !(disciplinasPorCurso[cursoIdForVinculo] || []).some((ld) => ld.id === d.id)
+      )
+    : allDisciplinas;
+
+  // Handlers (devem estar dentro do componente, antes do return)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nome || !formData.turno) {
@@ -118,17 +256,12 @@ export default function CursosPage() {
   };
 
   const handleDelete = async (id: string) => {
-    console.log("Tentando deletar curso com ID:", id);
     try {
       await cursoService.delete(id);
-      console.log("Delete bem-sucedido!");
       toast.success("Curso excluído com sucesso!");
       fetchCursos();
     } catch (error: unknown) {
-      console.error(
-        "Erro ao excluir curso:",
-        (error as { response?: { data?: unknown }; message?: string })?.response?.data || (error as { message?: string })?.message
-      );
+      console.error("Erro ao excluir curso:", (error as { response?: { data?: unknown }; message?: string })?.response?.data || (error as { message?: string })?.message);
       const errorMessage = error instanceof Error ? error.message : 
         (error as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message || 
         (error as { message?: string })?.message || 
@@ -136,10 +269,6 @@ export default function CursosPage() {
       toast.error("Erro ao excluir curso: " + errorMessage);
     }
   };
-
-  useEffect(() => {
-    fetchCursos();
-  }, []);
 
   return (
     <MainLayout>
@@ -153,7 +282,7 @@ export default function CursosPage() {
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <Button onClick={() => router.push('/cursos/criar')}>
-              <Plus className="mr-2 h-4 w-4 text-white" />
+              <Plus className="mr-2 h-4 w-4" />
               Novo Curso
             </Button>
             <DialogContent className="sm:max-w-[425px]">
@@ -200,9 +329,10 @@ export default function CursosPage() {
                       className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       required
                     >
-                      <option value="MANHA">Manhã</option>
-                      <option value="TARDE">Tarde</option>
-                      <option value="NOITE">Noite</option>
+                      <option value="MATUTINO">Matutino</option>
+                      <option value="VESPERTINO">Vespertino</option>
+                      <option value="NOTURNO">Noturno</option>
+                      <option value="INTEGRAL">Integral</option>
                     </select>
                   </div>
 
@@ -248,35 +378,66 @@ export default function CursosPage() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{curso.nome}</CardTitle>
-                    <Badge variant="secondary">{curso.turno}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{curso.turno}</Badge>
+                      <Badge variant="outline">
+                        Disciplinas: {disciplinasPorCurso[curso.id]?.length ?? "-"}
+                      </Badge>
+                    </div>
                   </div>
 
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="text-sm text-muted-foreground">
                       Criado em{" "}
                       {new Date(curso.created_at).toLocaleDateString("pt-BR")}
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto">
                       <Button
                         variant="outline"
                         size="sm"
-                        title="Editar curso"
-                        onClick={() => handleEdit(curso)}
+                        title="Ver disciplinas do curso"
+                        onClick={() => openDisciplinasModal(curso)}
                       >
-                        <Edit className="h-4 w-4 text-blue-600" />
+                        <List className="h-4 w-4 text-green-600 mr-1" />
+                        Disciplinas
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        title="Excluir curso"
-                        onClick={() => handleDelete(curso.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
+                      {canManage && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          title="Vincular disciplina ao curso"
+                          onClick={() => openVincularDialog(curso.id)}
+                        >
+                          <Plus className="h-4 w-4 text-green-600 mr-1" />
+                          Vincular
+                        </Button>
+                      )}
+                      {canManage && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          title="Editar curso"
+                          onClick={() => handleEdit(curso)}
+                        >
+                          <Edit className="h-4 w-4 text-blue-600" />
+                        </Button>
+                      )}
+                      {canManage && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          title="Excluir curso"
+                          onClick={() => handleDelete(curso.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      )}
                     </div>
                   </div>
+
+
                 </CardContent>
               </Card>
             ))}
@@ -292,6 +453,198 @@ export default function CursosPage() {
             </p>
           </div>
         )}
+
+        {/* Dialog de Vincular Disciplina */}
+        <Dialog open={vincularDialogOpen} onOpenChange={setVincularDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Vincular Disciplina ao Curso</DialogTitle>
+              <DialogDescription>
+                Selecione uma disciplina para vincular ao curso.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Filtro por semestre */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm text-muted-foreground">Filtrar por semestre</div>
+              <select
+                value={vincularSemestreFilter}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setVincularSemestreFilter(val === 'ALL' ? 'ALL' : Number(val));
+                }}
+                className="flex h-9 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="ALL">Todos</option>
+                {(() => {
+                  const maxSem = availableDisciplinas.reduce((m, d) => Math.max(m, d.semestre || 0), 0);
+                  return Array.from({ length: maxSem }, (_, i) => i + 1).map((s) => (
+                    <option key={s} value={s}>{s}º</option>
+                  ));
+                })()}
+              </select>
+            </div>
+
+            <div className="max-h-[400px] overflow-y-auto space-y-3">
+              {loadingAllDisciplinas ? (
+                <div className="flex items-center justify-center py-8 text-muted-foreground">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" /> Carregando disciplinas...
+                </div>
+              ) : (
+                (() => {
+                  const disponiveisFiltradas = availableDisciplinas.filter((d) =>
+                    vincularSemestreFilter === 'ALL' || d.semestre === vincularSemestreFilter
+                  );
+                  if (disponiveisFiltradas.length === 0) {
+                    return (
+                      <div className="text-center py-8 text-muted-foreground">
+                        {vincularSemestreFilter === 'ALL'
+                          ? 'Nenhuma disciplina disponível para vincular.'
+                          : 'Nenhuma disciplina disponível neste semestre.'}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="space-y-3">
+                      {disponiveisFiltradas.map((disciplina) => (
+                        <div key={disciplina.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex-1">
+                            <div className="font-medium">{disciplina.nome}</div>
+                            <div className="text-sm text-muted-foreground">
+                              Semestre {disciplina.semestre} • Carga Horária: {disciplina.carga_horaria}h
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">{disciplina.semestre}º Sem</Badge>
+                            <Badge variant="secondary">{disciplina.carga_horaria}h</Badge>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              title="Vincular disciplina"
+                              onClick={() => handleVincularPorId(disciplina.id)}
+                              disabled={linking && linkingDisciplinaId === disciplina.id}
+                            >
+                              {linking && linkingDisciplinaId === disciplina.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                'Vincular'
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setVincularDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Disciplinas */}
+        <Dialog open={disciplinasModalOpen} onOpenChange={setDisciplinasModalOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>
+                Disciplinas - {cursoSelecionadoParaDisciplinas?.nome}
+              </DialogTitle>
+              <DialogDescription>
+                Disciplinas vinculadas ao curso {cursoSelecionadoParaDisciplinas?.nome}
+              </DialogDescription>
+            </DialogHeader>
+            
+            {/* Filtro por semestre */}
+            {cursoSelecionadoParaDisciplinas && (
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm text-muted-foreground">Filtrar por semestre</div>
+                <select
+                  value={disciplinasSemestreFilter}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDisciplinasSemestreFilter(val === 'ALL' ? 'ALL' : Number(val));
+                  }}
+                  className="flex h-9 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="ALL">Todos</option>
+                  {Array.from({ length: cursoSelecionadoParaDisciplinas.duracao_semestres || 0 }, (_, i) => i + 1).map((s) => (
+                    <option key={s} value={s}>{s}º</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="max-h-[400px] overflow-y-auto">
+              {loadingDisciplinas && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  Carregando disciplinas...
+                </div>
+              )}
+
+              {!loadingDisciplinas && cursoSelecionadoParaDisciplinas && (
+                <div className="space-y-3">
+                  {((disciplinasPorCurso[cursoSelecionadoParaDisciplinas.id] || []).filter((d) => disciplinasSemestreFilter === 'ALL' || d.semestre === disciplinasSemestreFilter)).length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {disciplinasSemestreFilter === 'ALL' ? 'Nenhuma disciplina vinculada a este curso.' : 'Nenhuma disciplina neste semestre.'}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {((disciplinasPorCurso[cursoSelecionadoParaDisciplinas.id] || []).filter((d) => disciplinasSemestreFilter === 'ALL' || d.semestre === disciplinasSemestreFilter)).map((disciplina) => (
+                        <div key={disciplina.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex-1">
+                            <div className="font-medium">{disciplina.nome}</div>
+                            <div className="text-sm text-muted-foreground">
+                              Semestre {disciplina.semestre} • Carga Horária: {disciplina.carga_horaria}h
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">
+                              {disciplina.semestre}º Sem
+                            </Badge>
+                            <Badge variant="secondary">
+                              {disciplina.carga_horaria}h
+                            </Badge>
+                            {canManage && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                title="Desvincular disciplina"
+                                onClick={() => handleDesvincular(cursoSelecionadoParaDisciplinas.id, disciplina.id)}
+                                disabled={unlinkingId === disciplina.id}
+                              >
+                                {unlinkingId === disciplina.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDisciplinasModalOpen(false)}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );
