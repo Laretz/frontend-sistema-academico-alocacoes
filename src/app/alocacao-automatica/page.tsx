@@ -25,9 +25,11 @@ import { Input } from "@/components/ui/input";
 import { Brain, AlertTriangle, Play, Calendar, Eye, Search, Filter } from "lucide-react";
 import { gerarHorarioConsolidadoPorDisciplina } from "@/utils/horario-consolidado";
 import { toast } from "sonner";
-import { turmaService, disciplinaService } from "@/services/entities";
+import { turmaService, disciplinaService, cursoService, alocacaoService, professorDisciplinaService, salaService, horarioService } from "@/services/entities";
 import { Turma, Disciplina } from "@/types/entities";
 import { GradeHorariosTurma } from "@/components/GradeHorariosTurma";
+import { api } from "@/lib/api";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Função para mapear códigos de horário para horários de início e fim
 const getTimeInfo = (
@@ -73,7 +75,10 @@ export default function AlocacaoAutomaticaPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [disciplinas, setDisciplinas] = useState<Disciplina[]>([]);
-  const [selectedTurma, setSelectedTurma] = useState<string>("");
+  const [selectedTurmaId, setSelectedTurmaId] = useState<string>("");
+const [selectedTurma, setSelectedTurma] = useState<Turma | null>(null);
+const [allCursoDisciplinas, setAllCursoDisciplinas] = useState<Disciplina[]>([]);
+const [mostrarTodasOfertas, setMostrarTodasOfertas] = useState(false);
   const [selectedDisciplinas, setSelectedDisciplinas] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showGrade, setShowGrade] = useState(false);
@@ -85,6 +90,23 @@ export default function AlocacaoAutomaticaPage() {
   // Estados para filtros
   const [selectedSemestre, setSelectedSemestre] = useState<string>("todos");
   const [searchTerm, setSearchTerm] = useState<string>("");
+
+  // Estado para vínculos curso-disciplina do curso selecionado
+  const [cursoDisciplinaVinculos, setCursoDisciplinaVinculos] = useState<Array<{ id: string; id_curso: string; id_disciplina: string }>>([]);
+  const [advancedMode, setAdvancedMode] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmSummary, setConfirmSummary] = useState<{ total: number; valid: number; discarded: number; conflicts: Array<{ disciplinaId: string; professorId: string; salaId: string; horarioId: string; reason: string }>; validGroups: Array<{ disciplinaId: string; professorId: string; salaId: string; horarios: string[] }> }>({ total: 0, valid: 0, discarded: 0, conflicts: [], validGroups: [] });
+
+// Recalcula a lista exibida de disciplinas quando alterna "Mostrar todas" ou muda vínculos
+useEffect(() => {
+  const vinculoIds = new Set((cursoDisciplinaVinculos || []).map(v => v.id_disciplina));
+  const base = mostrarTodasOfertas
+    ? allCursoDisciplinas
+    : allCursoDisciplinas.filter(d => vinculoIds.has(d.id));
+  setDisciplinas(base);
+  // Remover seleções que não existem mais na lista
+  setSelectedDisciplinas(prev => prev.filter(id => base.some(d => d.id === id)));
+}, [mostrarTodasOfertas, allCursoDisciplinas, cursoDisciplinaVinculos]);
 
   useEffect(() => {
     fetchData();
@@ -105,15 +127,25 @@ export default function AlocacaoAutomaticaPage() {
 
   const fetchDisciplinasByCurso = async (cursoId: string) => {
     try {
-      const disciplinasData = await disciplinaService.getAll(1);
-      const disciplinasFiltradas = disciplinasData?.disciplinas?.filter(
-        (disciplina) => disciplina.id_curso === cursoId
-      ) || [];
-      setDisciplinas(disciplinasFiltradas);
+      // Carregar disciplinas do curso via cursoService (fonte: cursoDisciplina)
+      const disciplinasData = await cursoService.getDisciplinas(cursoId);
+      // Carregar vínculos curso-disciplina para mapear id_disciplina -> id_curso_disciplina
+      const { vinculos } = await cursoService.getDisciplinaVinculos(cursoId);
+      const vinculoIds = new Set((vinculos || []).map((v) => v.id_disciplina));
+      // Guardar todas as disciplinas do curso
+      setAllCursoDisciplinas(disciplinasData?.disciplinas || []);
+      setCursoDisciplinaVinculos(vinculos || []);
+      // Exibir vinculadas ou todas conforme toggle
+      const base = mostrarTodasOfertas
+        ? (disciplinasData?.disciplinas || [])
+        : (disciplinasData?.disciplinas || []).filter((d: Disciplina) => vinculoIds.has(d.id));
+      setDisciplinas(base);
     } catch (error) {
-      console.error("Erro ao carregar disciplinas:", error);
-      toast.error("Erro ao carregar disciplinas");
+      console.error("Erro ao carregar disciplinas/vínculos:", error);
+      toast.error("Erro ao carregar disciplinas/vínculos");
       setDisciplinas([]);
+      setCursoDisciplinaVinculos([]);
+      setAllCursoDisciplinas([]);
     }
   };
 
@@ -149,7 +181,7 @@ export default function AlocacaoAutomaticaPage() {
       return acc;
     }, {} as Record<string, Disciplina[]>);
 
-    // Ordenar semestres
+    // Ordenar semestres e retornar estrutura
     const sortedSemestres = Object.keys(grouped).sort((a, b) => parseInt(a) - parseInt(b));
     return sortedSemestres.map(semestre => ({
       semestre,
@@ -197,54 +229,82 @@ export default function AlocacaoAutomaticaPage() {
    };
 
   const handleGeneratePreview = async () => {
-    if (!selectedTurma || selectedDisciplinas.length === 0) {
-      toast.error("Selecione uma turma e pelo menos uma disciplina");
+    if (!selectedTurmaId || selectedDisciplinas.length === 0) {
+      toast.error("Selecione uma turma e pelo menos uma oferta do curso");
       return;
     }
 
     setIsGeneratingPreview(true);
     try {
-      const response = await fetch(
-        "http://localhost:3333/alocacoes/genetica/preview",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            turmaId: selectedTurma,
-            disciplinaIds: selectedDisciplinas,
-            params: {
-              populationSize: 50,
-              generations: 100,
-              mutationRate: 0.1,
-              crossoverRate: 0.8,
-              elitismRate: 0.1,
-            },
-          }),
+      // Pré-validações básicas (curso da turma, salas e horários)
+      const turmaObj = selectedTurma;
+      const cursoId = turmaObj?.id_curso;
+      if (!cursoId) {
+        throw new Error("Turma selecionada sem curso associado");
+      }
+
+      // Salas
+      const salasResp = await salaService.getAll(1);
+      if (!salasResp?.salas?.length) {
+        throw new Error("Nenhuma sala cadastrada. Cadastre salas para prosseguir.");
+      }
+
+      // Horários
+      const horariosResp = await horarioService.getAll();
+      if (!horariosResp?.length) {
+        throw new Error("Nenhum horário cadastrado. Cadastre horários para prosseguir.");
+      }
+
+      // Opcional: verificar professores do curso (não bloqueante)
+      try {
+        const { data: usuariosCursoResp } = await api.get(`/user-curso/usuarios/${cursoId}`);
+        const professoresDoCurso = (usuariosCursoResp?.usuarios || []).filter((u: any) => u.role === "PROFESSOR");
+        if (!professoresDoCurso.length) {
+          toast.warning("Nenhum professor vinculado ao curso da turma. O preview pode falhar. Vincule professores ao curso.");
         }
-      );
+      } catch (e) {
+        console.warn("Aviso: falha ao verificar professores do curso (prosseguindo):", e);
+      }
 
-      const result = await response.json();
+      // Mapear disciplinas selecionadas para cursoDisciplinaIds
+      const cursoDisciplinaIds = selectedDisciplinas
+        .map((disciplinaId) =>
+          cursoDisciplinaVinculos.find(
+            (v) => v.id_disciplina === disciplinaId && v.id_curso === cursoId
+          )?.id
+        )
+        .filter((id): id is string => Boolean(id));
 
-      console.log("Full response:", result);
-      console.log("Response status:", response.status);
-      console.log("Response ok:", response.ok);
-
-      if (!response.ok) {
-        console.error("Error response:", result);
+      if (cursoDisciplinaIds.length === 0) {
         throw new Error(
-          result.message || result.error || "Erro ao gerar preview"
+          "Nenhuma oferta vinculada ao curso foi selecionada. Vincule ou confirme para criar vínculos."
+        );
+      }
+      if (cursoDisciplinaIds.length !== selectedDisciplinas.length) {
+        toast.warning(
+          "Algumas ofertas selecionadas não possuem vínculo com o curso. Elas serão ignoradas no preview; o vínculo será criado automaticamente ao confirmar."
         );
       }
 
-      console.log("Preview data received:", result.data);
-      console.log("Allocations:", result.data?.allocations);
-      console.log("Schedule:", result.data?.schedule);
-      console.log("Success flag:", result.success);
+      const { data: result } = await api.post(
+        "/alocacoes/genetica/preview",
+        {
+          turmaId: selectedTurmaId,
+          cursoDisciplinaIds,
+          params: {
+            populationSize: 50,
+            generations: 100,
+            mutationRate: 0.1,
+            crossoverRate: 0.8,
+            elitismRate: 0.1,
+          }
+        }
+      );
+
+      console.log("Resposta do preview:", result);
 
       if (!result.success) {
-        throw new Error(result.error || "Falha na geração do preview");
+        throw new Error(result.message || result.error || "Falha na geração do preview");
       }
 
       if (!result.data) {
@@ -254,211 +314,287 @@ export default function AlocacaoAutomaticaPage() {
       setPreviewData(result.data);
       setShowPreview(true);
       toast.success("Preview gerado com sucesso!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao gerar preview:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Erro ao gerar preview"
-      );
+      const status = error?.response?.status;
+      const serverMsg = error?.response?.data?.message || error?.response?.data?.error;
+      if (status === 400) {
+        toast.error(
+          "Sem disponibilidade de horários no turno selecionado ou restrições inviabilizaram a alocação. Ajuste professores/salas/horários e tente novamente."
+        );
+      } else {
+        toast.error(serverMsg || (error instanceof Error ? error.message : "Erro ao gerar preview"));
+      }
     } finally {
       setIsGeneratingPreview(false);
     }
   };
 
-  const handleConfirmAllocations = async () => {
-    if (!previewData) {
-      toast.error("Nenhum preview disponível para confirmar");
-      return;
+  // Utilitário: calcula conflitos locais e grupos válidos (usa selectedTurma atual)
+  const computeValidGroupsAndConflicts = (allocations: Array<{ disciplinaId: string; professorId: string; salaId: string; horarioId: string }>, selectedTurmaId: string) => {
+    type GroupKey = string;
+    const groups: Record<GroupKey, { disciplinaId: string; professorId: string; salaId: string; horarios: string[] }> = {};
+
+    const profHorarioMap = new Map<string, Array<{ disciplinaId: string; professorId: string; salaId: string; horarioId: string }>>();
+    const salaHorarioMap = new Map<string, Array<{ disciplinaId: string; professorId: string; salaId: string; horarioId: string }>>();
+    const turmaHorarioMap = new Map<string, Array<{ disciplinaId: string; professorId: string; salaId: string; horarioId: string }>>();
+
+    for (const aloc of allocations) {
+      const key: GroupKey = `${aloc.disciplinaId}-${aloc.professorId}-${aloc.salaId}`;
+      if (!groups[key]) {
+        groups[key] = { disciplinaId: aloc.disciplinaId, professorId: aloc.professorId, salaId: aloc.salaId, horarios: [] };
+      }
+      if (!groups[key].horarios.includes(aloc.horarioId)) {
+        groups[key].horarios.push(aloc.horarioId);
+      }
+
+      const profKey = `${aloc.professorId}-${aloc.horarioId}`;
+      const salaKey = `${aloc.salaId}-${aloc.horarioId}`;
+      const turmaKey = `${selectedTurmaId}-${aloc.horarioId}`;
+      if (!profHorarioMap.has(profKey)) profHorarioMap.set(profKey, []);
+      if (!salaHorarioMap.has(salaKey)) salaHorarioMap.set(salaKey, []);
+      if (!turmaHorarioMap.has(turmaKey)) turmaHorarioMap.set(turmaKey, []);
+      profHorarioMap.get(profKey)!.push(aloc);
+      salaHorarioMap.get(salaKey)!.push(aloc);
+      turmaHorarioMap.get(turmaKey)!.push(aloc);
     }
 
-    setIsGenerating(true);
+    const conflicts: Array<{ disciplinaId: string; professorId: string; salaId: string; horarioId: string; reason: string }> = [];
+    const conflictSet = new Set<string>();
+
+    const pushConflictsFromMap = (map: Map<string, Array<{ disciplinaId: string; professorId: string; salaId: string; horarioId: string }>>, reason: string) => {
+      for (const [, list] of map) {
+        if (list.length > 1) {
+          for (const item of list) {
+            const id = `${item.disciplinaId}-${item.professorId}-${item.salaId}-${item.horarioId}-${reason}`;
+            if (!conflictSet.has(id)) {
+              conflictSet.add(id);
+              conflicts.push({ disciplinaId: item.disciplinaId, professorId: item.professorId, salaId: item.salaId, horarioId: item.horarioId, reason });
+            }
+          }
+        }
+      }
+    };
+
+    pushConflictsFromMap(profHorarioMap, "professor-horario");
+    pushConflictsFromMap(salaHorarioMap, "sala-horario");
+    pushConflictsFromMap(turmaHorarioMap, "turma-horario");
+
+    const conflictHorarioSet = new Set<string>(conflicts.map(c => `${c.professorId}-${c.salaId}-${c.horarioId}`));
+    const validGroups: Array<{ disciplinaId: string; professorId: string; salaId: string; horarios: string[] }> = [];
+    for (const g of Object.values(groups)) {
+      const validHorarios = g.horarios.filter(h => !conflictHorarioSet.has(`${g.professorId}-${g.salaId}-${h}`));
+      if (validHorarios.length > 0) {
+        validGroups.push({ ...g, horarios: validHorarios });
+      }
+    }
+
+    const total = allocations.length;
+    const valid = validGroups.reduce((acc, g) => acc + g.horarios.length, 0);
+    const discarded = total - valid;
+
+    return { validGroups, conflicts, total, valid, discarded };
+  };
+
+  // Confirmação final (após modal) - envia apenas válidas
+  const handleConfirmSubmit = async () => {
+    if (!selectedTurmaId || !previewData) return;
+
     try {
-      // Executar o algoritmo genético real e salvar no banco
-      const response = await fetch("http://localhost:3333/alocacoes/genetica", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          turmaId: selectedTurma,
-          params: {
-            populationSize: 50,
-            generations: 100,
-            mutationRate: 0.1,
-            crossoverRate: 0.8,
-            elitismRate: 0.1,
-          },
-        }),
+      setIsGenerating(true);
+      const turmaObj = turmas.find((t) => t.id === selectedTurmaId);
+      const cursoId = turmaObj?.id_curso;
+      if (!cursoId) throw new Error("Turma selecionada sem curso associado");
+
+      const requests = confirmSummary.validGroups.map(async (g) => {
+        let vinculo = cursoDisciplinaVinculos.find(
+          (v) => v.id_disciplina === g.disciplinaId && v.id_curso === cursoId
+        );
+        // Se não houver vínculo curso-disciplina, criar automaticamente e atualizar lista
+        if (!vinculo) {
+          try {
+            await cursoService.vincularDisciplina(cursoId, g.disciplinaId);
+            const { vinculos: novosVinculos } = await cursoService.getDisciplinaVinculos(cursoId);
+            setCursoDisciplinaVinculos(novosVinculos || []);
+            vinculo = (novosVinculos || []).find((v) => v.id_disciplina === g.disciplinaId && v.id_curso === cursoId) || vinculo;
+          } catch (err) {
+            console.error("Erro ao vincular disciplina ao curso automaticamente:", err);
+            throw new Error(`Falha ao vincular disciplina ao curso: ${g.disciplinaId}`);
+          }
+        }
+        if (!vinculo) {
+          throw new Error(`Disciplina sem vínculo com o curso: ${g.disciplinaId}`);
+        }
+
+        // Garantir vínculo professor-disciplina (ignora 409 caso já exista)
+        try {
+          await professorDisciplinaService.vincular({ id_user: g.professorId, id_disciplina: g.disciplinaId });
+        } catch (err: any) {
+          if (err?.response?.status !== 409) {
+            console.warn("Falha ao criar vínculo professor-disciplina (prosseguindo):", err);
+          }
+        }
+
+        const payload = {
+          id_user: g.professorId,
+          id_curso_disciplina: vinculo.id,
+          id_turma: selectedTurmaId,
+          id_sala: g.salaId,
+          id_horarios: g.horarios,
+        };
+
+        try {
+          const resp = await api.post('/alocacoes', payload);
+          return { status: 201, data: resp.data };
+        } catch (err: any) {
+          const status = err?.response?.status;
+          if (status === 409) {
+            return { status, data: err.response?.data };
+          }
+          throw err;
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Erro ao criar alocações");
+      const results = await Promise.allSettled(requests);
+      let createdCount = 0;
+      let backendConflicts: any[] = [];
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          const value: any = r.value;
+          if (value.status === 201) {
+            createdCount += Array.isArray(value.data?.alocacoes) ? value.data.alocacoes.length : 0;
+          } else if (value.status === 409) {
+            backendConflicts.push(...(value.data?.conflitos || []));
+          }
+        } else {
+          console.error("Falha ao criar alocações:", r.reason);
+        }
       }
 
-      const result = await response.json();
-      toast.success("Alocações criadas com sucesso!");
+      toast.success(`Criadas ${createdCount} alocação(ões). Conflitos locais: ${confirmSummary.discarded}. Conflitos backend: ${backendConflicts.length}.`);
 
-      // Recarregar disciplinas para obter horários consolidados atualizados
-      const disciplinasData = await disciplinaService.getAll(1);
-      setDisciplinas(disciplinasData?.disciplinas || []);
-
-      // Mostrar grade de horários
-      const turmaObj = turmas.find((t) => t.id === selectedTurma);
-      if (turmaObj) {
-        setGeneratedTurma(turmaObj);
-        setShowGrade(true);
-      }
-
-      // Reset form e preview
-      setSelectedTurma("");
-      setSelectedDisciplinas([]);
+      setConfirmOpen(false);
       setShowPreview(false);
       setPreviewData(null);
+      // TODO: disparar refresh da grade (pendente)
     } catch (error) {
-      console.error("Erro ao confirmar alocações:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Erro ao criar alocações"
-      );
+      console.error("Erro ao confirmar após resumo:", error);
+      const errMsg = (error as any)?.response?.data?.message || (error as Error)?.message || "Erro ao confirmar alocações";
+      toast.error(errMsg);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleGenerateAllocations = async () => {
-    if (!selectedTurma) {
-      toast.error("Selecione uma turma");
+  const handleConfirmAllocations = async () => {
+    if (!showPreview || !previewData) {
+      toast.error("Gere o preview antes de confirmar");
       return;
     }
-
-    if (selectedDisciplinas.length === 0) {
-      toast.error("Selecione pelo menos uma disciplina");
+    if (!selectedTurmaId) {
+      toast.error("Selecione uma turma antes de confirmar");
       return;
     }
-
-    setIsGenerating(true);
 
     try {
-      toast.info("Iniciando processo de alocação automática...");
+      setIsGenerating(true);
 
-      // Primeiro, buscar dados necessários para criar alocações
-      const [professoresResponse, salasResponse, horariosResponse] =
-        await Promise.all([
-          fetch("http://localhost:3333/users?role=PROFESSOR"),
-          fetch("http://localhost:3333/salas"),
-          fetch("http://localhost:3333/horarios"),
-        ]);
-
-      if (
-        !professoresResponse.ok ||
-        !salasResponse.ok ||
-        !horariosResponse.ok
-      ) {
-        throw new Error("Erro ao buscar dados necessários para alocação");
+      const turmaObj = turmas.find((t) => t.id === selectedTurmaId);
+      const cursoId = turmaObj?.id_curso;
+      if (!cursoId) {
+        throw new Error("Turma selecionada sem curso associado");
       }
 
-      const professores = await professoresResponse.json();
-      const salas = await salasResponse.json();
-      const horarios = await horariosResponse.json();
+      const allocations: Array<{ disciplinaId: string; professorId: string; salaId: string; horarioId: string }> = previewData.allocations || [];
+      if (!Array.isArray(allocations) || allocations.length === 0) {
+        throw new Error("Nenhuma alocação encontrada no preview");
+      }
 
-      if (!professores.length || !salas.length || !horarios.length) {
-        throw new Error(
-          "Dados insuficientes: é necessário ter professores, salas e horários cadastrados"
+      // Se modo avançado, calcular resumo e abrir modal
+      if (advancedMode) {
+        const summary = computeValidGroupsAndConflicts(allocations, selectedTurmaId);
+        setConfirmSummary({
+          total: summary.total,
+          valid: summary.valid,
+          discarded: summary.discarded,
+          conflicts: summary.conflicts,
+          validGroups: summary.validGroups,
+        });
+        setConfirmOpen(true);
+        return; // aguardar confirmação do usuário
+      }
+
+      // Modo simples: enviar tudo como está (sem modal)
+      type GroupKey = string;
+      const groups: Record<GroupKey, {
+        disciplinaId: string;
+        professorId: string;
+        salaId: string;
+        horarios: string[];
+      }> = {};
+
+      for (const aloc of allocations) {
+        const key: GroupKey = `${aloc.disciplinaId}-${aloc.professorId}-${aloc.salaId}`;
+        if (!groups[key]) {
+          groups[key] = { disciplinaId: aloc.disciplinaId, professorId: aloc.professorId, salaId: aloc.salaId, horarios: [] };
+        }
+        if (!groups[key].horarios.includes(aloc.horarioId)) {
+          groups[key].horarios.push(aloc.horarioId);
+        }
+      }
+
+      const requests = Object.values(groups).map(async (g) => {
+        let vinculo = cursoDisciplinaVinculos.find(
+          (v) => v.id_disciplina === g.disciplinaId && v.id_curso === cursoId
         );
-      }
-
-      // Criar alocações para as disciplinas selecionadas
-      const alocacoesPromises = selectedDisciplinas.map(
-        async (disciplinaId) => {
-          const response = await fetch("http://localhost:3333/alocacoes", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              id_turma: selectedTurma,
-              id_disciplina: disciplinaId,
-              id_user: professores[0].id, // Usar primeiro professor temporariamente
-              id_sala: salas[0].id, // Usar primeira sala temporariamente
-              id_horario: horarios[0].id, // Usar primeiro horário temporariamente
-            }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(
-              `Erro ao criar alocação: ${
-                errorData.message || "Erro desconhecido"
-              }`
-            );
+        // Se não houver vínculo curso-disciplina, criar automaticamente e atualizar lista
+        if (!vinculo) {
+          try {
+            await cursoService.vincularDisciplina(cursoId, g.disciplinaId);
+            const { vinculos: novosVinculos } = await cursoService.getDisciplinaVinculos(cursoId);
+            setCursoDisciplinaVinculos(novosVinculos || []);
+            vinculo = (novosVinculos || []).find((v) => v.id_disciplina === g.disciplinaId && v.id_curso === cursoId) || vinculo;
+          } catch (err) {
+            console.error("Erro ao vincular disciplina ao curso automaticamente:", err);
+            throw new Error(`Falha ao vincular disciplina ao curso: ${g.disciplinaId}`);
           }
-
-          return response.json();
         }
-      );
-
-      await Promise.all(alocacoesPromises);
-      toast.info("Alocações criadas. Executando algoritmo genético...");
-
-      // Executar algoritmo genético
-      const geneticResponse = await fetch(
-        "http://localhost:3333/alocacoes/genetica",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            turmaId: selectedTurma,
-            params: {
-              populationSize: 50,
-              generations: 100,
-              mutationRate: 0.1,
-              crossoverRate: 0.8,
-              elitismRate: 0.1,
-            },
-          }),
+        if (!vinculo) {
+          throw new Error(`Disciplina sem vínculo com o curso: ${g.disciplinaId}`);
         }
-      );
 
-      if (!geneticResponse.ok) {
-        const errorData = await geneticResponse.json();
-        throw new Error(
-          errorData.message || "Erro na execução do algoritmo genético"
-        );
-      }
-
-      const result = await geneticResponse.json();
-
-      if (result.success) {
-        toast.success(
-          `Alocações geradas com sucesso! ${
-            result.data.alocacoes?.length || 0
-          } alocação(ões) criada(s).`
-        );
-
-        // Recarregar disciplinas para obter horários consolidados atualizados
-        const disciplinasData = await disciplinaService.getAll(1);
-        setDisciplinas(disciplinasData?.disciplinas || []);
-
-        // Encontrar a turma selecionada para exibir a grade
-        const turmaObj = turmas.find((t) => t.id === selectedTurma);
-        if (turmaObj) {
-          setGeneratedTurma(turmaObj);
-          setShowGrade(true);
-          toast.info("Exibindo grade de horários atualizada...");
+        // Garantir vínculo professor-disciplina (ignora 409 caso já exista)
+        try {
+          await professorDisciplinaService.vincular({ id_user: g.professorId, id_disciplina: g.disciplinaId });
+        } catch (err: any) {
+          if (err?.response?.status !== 409) {
+            console.warn("Falha ao criar vínculo professor-disciplina (prosseguindo):", err);
+          }
         }
-      } else {
-        throw new Error(result.message || "Falha na geração das alocações");
-      }
 
-      // Reset form
-      setSelectedTurma("");
-      setSelectedDisciplinas([]);
+        const payload = {
+          id_user: g.professorId,
+          id_curso_disciplina: vinculo.id,
+          id_turma: selectedTurmaId,
+          id_sala: g.salaId,
+          id_horarios: g.horarios,
+        };
+
+        // Usar axios API que injeta automaticamente Authorization: Bearer <token>
+        const resp = await api.post('/alocacoes', payload);
+        return resp.data;
+      });
+
+      const results = await Promise.all(requests);
+      console.log("Criação de alocações concluída:", results);
+      toast.success("Alocações criadas com sucesso!");
+
+      setShowPreview(false);
+      setPreviewData(null);
     } catch (error) {
-      console.error("Erro ao gerar alocações:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Erro ao gerar alocações"
-      );
+      console.error("Erro ao confirmar alocações:", error);
+      const errMsg = (error as any)?.response?.data?.message || (error as Error)?.message || "Erro ao confirmar alocações";
+      toast.error(errMsg);
     } finally {
       setIsGenerating(false);
     }
@@ -485,7 +621,7 @@ export default function AlocacaoAutomaticaPage() {
               Alocação Automática
             </h1>
             <p className="text-muted-foreground">
-              Selecione uma turma e disciplinas para gerar alocações
+              Selecione uma turma e ofertas (Disciplinas do curso) para gerar alocações
               automaticamente
             </p>
           </div>
@@ -496,7 +632,7 @@ export default function AlocacaoAutomaticaPage() {
           <CardHeader>
             <CardTitle>Configurar Alocação</CardTitle>
             <CardDescription>
-              Escolha a turma e as disciplinas que deseja alocar automaticamente
+              Escolha a turma e as ofertas (Disciplinas do curso) que deseja alocar automaticamente
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -504,15 +640,18 @@ export default function AlocacaoAutomaticaPage() {
             <div className="space-y-2">
               <Label htmlFor="turma">Turma</Label>
               <Select 
-                value={selectedTurma} 
+                value={selectedTurmaId} 
                 onValueChange={(value) => {
-                  setSelectedTurma(value);
+                  setSelectedTurmaId(value);
                   setSelectedDisciplinas([]); // Limpar disciplinas selecionadas
-                  const turma = turmas.find(t => t.id === value);
+                  const turma = turmas.find(t => t.id === value) || null;
+                  setSelectedTurma(turma);
                   if (turma && turma.id_curso) {
                     fetchDisciplinasByCurso(turma.id_curso);
                   } else {
                     setDisciplinas([]);
+                    setCursoDisciplinaVinculos([]);
+                    setAllCursoDisciplinas([]);
                   }
                 }}
               >
@@ -537,7 +676,7 @@ export default function AlocacaoAutomaticaPage() {
             {/* Seleção de Disciplinas */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label>Disciplinas {selectedTurma && disciplinas.length > 0 && (
+                <Label>Ofertas (Disciplinas do curso) {selectedTurma && disciplinas.length > 0 && (
                   <span className="text-muted-foreground text-sm">
                     ({disciplinas.length} disponíveis para esta turma)
                   </span>
@@ -557,11 +696,11 @@ export default function AlocacaoAutomaticaPage() {
               
               {!selectedTurma ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  Selecione uma turma para ver as disciplinas disponíveis
+                  Selecione uma turma para ver as ofertas (Disciplinas do curso) disponíveis
                 </div>
               ) : disciplinas.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  Nenhuma disciplina encontrada para esta turma
+                  Nenhuma oferta (Disciplinas do curso) encontrada para esta turma
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -571,7 +710,7 @@ export default function AlocacaoAutomaticaPage() {
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                         <Input
-                          placeholder="Buscar disciplinas..."
+                          placeholder="Buscar ofertas..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                           className="pl-10"
@@ -592,6 +731,11 @@ export default function AlocacaoAutomaticaPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox id="mostrarTodasOfertas" checked={mostrarTodasOfertas} onCheckedChange={() => setMostrarTodasOfertas((v) => !v)} />
+                        <Label htmlFor="mostrarTodasOfertas">Ofertas do curso</Label>
+                      </div>
                     </div>
                   </div>
                   
@@ -662,10 +806,10 @@ export default function AlocacaoAutomaticaPage() {
               {selectedDisciplinas.length > 0 && (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
-                    {selectedDisciplinas.length} disciplina(s) selecionada(s)
+                    {selectedDisciplinas.length} oferta(s) selecionada(s)
                   </div>
 
-                  {/* Horários Consolidados das Disciplinas Selecionadas */}
+                  {/* Horários Consolidados das Ofertas Selecionadas */}
                   <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
                     <h4 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">
                       Horários Consolidados:
@@ -702,7 +846,7 @@ export default function AlocacaoAutomaticaPage() {
               <Button
                 onClick={handleGeneratePreview}
                 disabled={
-                  !selectedTurma ||
+                  !selectedTurmaId ||
                   selectedDisciplinas.length === 0 ||
                   isGeneratingPreview
                 }
@@ -735,6 +879,11 @@ export default function AlocacaoAutomaticaPage() {
                   )}
                 </Button>
               )}
+              {/* Toggle modo avançado */}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Checkbox id="advancedMode" checked={advancedMode} onCheckedChange={() => setAdvancedMode((v) => !v)} />
+                <Label htmlFor="advancedMode">Modo avançado (validar conflitos e confirmar resumo)</Label>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -842,46 +991,31 @@ export default function AlocacaoAutomaticaPage() {
                                     item.disciplina?.codigo ===
                                     allocation.disciplina?.codigo
                                 );
-                                if (!exists) {
-                                  unique.push(allocation);
-                                }
+                                if (!exists) unique.push(allocation);
                                 return unique;
                               }, [])
                               .map((allocation: any, index: number) => {
-                                // Gerar horário consolidado dinamicamente para o preview
                                 const horarioConsolidado =
                                   gerarHorarioConsolidadoPorDisciplina(
                                     previewData.allocations,
                                     allocation.disciplina?.id
                                   ) || "-";
-
                                 return (
                                   <tr
                                     key={allocation.disciplina?.codigo || index}
-                                    className={
-                                      index % 2 === 0
-                                        ? "bg-background"
-                                        : "bg-muted/30"
-                                    }
+                                    className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}
                                   >
                                     <td className="px-3 py-2 text-sm font-medium text-foreground border-r border-border">
                                       {allocation.disciplina?.codigo || "---"}
                                     </td>
                                     <td className="px-3 py-2 border-r">
-                                      <Badge
-                                        variant="outline"
-                                        className="font-mono text-xs"
-                                      >
-                                        ---
-                                      </Badge>
+                                      <Badge variant="outline" className="font-mono text-xs">---</Badge>
                                     </td>
                                     <td className="px-3 py-2 text-sm text-foreground border-r border-border max-w-xs">
                                       {allocation.disciplina?.nome || "---"}
                                     </td>
                                     <td className="px-3 py-2 text-sm text-foreground border-r border-border">
-                                      {allocation.disciplina?.carga_horaria
-                                        ? `${allocation.disciplina.carga_horaria}h`
-                                        : "---"}
+                                      {allocation.disciplina?.carga_horaria ? `${allocation.disciplina.carga_horaria}h` : "---"}
                                     </td>
                                     <td className="px-3 py-2 text-sm text-foreground font-mono border-r border-border">
                                       {horarioConsolidado}
@@ -890,12 +1024,7 @@ export default function AlocacaoAutomaticaPage() {
                                       {allocation.professor?.nome || "---"}
                                     </td>
                                     <td className="px-3 py-2 text-sm text-foreground border-r">
-                                      {allocation.sala
-                                        ? `${
-                                            allocation.sala.predio?.nome ||
-                                            "Sem prédio"
-                                          }, ${allocation.sala.nome}`
-                                        : "---"}
+                                      {allocation.sala ? `${allocation.sala.predio?.nome || "Sem prédio"}, ${allocation.sala.nome}` : "---"}
                                     </td>
                                     <td className="px-3 py-2 text-sm text-foreground border-r">
                                       {selectedTurma?.num_alunos || "---"}
@@ -904,18 +1033,16 @@ export default function AlocacaoAutomaticaPage() {
                                       {selectedTurma?.num_alunos || "---"}
                                     </td>
                                     <td className="px-3 py-2">
-                                      <Badge className="bg-secondary/50 text-secondary-foreground">
-                                        Adequada
-                                      </Badge>
+                                      <Badge className="bg-secondary/50 text-secondary-foreground">Adequada</Badge>
                                     </td>
                                   </tr>
                                 );
                               })}
                           </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
+                                </table>
+                              </div>
+                            </div>
+                          )}
 
                 {/* Grade de Horários do Preview */}
                 {previewData.schedule && (
@@ -1084,6 +1211,53 @@ export default function AlocacaoAutomaticaPage() {
             </CardContent>
           </Card>
         )}
+      {/* Modal de confirmação de envio das alocações válidas */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar alocações válidas</DialogTitle>
+            <DialogDescription>Revise o resumo abaixo. Apenas grupos sem conflitos serão enviados.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-primary/10 p-3 rounded">
+                <div className="text-xl font-bold text-primary">{confirmSummary.total}</div>
+                <div className="text-primary/80">Total geradas</div>
+              </div>
+              <div className="bg-green-50 p-3 rounded">
+                <div className="text-xl font-bold text-green-600">{confirmSummary.valid}</div>
+                <div className="text-green-700">Válidas</div>
+              </div>
+              <div className="bg-orange-50 p-3 rounded">
+                <div className="text-xl font-bold text-orange-600">{confirmSummary.discarded}</div>
+                <div className="text-orange-700">Descartadas</div>
+              </div>
+            </div>
+            {confirmSummary.conflicts.length > 0 && (
+              <div>
+                <h4 className="font-medium text-orange-700 mb-2">Conflitos</h4>
+                <div className="max-h-40 overflow-y-auto space-y-2">
+                  {confirmSummary.conflicts.map((c, i) => (
+                    <div key={i} className="bg-destructive/10 border border-destructive/20 p-2 rounded text-xs">
+                      <div><span className="font-mono">{c.horarioId}</span> - {c.reason}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
+            <Button variant="default" onClick={handleConfirmSubmit} disabled={isGenerating}>
+              {isGenerating ? (
+                <>
+                  <Play className="mr-2 h-4 w-4 animate-spin" /> Enviando...
+                </>
+              ) : 'Confirmar envio'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     </MainLayout>
   );

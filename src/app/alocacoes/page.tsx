@@ -37,6 +37,9 @@ import {
 import { User } from "@/types/entities";
 
 
+import { cursoService } from "@/services/entities";
+
+
 interface FormData {
   id_user: string;
   id_disciplina: string;
@@ -71,6 +74,9 @@ export default function AlocacoesPage() {
   >([]);
   const [todasDisciplinas, setTodasDisciplinas] = useState<Disciplina[]>([]);
   const [mostrarTodasDisciplinas, setMostrarTodasDisciplinas] = useState(false);
+  const [todasDisciplinasCurso, setTodasDisciplinasCurso] = useState<Disciplina[]>([]);
+  // Novos: ids de disciplinas vinculadas ao curso da turma selecionada
+  const [disciplinasVinculadasCurso, setDisciplinasVinculadasCurso] = useState<string[]>([]);
   const [conflictingHorarios, setConflictingHorarios] = useState<
     Map<
       string,
@@ -108,6 +114,48 @@ export default function AlocacoesPage() {
       formData.id_turma
     );
   }, [formData.id_user, formData.id_sala, formData.id_turma]);
+
+  // Carregar disciplinas do curso da turma selecionada quando turma/toggle mudarem
+  useEffect(() => {
+    const loadCursoDisciplinas = async () => {
+      try {
+        if (!formData.id_turma) {
+          setTodasDisciplinasCurso([]);
+          if (mostrarTodasDisciplinas) setDisciplinas(todasDisciplinas);
+          return;
+        }
+        const turma = turmas.find((t) => t.id === formData.id_turma);
+        const idCurso = turma?.id_curso;
+        if (!idCurso) {
+          setTodasDisciplinasCurso([]);
+          if (mostrarTodasDisciplinas) setDisciplinas([]);
+          return;
+        }
+        const disciplinasData = await cursoService.getDisciplinas(idCurso);
+        const cursoDisciplinas = disciplinasData?.disciplinas || [];
+        setTodasDisciplinasCurso(cursoDisciplinas);
+        if (mostrarTodasDisciplinas) {
+          setDisciplinas(cursoDisciplinas);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar disciplinas do curso:", error);
+        setTodasDisciplinasCurso([]);
+        if (mostrarTodasDisciplinas) setDisciplinas([]);
+      }
+    };
+    loadCursoDisciplinas();
+  }, [formData.id_turma, turmas, mostrarTodasDisciplinas]);
+
+  // Recomputar a lista exibida ao alternar o toggle
+  useEffect(() => {
+    if (mostrarTodasDisciplinas) {
+      setDisciplinas(todasDisciplinasCurso.length ? todasDisciplinasCurso : todasDisciplinas);
+    } else {
+      setDisciplinas(disciplinasProfessor || []);
+    }
+    // limpar seleção de disciplina ao alternar
+    setFormData((prev) => ({ ...prev, id_disciplina: "" }));
+  }, [mostrarTodasDisciplinas, disciplinasProfessor, todasDisciplinasCurso, todasDisciplinas]);
 
   const fetchAlocacoes = async () => {
     try {
@@ -278,76 +326,74 @@ export default function AlocacoesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-
+    setSubmitting(true);
     try {
-      setSubmitting(true);
+      // Obter id_curso da turma selecionada
+      const turmaSelecionada = turmas.find((t) => t.id === formData.id_turma);
+      if (!turmaSelecionada) {
+        toast.error("Turma inválida");
+        return;
+      }
+      const idCurso = turmaSelecionada.id_curso;
 
-      // Verificar se precisa criar relação professor-disciplina
-      const professorSelecionado = usuarios.find(
-        (u) => u.id === formData.id_user
-      );
-      const disciplinaSelecionada = todasDisciplinas.find(
-        (d) => d.id === formData.id_disciplina
-      );
+      // Buscar vínculos CursoDisciplina do curso para mapear disciplina → id_curso_disciplina
+      const { vinculos } = await cursoService.getDisciplinaVinculos(idCurso);
+      const vinculo = vinculos.find((v) => v.id_disciplina === formData.id_disciplina);
+      if (!vinculo) {
+        toast.error("Disciplina não está vinculada ao curso da turma selecionada");
+        return;
+      }
 
-      if (
-        professorSelecionado &&
-        disciplinaSelecionada &&
-        mostrarTodasDisciplinas
-      ) {
-        // Verificar se a disciplina não está nas disciplinas do professor
-        const disciplinaJaVinculada = disciplinasProfessor.some(
-          (d) => d.id === formData.id_disciplina
-        );
-
-        if (!disciplinaJaVinculada) {
-          // Criar relação professor-disciplina automaticamente
-          try {
-            await professorDisciplinaService.vincular({
-              id_user: formData.id_user,
-              id_disciplina: formData.id_disciplina,
-            });
-            console.log("Relação professor-disciplina criada automaticamente");
-          } catch (error) {
-            console.error("Erro ao criar relação professor-disciplina:", error);
-            // Continuar mesmo se houver erro na criação da relação
+      // Verificar vínculo professor-disciplina; se ausente, criar automaticamente
+      const professorPossuiVinculo = disciplinasProfessor.some((d) => d.id === formData.id_disciplina);
+      if (!professorPossuiVinculo) {
+        try {
+          await professorDisciplinaService.vincular({ id_user: formData.id_user, id_disciplina: formData.id_disciplina });
+          toast.success("Vínculo professor-disciplina criado automaticamente");
+        } catch (err: any) {
+          console.error("Erro ao criar vínculo professor-disciplina:", err);
+          if (err?.response?.status === 409) {
+            // Vínculo já existe; seguir adiante
+            console.warn("Vínculo professor-disciplina já existente (409). Prosseguindo.");
+          } else {
+            toast.error("Falha ao criar vínculo professor-disciplina");
+            setSubmitting(false);
+            return;
           }
         }
       }
 
       if (editingAlocacao) {
-        // Para edição, enviamos apenas um horário
-        const updateData = {
+        // Atualização de alocação existente
+        const updateData: Partial<CreateAlocacaoRequest> = {
           id_user: formData.id_user,
-          id_disciplina: formData.id_disciplina,
           id_turma: formData.id_turma,
           id_sala: formData.id_sala,
           id_horario: formData.id_horarios[0],
+          id_curso_disciplina: vinculo.id,
         };
         await alocacaoService.update(editingAlocacao.id, updateData);
+        toast.success("Alocação atualizada com sucesso!");
       } else {
-        // Para criação, enviamos múltiplos horários
+        // Criação de alocação nova (suporta múltiplos horários)
         const createData: CreateAlocacaoRequest = {
           id_user: formData.id_user,
-          id_disciplina: formData.id_disciplina,
           id_turma: formData.id_turma,
           id_sala: formData.id_sala,
           id_horarios: formData.id_horarios,
+          id_curso_disciplina: vinculo.id,
         };
         await alocacaoService.create(createData);
+        toast.success("Alocação criada com sucesso!");
       }
 
       await fetchAlocacoes();
-      handleCloseDialog();
-
-      // Mensagem de confirmação
-      if (editingAlocacao) {
-        toast.success("Alocação atualizada com sucesso!");
-      } else {
-        toast.success("Alocação criada com sucesso!");
-      }
+      setIsDialogOpen(false);
+      setEditingAlocacao(null);
+      setFormData(initialFormData);
     } catch (error) {
       console.error("Erro ao salvar alocação:", error);
+      toast.error("Erro ao salvar alocação");
     } finally {
       setSubmitting(false);
     }
@@ -355,6 +401,7 @@ export default function AlocacoesPage() {
 
   const handleEdit = (alocacao: Alocacao) => {
     setEditingAlocacao(alocacao);
+    setIsDialogOpen(true);
     setFormData({
       id_user: alocacao.id_user,
       id_disciplina: alocacao.id_disciplina,
@@ -362,7 +409,6 @@ export default function AlocacoesPage() {
       id_sala: alocacao.id_sala,
       id_horarios: [alocacao.id_horario],
     });
-    setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -403,11 +449,7 @@ export default function AlocacoesPage() {
     setMostrarTodasDisciplinas(checked);
     setFormData({ ...formData, id_disciplina: "" });
 
-    if (checked) {
-      setDisciplinas(todasDisciplinas);
-    } else {
-      setDisciplinas(disciplinasProfessor);
-    }
+    // A lista de disciplinas será recalculada pelo efeito acima considerando vínculos do curso
   };
 
   const handleHorarioChange = (horarioId: string, checked: boolean) => {

@@ -51,13 +51,16 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { GradeHorariosProfessor } from "@/components/GradeHorariosProfessor";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { userCursoService } from "@/services/user-curso";
+import { cursoService } from "@/services/entities";
 
 export default function UsuariosPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [usuarios, setUsuarios] = useState<User[]>([]);
-  const [cursos, setCursos] = useState<Curso[]>([]);
+  // const [cursos, setCursos] = useState<Curso[]>([]); // removido: não utilizado
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCurso, setSelectedCurso] = useState<string>("all");
+  // const [selectedCurso, setSelectedCurso] = useState<string>("all"); // removido: filtro por curso desativado
   const [cargaHorariaProfessores, setCargaHorariaProfessores] = useState<
     Record<string, number>
   >({});
@@ -65,6 +68,13 @@ export default function UsuariosPage() {
     null
   );
   const [showGrade, setShowGrade] = useState(false);
+  // Estados para gerenciamento de cursos do professor
+  const [manageOpen, setManageOpen] = useState(false);
+  const [manageUser, setManageUser] = useState<User | null>(null);
+  const [cursosVinculados, setCursosVinculados] = useState<Curso[]>([]);
+  const [cursosDisponiveis, setCursosDisponiveis] = useState<Curso[]>([]);
+  const [cursoSearch, setCursoSearch] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuthStore();
   const router = useRouter();
 
@@ -83,15 +93,15 @@ export default function UsuariosPage() {
       }
     };
 
-    const loadCursos = async () => {
-      try {
-        const response = await fetch("http://localhost:3333/cursos");
-        const data = await response.json();
-        setCursos(data.cursos || []);
-      } catch (error) {
-        console.error("Erro ao carregar cursos:", error);
-      }
-    };
+    // const loadCursos = async () => {
+    //   try {
+    //     const response = await fetch("http://localhost:3333/cursos");
+    //     const data = await response.json();
+    //     setCursos(data.cursos || []);
+    //   } catch (error) {
+    //     console.error("Erro ao carregar cursos:", error);
+    //   }
+    // };
 
     const loadCargaHorariaProfessores = async () => {
       try {
@@ -103,7 +113,7 @@ export default function UsuariosPage() {
     };
 
     fetchUsuarios();
-    loadCursos();
+    // Removido: loadCursos();
     loadCargaHorariaProfessores();
   }, []);
 
@@ -116,12 +126,8 @@ export default function UsuariosPage() {
         .includes(searchTerm.toLowerCase()) ||
       false;
 
-    const matchesCurso =
-      selectedCurso === "all" ||
-      (usuario.curso &&
-        usuario.curso.some((curso: any) => curso.id === selectedCurso));
-
-    return matchesSearch && matchesCurso;
+    // Removido: filtro por curso (selectedCurso)
+    return matchesSearch;
   });
 
   const handleEditUser = (userId: string) => {
@@ -287,19 +293,7 @@ export default function UsuariosPage() {
                     className="flex-1"
                   />
                 </div>
-                <Select value={selectedCurso} onValueChange={setSelectedCurso}>
-                  <SelectTrigger className="w-full sm:w-[200px]">
-                    <SelectValue placeholder="Filtrar por curso" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os cursos</SelectItem>
-                    {cursos.map((curso) => (
-                      <SelectItem key={curso.id} value={curso.id}>
-                        {curso.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Removido: Select de filtro por curso */}
               </div>
             </CardContent>
           </Card>
@@ -314,8 +308,8 @@ export default function UsuariosPage() {
                 <TableHead>Telefone</TableHead>
                 <TableHead>Especialização</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                {/* Removido: coluna Status */}
+                <TableHead className="text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -345,17 +339,7 @@ export default function UsuariosPage() {
                       <span>{getPerfilLabel(usuario.role)}</span>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        usuario.status === "ativo"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {usuario.status}
-                    </span>
-                  </TableCell>
+                  {/* Removido: célula de Status */}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end space-x-2">
                       {(usuario.role === "PROFESSOR" || usuario.role === "ADMIN" || usuario.role === "COORDENADOR") && (
@@ -369,6 +353,31 @@ export default function UsuariosPage() {
                           title="Ver grade de horários"
                         >
                           <Calendar className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {/* Novo: Gerenciar Cursos */}
+                      {user?.role === "ADMIN" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            setManageUser(usuario);
+                            setManageOpen(true);
+                            try {
+                              const [vinculadosRes, cursosRes] = await Promise.all([
+                                userCursoService.getCursosByUser(usuario.id),
+                                cursoService.getAll(1),
+                              ]);
+                              setCursosVinculados(vinculadosRes.cursos || []);
+                              setCursosDisponiveis(cursosRes.cursos || []);
+                            } catch (error) {
+                              console.error("Erro ao carregar cursos:", error);
+                              toast.error("Não foi possível carregar cursos");
+                            }
+                          }}
+                          title="Vincular/Desvincular cursos"
+                        >
+                          Vincular Cursos
                         </Button>
                       )}
                       {user?.role === "ADMIN" && (
@@ -436,6 +445,110 @@ export default function UsuariosPage() {
               setSelectedProfessor(null);
             }}
           />
+        )}
+
+        {/* Dialog: Gerenciar Cursos do Professor */}
+        {manageOpen && manageUser && (
+          <Dialog open={manageOpen} onOpenChange={setManageOpen}>
+            <DialogContent className="sm:max-w-[700px]">
+              <DialogHeader>
+                <DialogTitle>Gerenciar Cursos — {manageUser.nome}</DialogTitle>
+                <DialogDescription>
+                  Vincule ou remova cursos deste professor. Filtro por nome disponível.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6">
+                <div className="flex items-center space-x-2">
+                  <Search className="h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Buscar curso por nome..."
+                    value={cursoSearch}
+                    onChange={(e) => setCursoSearch(e.target.value)}
+                    className="flex-1"
+                  />
+                </div>
+
+                {/* Cursos vinculados */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Cursos vinculados ({cursosVinculados.length})</h3>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {cursosVinculados.length === 0 && (
+                      <p className="text-muted-foreground text-sm">Nenhum curso vinculado.</p>
+                    )}
+                    {cursosVinculados.map((curso) => (
+                      <div key={curso.id} className="flex items-center justify-between p-2 border rounded-md">
+                        <div>
+                          <p className="font-medium">{curso.nome}</p>
+                          <p className="text-xs text-muted-foreground">{curso.codigo} • {curso.turno}</p>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={async () => {
+                            setIsSaving(true);
+                            try {
+                              await userCursoService.desvincular({ id_user: manageUser.id, id_curso: curso.id });
+                              toast.success("Desvinculado com sucesso");
+                              setCursosVinculados((prev) => prev.filter((c) => c.id !== curso.id));
+                            } catch (error) {
+                              console.error(error);
+                              toast.error("Erro ao desvincular curso");
+                            } finally {
+                              setIsSaving(false);
+                            }
+                          }}
+                        >
+                          Desvincular
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cursos disponíveis */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Cursos disponíveis</h3>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {cursosDisponiveis
+                      .filter((c) => !cursosVinculados.some((v) => v.id === c.id))
+                      .filter((c) => c.nome.toLowerCase().includes(cursoSearch.toLowerCase()))
+                      .map((curso) => (
+                        <div key={curso.id} className="flex items-center justify-between p-2 border rounded-md">
+                          <div>
+                            <p className="font-medium">{curso.nome}</p>
+                            <p className="text-xs text-muted-foreground">{curso.codigo} • {curso.turno}</p>
+                          </div>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={async () => {
+                              setIsSaving(true);
+                              try {
+                                await userCursoService.vincular({ id_user: manageUser.id, id_curso: curso.id });
+                                toast.success("Curso vinculado");
+                                // Atualiza listas
+                                const vinculadosRes = await userCursoService.getCursosByUser(manageUser.id);
+                                setCursosVinculados(vinculadosRes.cursos || []);
+                              } catch (error: any) {
+                                const message = error?.response?.data?.message || "Erro ao vincular curso";
+                                toast.error(message);
+                              } finally {
+                                setIsSaving(false);
+                              }
+                            }}
+                          >
+                            Vincular
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setManageOpen(false)} disabled={isSaving}>Fechar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
     </MainLayout>
