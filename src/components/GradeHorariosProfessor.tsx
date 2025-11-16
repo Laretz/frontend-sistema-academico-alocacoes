@@ -64,6 +64,28 @@ interface ProfessorData {
       };
 }
 
+interface CursoVinculado {
+  id: string;
+  codigo: string;
+  nome: string;
+  turno: string;
+  duracao_semestres: number;
+  vinculo: { id: string; ativo: boolean; created_at: string };
+}
+
+interface DisciplinaVinculada {
+  id: string;
+  nome: string;
+  codigo: string | null;
+  carga_horaria: number;
+  total_aulas: number;
+  tipo_de_sala: "Sala" | "Lab";
+  semestre: number;
+  obrigatoria: boolean;
+  curso: { id: string; nome: string; codigo: string };
+  vinculo: { id: string; ativo: boolean; created_at: string };
+}
+
 const diasSemana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
 const horarios = [
   { codigo: "M1", periodo: "Manhã", inicio: "07:00", fim: "07:50" },
@@ -89,11 +111,15 @@ export function GradeHorariosProfessor({
   const [alocacoes, setAlocacoes] = useState<AlocacaoData[]>([]);
   const [loading, setLoading] = useState(true);
   const [cargaHoraria, setCargaHoraria] = useState(0);
+  const [cursos, setCursos] = useState<CursoVinculado[]>([]);
+  const [disciplinas, setDisciplinas] = useState<DisciplinaVinculada[]>([]);
 
   useEffect(() => {
     if (isOpen && professorId) {
       loadProfessorData();
       loadAlocacoes();
+      loadCursos();
+      loadDisciplinas();
     }
   }, [isOpen, professorId]);
 
@@ -123,6 +149,26 @@ export function GradeHorariosProfessor({
       toast.error("Erro ao carregar grade de horários");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadCursos = async () => {
+    try {
+      const response = await api.get(`/user-curso/cursos/${professorId}`);
+      setCursos(response.data?.cursos || []);
+    } catch (error) {
+      console.error("Erro ao carregar cursos do professor:", error);
+      toast.error("Erro ao carregar cursos do professor");
+    }
+  };
+
+  const loadDisciplinas = async () => {
+    try {
+      const response = await api.get(`/professores/${professorId}/disciplinas`);
+      setDisciplinas(response.data?.disciplinas || []);
+    } catch (error) {
+      console.error("Erro ao carregar disciplinas do professor:", error);
+      toast.error("Erro ao carregar disciplinas do professor");
     }
   };
 
@@ -214,6 +260,68 @@ export function GradeHorariosProfessor({
           </div>
         ) : (
           <>
+            {/* Cursos e Disciplinas vinculados ao professor */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Cursos do Professor</CardTitle>
+                  <div className="text-sm text-muted-foreground">
+                    Total: {cursos.length}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {cursos.length > 0 ? (
+                    <ul className="space-y-2">
+                      {cursos.map((curso) => (
+                        <li key={curso.id} className="flex items-center justify-between">
+                          <span className="font-medium">
+                            {curso.codigo} - {curso.nome}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {curso.turno}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="text-muted-foreground">Nenhum curso vinculado.</div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Disciplinas do Professor</CardTitle>
+                  <div className="text-sm text-muted-foreground">
+                    Total: {disciplinas.length}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {disciplinas.length > 0 ? (
+                    <ul className="space-y-2">
+                      {disciplinas.map((disc) => (
+                        <li key={disc.id} className="flex items-center justify-between">
+                          <div>
+                            <span className="font-medium">
+                              {disc.codigo ?? "---"} - {disc.nome}
+                            </span>
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              ({disc.curso.codigo} - {disc.curso.nome})
+                            </span>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            Sem {disc.semestre}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="text-muted-foreground">Nenhuma disciplina vinculada.</div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
             <Card>
               <CardContent className="p-6">
                 <div className="overflow-x-auto">

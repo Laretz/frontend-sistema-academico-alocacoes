@@ -47,16 +47,17 @@ export const cursoService = {
     const response = await api.get<{ disciplinas: Disciplina[] }>(`/cursos/${id_curso}/disciplinas`);
     return response.data;
   },
-
-  // Vincular disciplina a curso
   vincularDisciplina: async (id_curso: string, id_disciplina: string): Promise<{ message: string }> => {
     const response = await api.post(`/cursos/${id_curso}/disciplinas`, { idDisciplina: id_disciplina });
     return response.data;
   },
-
-  // Desvincular disciplina de curso
   desvincularDisciplina: async (id_curso: string, id_disciplina: string): Promise<void> => {
     await api.delete(`/cursos/${id_curso}/disciplinas/${id_disciplina}`);
+  },
+  // Novo: vínculos CursoDisciplina com IDs
+  getDisciplinaVinculos: async (id_curso: string): Promise<{ vinculos: Array<{ id: string; id_curso: string; id_disciplina: string }> }> => {
+    const response = await api.get<{ vinculos: Array<{ id: string; id_curso: string; id_disciplina: string }> }>(`/cursos/${id_curso}/disciplinas-vinculos`);
+    return response.data;
   },
 };
 
@@ -208,9 +209,10 @@ export const alocacaoService = {
     return response.data.alocacao;
   },
 
-  create: async (data: CreateAlocacaoRequest): Promise<Alocacao> => {
-    const response = await api.post<{ alocacao: Alocacao }>('/alocacoes', data);
-    return response.data.alocacao;
+  create: async (data: CreateAlocacaoRequest): Promise<void> => {
+    // A resposta do backend pode ser { alocacao } ou { alocacoes } dependendo de id_horario vs id_horarios.
+    // Como o caller não usa o retorno, apenas aguardamos o sucesso.
+    await api.post('/alocacoes', data);
   },
 
   update: async (id: string, data: Partial<CreateAlocacaoRequest>): Promise<Alocacao> => {

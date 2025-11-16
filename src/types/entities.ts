@@ -233,7 +233,7 @@ export interface CreateSalaRequest {
 
 export interface CreateAlocacaoRequest {
   id_user: string;
-  id_disciplina: string;
+  id_curso_disciplina: string;
   id_turma: string;
   id_sala: string;
   id_horario?: string;
