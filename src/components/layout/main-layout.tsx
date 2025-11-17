@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { FeedbackWidget } from "@/components/feedback/FeedbackWidget";
+import { NotificationBell } from "@/components/ui/notification-bell";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -263,8 +264,11 @@ export function MainLayout({ children }: MainLayoutProps) {
                   </Badge>
                 </>
               )}
+              <FeedbackWidget />
+            </div>
+            <div className="flex items-center space-x-4 ml-auto">
+              <NotificationBell />
               <ThemeToggle />
-               <FeedbackWidget />
             </div>
           </div>
         </div>

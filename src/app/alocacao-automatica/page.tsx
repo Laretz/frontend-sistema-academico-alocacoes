@@ -694,17 +694,20 @@ useEffect(() => {
                 )}
               </div>
               
-              {!selectedTurma ? (
+              {!selectedTurma && (
                 <div className="text-center py-8 text-muted-foreground">
                   Selecione uma turma para ver as ofertas (Disciplinas do curso) disponíveis
                 </div>
-              ) : disciplinas.length === 0 ? (
+              )}
+
+              {selectedTurma && disciplinas.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   Nenhuma oferta (Disciplinas do curso) encontrada para esta turma
                 </div>
-              ) : (
+              )}
+
+              {selectedTurma && disciplinas.length > 0 && (
                 <div className="space-y-4">
-                  {/* Filtros */}
                   <div className="flex flex-col sm:flex-row gap-4">
                     <div className="flex-1">
                       <div className="relative">
@@ -731,15 +734,13 @@ useEffect(() => {
                           ))}
                         </SelectContent>
                       </Select>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Checkbox id="mostrarTodasOfertas" checked={mostrarTodasOfertas} onCheckedChange={() => setMostrarTodasOfertas((v) => !v)} />
-                        <Label htmlFor="mostrarTodasOfertas">Ofertas do curso</Label>
-                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="mostrarTodasOfertas" checked={mostrarTodasOfertas} onCheckedChange={() => setMostrarTodasOfertas((v) => !v)} />
+                      <Label htmlFor="mostrarTodasOfertas">Ofertas do curso</Label>
                     </div>
                   </div>
-                  
-                  {/* Disciplinas agrupadas por semestre */}
+
                   <div className="max-h-64 overflow-y-auto border rounded-lg p-4 space-y-6">
                     {getDisciplinasGroupedBySemestre().map(({ semestre, disciplinas: disciplinasSemestre }) => (
                       <div key={semestre} className="space-y-3">
@@ -800,45 +801,39 @@ useEffect(() => {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
 
-              {selectedDisciplinas.length > 0 && (
-                <div className="space-y-3">
-                  <div className="text-sm text-muted-foreground">
-                    {selectedDisciplinas.length} oferta(s) selecionada(s)
-                  </div>
-
-                  {/* Horários Consolidados das Ofertas Selecionadas */}
-                  <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
-                    <h4 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">
-                      Horários Consolidados:
-                    </h4>
-                    <div className="space-y-1">
-                      {selectedDisciplinas.map((disciplinaId) => {
-                        const disciplina = disciplinas.find(
-                          (d) => d.id === disciplinaId
-                        );
-                        if (!disciplina) return null;
-                        return (
-                          <div
-                            key={disciplinaId}
-                            className="flex justify-between items-center text-sm"
-                          >
-                            <span className="text-blue-700 dark:text-blue-300 font-medium">
-                              {disciplina.nome}:
-                            </span>
-                            <span className="text-blue-600 dark:text-blue-400">
-                              {disciplina.horario_consolidado ||
-                                "Será gerado automaticamente"}
-                            </span>
-                          </div>
-                        );
-                      })}
+                  {selectedDisciplinas.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="text-sm text-muted-foreground">
+                        {selectedDisciplinas.length} oferta(s) selecionada(s)
+                      </div>
+                      <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
+                        <h4 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">
+                          Horários Consolidados:
+                        </h4>
+                        <div className="space-y-1">
+                          {selectedDisciplinas.map((disciplinaId) => {
+                            const disciplina = disciplinas.find((d) => d.id === disciplinaId);
+                            if (!disciplina) return null;
+                            return (
+                              <div key={disciplinaId} className="flex justify-between items-center text-sm">
+                                <span className="text-blue-700 dark:text-blue-300 font-medium">
+                                  {disciplina.nome}:
+                                </span>
+                                <span className="text-blue-600 dark:text-blue-400">
+                                  {disciplina.horario_consolidado || "Será gerado automaticamente"}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
+
+              
             </div>
 
             {/* Botões de Ação */}

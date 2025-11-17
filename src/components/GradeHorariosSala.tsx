@@ -19,7 +19,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Calendar, Clock, User, GraduationCap, X } from "lucide-react";
-import { Sala } from "@/types/entities";
+import { Sala, ReservaSala, Horario } from "@/types/entities";
+import { api } from "@/lib/api";
+import { reservasSalaService } from "@/services/reservas-sala";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AlocacaoInfo {
   id: string;
@@ -132,6 +135,48 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [reservas, setReservas] = useState<ReservaSala[]>([]);
+  const [horarios, setHorarios] = useState<Horario[]>([]);
+
+  function dateStrToDiaKey(dateStr: string): string {
+    // Normaliza como UTC para evitar deslocamentos de fuso
+    const d = new Date(`${dateStr}T00:00:00Z`);
+    const map: Record<number, string> = {
+      0: "DOMINGO",
+      1: "SEGUNDA",
+      2: "TERCA",
+      3: "QUARTA",
+      4: "QUINTA",
+      5: "SEXTA",
+      6: "SABADO",
+    };
+    return map[d.getUTCDay()];
+  }
+
+  // Formata "Mês e dia" em pt-BR para exibição: "Novembro 18"
+  function formatMonthDay(dateStr: string): string {
+    // Garantir interpretação em UTC para strings YYYY-MM-DD
+    const date = new Date(`${dateStr}T00:00:00Z`);
+    const month = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(date);
+    const day = new Intl.DateTimeFormat('pt-BR', { day: '2-digit' }).format(date);
+    const monthCap = month.charAt(0).toUpperCase() + month.slice(1);
+    // Remover possíveis zeros à esquerda do dia para ficar mais natural (ex: "09" -> "9")
+    const dayNum = String(parseInt(day, 10));
+    return `${monthCap} ${dayNum}`;
+  }
+
+  const fetchAuxData = useCallback(async () => {
+    try {
+      const [horariosResp, reservasResp] = await Promise.all([
+        api.get<{ horarios: Horario[] }>("/horarios"),
+        reservasSalaService.list({ salaId: sala.id, dateFrom: new Date().toISOString().slice(0,10) })
+      ]);
+      setHorarios(horariosResp.data.horarios || []);
+      setReservas(reservasResp.reservas || []);
+    } catch (err) {
+      console.warn("Falha ao buscar horários/reservas da sala", err);
+    }
+  }, [sala.id]);
 
   const fetchGradeHorarios = useCallback(async () => {
     if (!sala.id) return;
@@ -160,11 +205,18 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
   useEffect(() => {
     if (open) {
       fetchGradeHorarios();
+      fetchAuxData();
     }
-  }, [open, fetchGradeHorarios]);
+  }, [open, fetchGradeHorarios, fetchAuxData]);
 
-  const renderAlocacao = (alocacao: AlocacaoInfo | null) => {
-    if (!alocacao) {
+  const renderAlocacao = (alocacao: AlocacaoInfo | null, diaKey: string, codigo: string) => {
+    const reservasCell = reservas.filter(r => {
+      const diaReserva = dateStrToDiaKey(r.date);
+      const codigoReserva = horarios.find(h => h.id === r.horarioId)?.codigo;
+      return diaReserva === diaKey && codigoReserva === codigo && r.status === "ATIVA";
+    });
+
+    if (!alocacao && reservasCell.length === 0) {
       return (
         <div className="h-16 border border-border bg-muted/30 rounded p-1 text-center text-xs text-muted-foreground">
           Livre
@@ -172,23 +224,81 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
       );
     }
 
+    const hasReservaOnly = !alocacao && reservasCell.length > 0;
+    const containerClasses = hasReservaOnly
+      ? "min-h-16 border border-shadblue-primary/30 bg-shadblue-primary/10 rounded p-1 text-xs overflow-hidden space-y-1"
+      : "min-h-16 border border-primary/20 bg-primary/10 rounded p-1 text-xs overflow-hidden space-y-1";
+
+    // Ordenar reservas por data e resumir para evitar crescimento vertical da célula
+    const reservasOrdenadas = reservasCell.slice().sort((a, b) => {
+      const da = new Date(`${a.date}T00:00:00Z`).getTime();
+      const db = new Date(`${b.date}T00:00:00Z`).getTime();
+      return da - db;
+    });
+    const primeiraReserva = reservasOrdenadas[0];
+    const extraCount = Math.max(0, reservasOrdenadas.length - 1);
+
     return (
-      <div className="h-16 border border-primary/20 bg-primary/10 rounded p-1 text-xs overflow-hidden">
-        <div
-          className="font-semibold text-foreground truncate"
-          title={alocacao.disciplina.nome}
-        >
-          {alocacao.disciplina.nome}
-        </div>
-        <div className="text-primary truncate" title={alocacao.professor.nome}>
-          {alocacao.professor.nome}
-        </div>
-        <div
-          className="text-primary/80 truncate"
-          title={`${alocacao.turma.nome} - ${alocacao.turma.periodo}º período`}
-        >
-          {alocacao.turma.nome}
-        </div>
+      <div className={containerClasses}>
+        {alocacao && (
+          <div>
+            <div
+              className="font-semibold text-foreground truncate"
+              title={alocacao.disciplina.nome}
+            >
+              {alocacao.disciplina.nome}
+            </div>
+            <div className="text-primary truncate" title={alocacao.professor.nome}>
+              {alocacao.professor.nome}
+            </div>
+            <div
+              className="text-primary/80 truncate"
+              title={`${alocacao.turma.nome} - ${alocacao.turma.periodo}º período`}
+            >
+              {alocacao.turma.nome}
+            </div>
+          </div>
+        )}
+        {primeiraReserva && (
+          <div className="space-y-1">
+            <div className="rounded p-1 bg-shadblue-primary/10">
+              <div
+                className="font-semibold text-foreground truncate"
+                title={`Reserva - ${formatMonthDay(primeiraReserva.date)}`}
+              >
+                {`Reserva - ${formatMonthDay(primeiraReserva.date)}`}
+              </div>
+              {primeiraReserva.criadorNome && (
+                <div className="text-primary truncate" title={primeiraReserva.criadorNome}>{primeiraReserva.criadorNome}</div>
+              )}
+              <div className="text-primary/80 truncate" title={primeiraReserva.titulo}>{primeiraReserva.titulo}</div>
+            </div>
+            {extraCount > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-xs text-muted-foreground truncate cursor-help" title={`+${extraCount} reservas futuras`}>
+                      {`+${extraCount} reservas futuras`}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="space-y-1">
+                      {reservasOrdenadas.slice(1, 6).map(rv => (
+                        <div key={rv.id} className="flex items-center gap-2">
+                          <span className="font-semibold">{formatMonthDay(rv.date)}</span>
+                          <span className="opacity-80 truncate max-w-[140px]">{rv.titulo}</span>
+                        </div>
+                      ))}
+                      {extraCount > 5 && (
+                        <div className="opacity-80">{`+${extraCount - 5} mais`}</div>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -348,7 +458,7 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
                                 key={`${dia.key}-${horario}`}
                                 className="border border-border p-1 w-[15%]"
                               >
-                                {renderAlocacao(alocacao)}
+                                {renderAlocacao(alocacao, dia.key, horario)}
                               </td>
                             );
                           })}

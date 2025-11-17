@@ -41,6 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ReservaSalaDialog } from '@/components/reservas/ReservaSalaDialog'
+import { useAuthStore } from '@/store/auth'
 
 const tipoSalaLabels = {
   AULA: "Sala de Aula",
@@ -55,6 +57,7 @@ interface SalaFormData {
   tipo: string;
   computadores?: number;
 }
+
 
 export default function SalasPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,6 +74,8 @@ export default function SalasPage() {
     tipo: "AULA",
     computadores: 0,
   });
+  const { user } = useAuthStore();
+  const canReserve = user?.role === 'ADMIN' || user?.role === 'COORDENADOR';
 
   const fetchSalas = async () => {
     try {
@@ -294,6 +299,9 @@ export default function SalasPage() {
                         </Button>
                       }
                     />
+                    {canReserve && (
+                      <ReservaSalaDialog sala={sala} onSuccess={fetchSalas} />
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

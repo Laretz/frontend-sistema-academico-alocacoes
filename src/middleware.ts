@@ -11,6 +11,7 @@ const protectedRoutes = [
   "/alocacoes",
   "/grade-horarios",
   "/profile",
+  "/notificacoes",
 ];
 
 // Rotas que só podem ser acessadas sem autenticação

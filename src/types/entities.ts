@@ -281,3 +281,59 @@ export interface ApiError {
   statusCode: number;
   error?: string;
 }
+
+// Tipos de Reserva de Sala
+export type ReservaStatus = "ATIVA" | "CANCELADA";
+
+export interface ReservaSala {
+  id: string;
+  salaId: string;
+  horarioId: string;
+  date: string; // ISO ou YYYY-MM-DD
+  titulo: string;
+  descricao?: string | null;
+  status: ReservaStatus;
+  recurrenceRule?: "WEEKLY" | null;
+  recurrenceEnd?: string | null; // YYYY-MM-DD
+  seriesId?: string | null;
+  criado_por?: string | null; // userId
+  // Nome opcional do criador para exibição na grade
+  criadorNome?: string;
+  created_at?: string;
+  updated_at?: string;
+  sala?: Sala;
+  horario?: Horario;
+}
+
+export interface CreateReservaSalaRequest {
+  salaId: string;
+  horarioId: string;
+  date: string; // YYYY-MM-DD
+  titulo: string;
+  descricao?: string;
+  recurrenceRule?: "WEEKLY";
+  recurrenceEnd?: string; // YYYY-MM-DD
+}
+
+export interface ReservasSalaQuery {
+  salaId?: string;
+  horarioId?: string;
+  dateFrom?: string; // YYYY-MM-DD
+  dateTo?: string;   // YYYY-MM-DD
+  page?: number;
+  limit?: number;
+}
+
+export interface ReservaSalaResponse {
+  reservas: ReservaSala[];
+}
+
+export interface ReservasSalaListResponse {
+  reservas: ReservaSala[];
+  meta?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
