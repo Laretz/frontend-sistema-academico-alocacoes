@@ -19,25 +19,43 @@ Este projeto frontend foi desenvolvido com **Next.js 15** + **TypeScript** segui
 
 ```
 src/
-├── app/                    # App Router do Next.js
-│   ├── dashboard/         # Página principal do sistema
-│   ├── disciplinas/       # Gestão de disciplinas
+├── app/                  # App Router do Next.js
+│   ├── dashboard/        # Página principal do sistema
+│   ├── disciplinas/      # Gestão de disciplinas
 │   ├── login/            # Autenticação
 │   ├── turmas/           # Gestão de turmas
-│   └── usuarios/         # Gestão de usuários
-│       ├── novo/         # Criação de usuário
-│       └── [id]/editar/  # Edição de usuário
-├── components/            # Componentes reutilizáveis
+│   ├── usuarios/         # Gestão de usuários
+│   │    ├── novo/        # Criação de usuário
+│   │    ├── [id]/editar/ # Edição de usuário
+    └─── etc              # outras paginas do sistema
+├── components/           # Componentes reutilizáveis
 │   ├── forms/            # Formulários
 │   ├── layout/           # Layouts da aplicação
 │   └── ui/               # Componentes base (Shadcn/ui)
 ├── hooks/                # Custom hooks
 ├── lib/                  # Configurações e utilitários
 ├── services/             # Serviços de API
-├── store/                # Gerenciamento de estado (Zustand)
+├── store/                # Gerenciamento de estado 
 ├── types/                # Definições de tipos TypeScript
 └── utils/                # Funções utilitárias
 ```
+
+
+
+
+
+
+
+
+
+a
+a
+
+a
+
+a
+a
+a
 
 ## 🔐 Sistema de Autenticação
 
