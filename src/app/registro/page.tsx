@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+// Removido seletor de perfil (role)
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { authService } from '@/services/auth';
@@ -21,7 +21,6 @@ export default function RegistroPage() {
     email: '',
     senha: '',
     confirmSenha: '',
-    role: 'PROFESSOR' as 'PROFESSOR' | 'ADMIN' | 'COORDENADOR',
     especializacao: '',
     cargaHorariaMax: '',
     preferencia: ''
@@ -51,7 +50,8 @@ export default function RegistroPage() {
         nome: formData.nome,
         email: formData.email,
         senha: formData.senha,
-        role: formData.role,
+        // Força criação de professor: não solicitar perfil
+        role: 'PROFESSOR' as const,
         especializacao: formData.especializacao || undefined,
         cargaHorariaMax: formData.cargaHorariaMax ? parseInt(formData.cargaHorariaMax) : undefined,
         preferencia: formData.preferencia || undefined
@@ -116,19 +116,7 @@ export default function RegistroPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="role">Perfil</Label>
-              <Select value={formData.role} onValueChange={(value) => handleInputChange('role', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o perfil" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PROFESSOR">Professor</SelectItem>
-                  <SelectItem value="COORDENADOR">Coordenador</SelectItem>
-                  <SelectItem value="ADMIN">Administrador</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Perfil removido: criação restrita a Professor */}
 
             <div className="space-y-2">
               <Label htmlFor="especializacao">Especialização</Label>
@@ -141,31 +129,28 @@ export default function RegistroPage() {
               />
             </div>
 
-            {formData.role === 'PROFESSOR' && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="cargaHorariaMax">Carga Horária Máxima</Label>
-                  <Input
-                    id="cargaHorariaMax"
-                    type="number"
-                    placeholder="Digite a carga horária máxima"
-                    value={formData.cargaHorariaMax}
-                    onChange={(e) => handleInputChange('cargaHorariaMax', e.target.value)}
-                  />
-                </div>
+            {/* Campos específicos de professor (sempre visíveis) */}
+            <div className="space-y-2">
+              <Label htmlFor="cargaHorariaMax">Carga Horária Máxima</Label>
+              <Input
+                id="cargaHorariaMax"
+                type="number"
+                placeholder="Digite a carga horária máxima"
+                value={formData.cargaHorariaMax}
+                onChange={(e) => handleInputChange('cargaHorariaMax', e.target.value)}
+              />
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="preferencia">Preferência</Label>
-                  <Input
-                    id="preferencia"
-                    type="text"
-                    placeholder="Digite suas preferências"
-                    value={formData.preferencia}
-                    onChange={(e) => handleInputChange('preferencia', e.target.value)}
-                  />
-                </div>
-              </>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="preferencia">Preferência</Label>
+              <Input
+                id="preferencia"
+                type="text"
+                placeholder="Digite suas preferências"
+                value={formData.preferencia}
+                onChange={(e) => handleInputChange('preferencia', e.target.value)}
+              />
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="senha">Senha</Label>

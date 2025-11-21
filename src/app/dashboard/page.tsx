@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import { MainLayout } from "@/components/layout/main-layout";
@@ -19,14 +19,8 @@ import {
   GraduationCap,
   MapPin,
   Calendar,
-  CalendarDays,
-  TrendingUp,
   Clock,
-  Eye,
-  EyeOff,
   Brain,
-  Building,
-  School,
   ArrowLeft,
   Library,
   Building2,
@@ -37,14 +31,13 @@ import {
   Users2,
 } from "lucide-react";
 import Link from "next/link";
+import { statsService, StatsResponse } from "@/services/stats";
+import api from "@/lib/api";
 
-interface DashboardStats {
-  totalUsuarios: number;
-  totalDisciplinas: number;
-  totalTurmas: number;
-  totalSalas: number;
-  totalAlocacoes: number;
-  alocacoesHoje: number;
+interface ProximaAulaItem {
+  titulo: string;
+  detalhe: string;
+  codigoHorario: string;
 }
 
 interface DiasHorario {
@@ -68,30 +61,66 @@ interface GradeHorarios {
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalUsuarios: 0,
-    totalDisciplinas: 0,
-    totalTurmas: 0,
-    totalSalas: 0,
-    totalAlocacoes: 0,
-    alocacoesHoje: 0,
-  });
-  const [loading, setLoading] = useState(true);
-  const [showAlocacoes, setShowAlocacoes] = useState(true);
+  const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [errorStats, setErrorStats] = useState<string | null>(null);
+  const [proximasAulas, setProximasAulas] = useState<ProximaAulaItem[]>([]);
+  const [loadingAulas, setLoadingAulas] = useState(true);
+  const [errorAulas, setErrorAulas] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simular carregamento de estatísticas
-    setTimeout(() => {
-      setStats({
-        totalUsuarios: 45,
-        totalDisciplinas: 14,
-        totalTurmas: 2,
-        totalSalas: 6,
-        totalAlocacoes: 14,
-        alocacoesHoje: 8,
-      });
-      setLoading(false);
-    }, 1000);
+    async function fetchStats() {
+      setLoadingStats(true);
+      setErrorStats(null);
+      try {
+        const data = await statsService.get();
+        setStats(data);
+      } catch (err: any) {
+        setErrorStats(err?.message || "Falha ao carregar estatísticas");
+      } finally {
+        setLoadingStats(false);
+      }
+    }
+    fetchStats();
+  }, []);
+
+  useEffect(() => {
+    async function fetchProximasAulas() {
+      setLoadingAulas(true);
+      setErrorAulas(null);
+      try {
+        // Importante: usar a rota correta para evitar colisão com /alocacoes/:id
+        const resp = await api.get('/grade-horarios');
+        const grade = resp.data?.gradeHorarios || resp.data?.grade || resp.data || {};
+
+        // Normalizar chaves de dias para facilitar
+        const hojeIdx = new Date().getDay(); // 0-dom ... 6-sab
+        const diaMap = ["domingo","segunda","terca","quarta","quinta","sexta","sabado"];
+        const hojeKey = diaMap[hojeIdx];
+
+        const candidates: any[] = grade[hojeKey] || grade[hojeKey.toUpperCase()] || [];
+
+        // Gerar lista simplificada das próximas 3 aulas do dia, ordenadas por início
+        const now = new Date();
+        const proximas = (candidates || [])
+          .filter((item: any) => item?.horario_inicio)
+          .sort((a: any, b: any) => new Date(a.horario_inicio).getTime() - new Date(b.horario_inicio).getTime())
+          .filter((item: any) => new Date(item.horario_fim).getTime() >= now.getTime())
+          .slice(0, 3)
+          .map((item: any): ProximaAulaItem => ({
+            titulo: item?.disciplina?.nome || item?.disciplina_nome || 'Aula',
+            detalhe: `${item?.turma?.nome || item?.turma_nome || ''} - ${item?.sala?.nome || item?.sala_nome || ''}`.trim(),
+            codigoHorario: item?.horario?.codigo || item?.horario_codigo || '',
+          }));
+
+        setProximasAulas(proximas);
+      } catch (err: any) {
+        setErrorAulas(err?.message || "Falha ao carregar próximas aulas");
+      } finally {
+        setLoadingAulas(false);
+      }
+    }
+    fetchProximasAulas();
   }, []);
 
   const getGreeting = () => {
@@ -174,10 +203,10 @@ export default function DashboardPage() {
     },
   ];
 
-  const statsCards = [
+  const statsCards = useMemo(() => [
     {
       title: "Total de Usuários",
-      value: stats.totalUsuarios,
+      value: stats?.totals.usuarios || 0,
       icon: Users,
       color: "text-blue-600",
       bgColor: "bg-blue-100",
@@ -185,40 +214,47 @@ export default function DashboardPage() {
     },
     {
       title: "Disciplinas",
-      value: stats.totalDisciplinas,
+      value: stats?.totals.disciplinas || 0,
       icon: BookOpen,
       color: "text-purple-600",
       bgColor: "bg-purple-100",
     },
     {
       title: "Turmas",
-      value: stats.totalTurmas,
+      value: stats?.totals.turmas || 0,
       icon: GraduationCap,
       color: "text-orange-600",
       bgColor: "bg-orange-100",
     },
     {
       title: "Salas",
-      value: stats.totalSalas,
+      value: stats?.totals.salas || 0,
       icon: MapPin,
       color: "text-green-600",
       bgColor: "bg-green-100",
     },
     {
       title: "Total de Alocações",
-      value: stats.totalAlocacoes,
+      value: stats?.totals.alocacoes || 0,
       icon: Calendar,
       color: "text-red-600",
       bgColor: "bg-red-100",
     },
     {
       title: "Alocações Hoje",
-      value: stats.alocacoesHoje,
+      value: stats?.hoje.alocacoesHoje || 0,
       icon: Clock,
       color: "text-indigo-600",
       bgColor: "bg-indigo-100",
     },
-  ];
+    {
+      title: "Reservas Ativas",
+      value: stats?.totals.reservasAtivas || 0,
+      icon: CalendarRange,
+      color: "text-teal-600",
+      bgColor: "bg-teal-100",
+    },
+  ], [stats]);
 
   const filteredStatsCards = statsCards.filter((card) => {
     if (card.adminOnly && user?.role !== "ADMIN") {
@@ -272,13 +308,16 @@ export default function DashboardPage() {
                       {stat.title}
                     </p>
                     <p className="text-2xl font-bold text-foreground">
-                      {loading ? "..." : stat.value}
+                      {loadingStats ? "..." : stat.value}
                     </p>
                   </div>
                   <div className={`p-3 rounded-full ${stat.bgColor}`}>
                     <stat.icon className={`h-6 w-6 ${stat.color}`} />
                   </div>
                 </div>
+                {errorStats && (
+                  <p className="text-xs text-destructive mt-2">{errorStats}</p>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -312,325 +351,47 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Alocações por Turma */}
+        {/* Próximas Aulas (hoje) */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xl">Alocações por Turma</CardTitle>
-                <CardDescription>
-                  Visualização detalhada das disciplinas alocadas por período e
-                  turno
-                </CardDescription>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAlocacoes(!showAlocacoes)}
-              >
-                {showAlocacoes ? (
-                  <>
-                    <EyeOff className="h-4 w-4 mr-2" /> Ocultar
-                  </>
-                ) : (
-                  <>
-                    <Eye className="h-4 w-4 mr-2" /> Mostrar
-                  </>
-                )}
-              </Button>
-            </div>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" /> Próximas Aulas (hoje)
+            </CardTitle>
+            <CardDescription>Baseadas na grade geral de alocações</CardDescription>
           </CardHeader>
-          {showAlocacoes && (
-            <CardContent className="p-0">
-              <div className="space-y-8 p-6">
-                {Object.entries({} as any).map(([turma, disciplinas]) => (
-                  <div key={turma} className="space-y-4">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <h3 className="text-lg font-semibold text-blue-900">
-                        {turma}
-                      </h3>
-                      <p className="text-sm text-blue-700">
-                        {disciplinas.length} disciplinas alocadas
-                      </p>
+          <CardContent>
+            {loadingAulas && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Clock className="h-4 w-4 animate-spin" /> Carregando...
+              </div>
+            )}
+            {errorAulas && (
+              <p className="text-sm text-destructive">{errorAulas}</p>
+            )}
+            {!loadingAulas && !errorAulas && (
+              <div className="space-y-3">
+                {proximasAulas.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Nenhuma aula próxima para hoje.</p>
+                )}
+                {proximasAulas.map((aula, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <div>
+                      <p className="font-medium text-foreground">{aula.titulo}</p>
+                      <p className="text-sm text-muted-foreground">{aula.detalhe}</p>
                     </div>
-
-                    {/* Tabela de Disciplinas */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full border border-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
-                              Código
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
-                              Prefixo
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
-                              Disciplina
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
-                              CH
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
-                              Horário
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
-                              Professor
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
-                              Local 1
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
-                              Local 2
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
-                              Vagas
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-r">
-                              Demanda
-                            </th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
-                              Status
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-background divide-y divide-border">
-                          {disciplinas.map((disciplina, index) => (
-                            <tr
-                              key={disciplina.codigo}
-                              className={
-                                index % 2 === 0 ? "bg-background" : "bg-muted/30"
-                              }
-                            >
-                              <td className="px-3 py-2 text-sm font-medium text-foreground border-r border-border">
-                                {disciplina.codigo}
-                              </td>
-                              <td className="px-3 py-2 border-r border-border">
-                                <Badge
-                                  variant="outline"
-                                  className="font-mono text-xs"
-                                >
-                                  {disciplina.prefixo}
-                                </Badge>
-                              </td>
-                              <td className="px-3 py-2 text-sm text-foreground border-r border-border max-w-xs">
-                                {disciplina.disciplina}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-foreground border-r border-border">
-                                {disciplina.ch}h
-                              </td>
-                              <td className="px-3 py-2 text-sm text-foreground font-mono border-r border-border">
-                                {(disciplina.horario1 && disciplina.horario2 ? 
-                                  `${disciplina.horario1}, ${disciplina.horario2}` : 
-                                  disciplina.horario1 || disciplina.horario2 || "-")}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-foreground border-r border-border">
-                                {disciplina.professor}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-foreground border-r border-border">
-                                {disciplina.local1}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
-                                {disciplina.local2 || "-"}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
-                                {disciplina.vagas}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 border-r">
-                                {disciplina.demanda}
-                              </td>
-                              <td className="px-3 py-2">
-                                <Badge
-                                  className={getStatusColor(
-                                    disciplina.vagas,
-                                    disciplina.demanda
-                                  )}
-                                >
-                                  {getStatusText(
-                                    disciplina.vagas,
-                                    disciplina.demanda
-                                  )}
-                                </Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Grade de Horários */}
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="text-md font-semibold text-gray-900 mb-3">
-                        Grade de Horários
-                      </h4>
-                      <div className="overflow-x-auto">
-                        <table className="w-full border border-gray-300">
-                          <thead>
-                            <tr className="bg-gray-100">
-                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">
-                                Horário
-                              </th>
-                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">
-                                Segunda
-                              </th>
-                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">
-                                Terça
-                              </th>
-                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">
-                                Quarta
-                              </th>
-                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">
-                                Quinta
-                              </th>
-                              <th className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700">
-                                Sexta
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {Object.entries({} as { [horario: string]: DiasHorario }).map(
-                              ([horario, dias]: [string, DiasHorario]) => (
-                                <tr key={horario}>
-                                  <td className="border border-gray-300 px-2 py-1 text-sm font-medium text-gray-900 bg-gray-50">
-                                    {horario}
-                                  </td>
-                                  <td className="border border-gray-300 px-2 py-1 text-sm text-center">
-                                    {dias.segunda && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-xs"
-                                      >
-                                        {dias.segunda}
-                                      </Badge>
-                                    )}
-                                  </td>
-                                  <td className="border border-gray-300 px-2 py-1 text-sm text-center">
-                                    {dias.terca && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-xs"
-                                      >
-                                        {dias.terca}
-                                      </Badge>
-                                    )}
-                                  </td>
-                                  <td className="border border-gray-300 px-2 py-1 text-sm text-center">
-                                    {dias.quarta && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-xs"
-                                      >
-                                        {dias.quarta}
-                                      </Badge>
-                                    )}
-                                  </td>
-                                  <td className="border border-gray-300 px-2 py-1 text-sm text-center">
-                                    {dias.quinta && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-xs"
-                                      >
-                                        {dias.quinta}
-                                      </Badge>
-                                    )}
-                                  </td>
-                                  <td className="border border-gray-300 px-2 py-1 text-sm text-center">
-                                    {dias.sexta && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-xs"
-                                      >
-                                        {dias.sexta}
-                                      </Badge>
-                                    )}
-                                  </td>
-                                </tr>
-                              )
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                    <Badge variant="outline">{aula.codigoHorario || "-"}</Badge>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          )}
+            )}
+          </CardContent>
         </Card>
 
-        {/* Resumo Recente */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <TrendingUp className="h-5 w-5" />
-                <span>Atividade Recente</span>
-              </CardTitle>
-              <CardDescription>
-                Últimas ações realizadas no sistema
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Nova alocação criada</p>
-                    <p className="text-xs text-gray-500">Há 2 horas</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Disciplina atualizada</p>
-                    <p className="text-xs text-gray-500">Há 4 horas</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Nova turma cadastrada</p>
-                    <p className="text-xs text-gray-500">Ontem</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Calendar className="h-5 w-5" />
-                <span>Próximas Aulas</span>
-              </CardTitle>
-              <CardDescription>Aulas agendadas para hoje</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium">Banco de Dados</p>
-                    <p className="text-sm text-gray-600">2º Período - Lab 2</p>
-                  </div>
-                  <Badge variant="outline">4M23</Badge>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium">POO</p>
-                    <p className="text-sm text-gray-600">2º Período - Lab 1</p>
-                  </div>
-                  <Badge variant="outline">3M23</Badge>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium">Ciência de Dados</p>
-                    <p className="text-sm text-gray-600">4º Período - Lab 1</p>
-                  </div>
-                  <Badge variant="outline">2T12</Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Link para visão completa de Alocações */}
+        <div className="flex justify-end">
+          <Link href="/alocacoes" className="text-sm text-primary hover:underline">
+            Ver todas as alocações →
+          </Link>
         </div>
       </div>
     </MainLayout>

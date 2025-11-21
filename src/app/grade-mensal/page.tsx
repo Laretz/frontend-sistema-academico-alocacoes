@@ -116,14 +116,31 @@ export default function GradeMensalPage() {
         return;
       }
       
-      // Buscar alocações para obter informações de salas e horários
-      const { alocacoes } = await alocacaoService.getAll(1);
-      const alocacoesDaTurma = alocacoes.filter(alocacao => alocacao.id_turma === turmaId);
+      // Buscar grade de horários diretamente por turma (compatível com backend atual)
+      // O backend retorna { gradeHorarios: { segunda: [], terca: [], ... } }
+      const gradeResponse: any = await alocacaoService.getGradeHorarios({ id_turma: turmaId });
+      const gradeHorarios = gradeResponse?.gradeHorarios ?? {};
+      // Achatar as alocações por dia para um array único
+      const alocacoesDaTurma: Array<{
+        id: string;
+        horario: { codigo: string; dia_semana: string; horario_inicio: string; horario_fim: string };
+        disciplina: { id: string; nome: string; cargaHorariaTotal: number };
+        sala: { id: string; nome: string; predio: string; capacidade: number; tipo: string };
+      }> = [
+        ...(gradeHorarios.segunda || []),
+        ...(gradeHorarios.terca || []),
+        ...(gradeHorarios.quarta || []),
+        ...(gradeHorarios.quinta || []),
+        ...(gradeHorarios.sexta || []),
+        ...(gradeHorarios.sabado || []),
+      ];
       
       // Converter disciplinas com progresso para o formato esperado pelo componente
       const disciplinasFormatadas: Disciplina[] = disciplinasComProgresso.map(disciplina => {
         // Buscar alocações desta disciplina
-        const alocacoesDisciplina = alocacoesDaTurma.filter(alocacao => alocacao.id_disciplina === disciplina.id);
+        // Compatibilidade com backend atual: usar o id da disciplina vindo nas relações da alocação
+        // Alguns ambientes não retornam mais id_disciplina diretamente na alocação.
+        const alocacoesDisciplina = alocacoesDaTurma.filter(a => a.disciplina?.id === disciplina.id);
         
         return {
           id: disciplina.id,
@@ -139,17 +156,17 @@ export default function GradeMensalPage() {
           data_inicio: disciplina.data_inicio ? new Date(disciplina.data_inicio).toISOString().split('T')[0] : '2024-01-01',
           data_fim_prevista: disciplina.data_fim_prevista ? new Date(disciplina.data_fim_prevista).toISOString().split('T')[0] : '2024-12-31',
           data_fim_real: disciplina.data_fim_real ? new Date(disciplina.data_fim_real).toISOString().split('T')[0] : undefined,
-          alocacoes: alocacoesDisciplina.map(alocacao => ({
-            id: alocacao.id,
+          alocacoes: alocacoesDisciplina.map(a => ({
+            id: a.id,
             horario: {
-              codigo: alocacao.horario?.codigo || '',
-              dia_semana: alocacao.horario?.dia_semana || '',
-              horario_inicio: alocacao.horario?.horario_inicio || '',
-              horario_fim: alocacao.horario?.horario_fim || '',
+              codigo: a.horario?.codigo || '',
+              dia_semana: a.horario?.dia_semana || '',
+              horario_inicio: a.horario?.horario_inicio || '',
+              horario_fim: a.horario?.horario_fim || '',
             },
             sala: {
-              nome: alocacao.sala?.nome || 'Sala não informada',
-              predio: alocacao.sala?.predio?.nome || 'Prédio não informado',
+              nome: a.sala?.nome || 'Sala não informada',
+              predio: a.sala?.predio || 'Prédio não informado',
             }
           })),
           modulos: []

@@ -28,7 +28,8 @@ export const authService = {
   },
 
   register: async (data: RegisterData): Promise<void> => {
-    await api.post("/users", data);
+    // Backend espera POST /register para criar usuário
+    await api.post("/register", data);
   },
 
   getProfile: async (): Promise<User> => {

@@ -14,7 +14,7 @@ interface HorarioAgrupado {
 /**
  * Converte horário ISO para código de horário (M1, M2, T1, etc.)
  */
-function converterHorarioParaCodigo(horarioISO: string): string {
+export function converterHorarioParaCodigo(horarioISO: string): string {
   // Extrair apenas a parte do horário (HH:MM)
   const horario = horarioISO.split("T")[1]?.split(":") || horarioISO.split(":");
   const hora = parseInt(horario[0]);
