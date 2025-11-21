@@ -14,7 +14,7 @@ Este projeto frontend foi desenvolvido com **Next.js 15** + **TypeScript** segui
 - **Requisições HTTP**: Axios + React Query
 - **Validação**: Zod + React Hook Form
 - **Notificações**: Sonner
-
+<br><br><br><br><br><br>
 ## 📁 Estrutura de Pastas
 
 ```
@@ -42,6 +42,9 @@ src/
 
 
 
+
+
+<br><br><br><br><br><br>
 
 
 
