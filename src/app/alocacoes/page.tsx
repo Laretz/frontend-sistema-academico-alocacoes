@@ -17,6 +17,8 @@ import { Edit, Trash2, Calendar, Clock, MapPin, User as UserIcon, BookOpen, Grad
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useAuthStore } from "@/store/auth";
+import { useRouter } from "next/navigation";
 import {
   alocacaoService,
   disciplinaService,
@@ -57,6 +59,8 @@ const initialFormData: FormData = {
 };
 
 export default function AlocacoesPage() {
+  const { user } = useAuthStore();
+  const router = useRouter();
   const [alocacoes, setAlocacoes] = useState<Alocacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -102,6 +106,12 @@ export default function AlocacoesPage() {
   const [filtroDiaSemana, setFiltroDiaSemana] = useState("");
   const [filtroPeriodo, setFiltroPeriodo] = useState("");
   const [filtroTurmaId, setFiltroTurmaId] = useState("");
+
+  useEffect(() => {
+    if (user?.role === "PROFESSOR") {
+      router.replace("/dashboard");
+    }
+  }, [user?.role, router]);
   useEffect(() => {
     fetchAlocacoes();
     fetchSelectData();
@@ -756,7 +766,7 @@ export default function AlocacoesPage() {
                         size="sm"
                         onClick={() => handleEdit(alocacao)}
                       >
-                        <Edit className="h-4 w-4" />
+                        <Edit className="h-4 w-4 text-shadblue-primary" />
                       </Button>
                       <Button
                         variant="outline"

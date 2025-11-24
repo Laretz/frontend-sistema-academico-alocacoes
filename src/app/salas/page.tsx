@@ -307,14 +307,14 @@ export default function SalasPage() {
                       size="sm"
                       onClick={() => handleEdit(sala)}
                     >
-                      <Edit className="h-4 w-4" />
+                      <Edit className="h-4 w-4 text-shadblue-primary" />
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleDelete(sala.id, sala.nome)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 </CardContent>

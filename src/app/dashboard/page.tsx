@@ -237,7 +237,7 @@ export default function DashboardPage() {
       title: "Total de Alocações",
       value: stats?.totals.alocacoes || 0,
       icon: Calendar,
-      color: "text-red-600",
+      color: "text-destructive",
       bgColor: "bg-red-100",
     },
     {

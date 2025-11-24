@@ -32,11 +32,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Calendar, Clock, Trash2, Edit, BarChart3, Users } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { disciplinaService, salaService, turmaService, alocacaoService } from "@/services/entities";
+import { disciplinaService, salaService, turmaService, alocacaoService, horarioService } from "@/services/entities";
+import { reservasSalaService } from "@/services/reservas-sala";
 import { disciplinasProgressoService } from "@/services/disciplinas-progresso";
 
 // Usando as interfaces do sistema de tipos
-import type { Disciplina as DisciplinaBase, Turma, Sala, Horario, Alocacao } from '@/types/entities';
+import type { Disciplina as DisciplinaBase, Turma, Sala, Horario, Alocacao, ReservaSala, CreateReservaSalaRequest } from '@/types/entities';
 
 // Interface local estendida para compatibilidade com o componente
 interface Disciplina extends Omit<DisciplinaBase, 'periodo_letivo' | 'semestre' | 'obrigatoria'> {
@@ -77,7 +78,12 @@ export default function GradeMensalPage() {
   const [turmaSelecionada, setTurmaSelecionada] = useState<Turma | null>(null);
   const [loading, setLoading] = useState(true);
   const [dialogAberto, setDialogAberto] = useState(false);
-  const [novoModulo, setNovoModulo] = useState<Partial<NovoModulo>>({});
+  const [novaReserva, setNovaReserva] = useState<Partial<CreateReservaSalaRequest & { titulo: string; descricao?: string }>>({});
+  const [reservas, setReservas] = useState<ReservaSala[]>([]);
+  const [filtroSalaId, setFiltroSalaId] = useState<string>("");
+  const [filtroHorarioId, setFiltroHorarioId] = useState<string>("");
+  const [filtroDe, setFiltroDe] = useState<string>("");
+  const [filtroAte, setFiltroAte] = useState<string>("");
   const [disciplinaSelecionada, setDisciplinaSelecionada] =
     useState<string>("");
 
@@ -189,8 +195,17 @@ export default function GradeMensalPage() {
         }
       });
       
-      setSalas(Array.from(salasMap.values()));
-      setHorarios(Array.from(horariosMap.values()));
+      try {
+        const [salasAll, horariosAll] = await Promise.all([
+          salaService.getAll(1).catch(() => ({ salas: [] as Sala[] })),
+          horarioService.getAll().catch(() => ([] as Horario[])),
+        ]);
+        setSalas(salasAll.salas || []);
+        setHorarios(horariosAll || []);
+      } catch {
+        setSalas(Array.from(salasMap.values()));
+        setHorarios(Array.from(horariosMap.values()));
+      }
       
     } catch (error) {
       console.error('Erro ao carregar disciplinas da turma:', error);
@@ -224,53 +239,66 @@ export default function GradeMensalPage() {
     }
   }, [turmaSelecionada]);
 
-  const handleAdicionarModulo = async () => {
+  const carregarReservas = async () => {
     try {
-      // Em produção, isso seria uma chamada para a API
-      console.log("Adicionando módulo:", novoModulo);
-
-      // Simular adição do módulo
-      const disciplinaAtualizada = disciplinas.find(
-        (d) => d.id === novoModulo.id_disciplina
-      );
-      if (disciplinaAtualizada) {
-        const novoModuloCompleto = {
-          id: Date.now().toString(),
-          data_inicio: novoModulo.data_inicio!,
-          data_fim: novoModulo.data_fim!,
-          ativo: true,
-          horario: horarios.find((h) => h.id === novoModulo.id_horario)!,
-          sala: salas.find((s) => s.id === novoModulo.id_sala)!,
-        };
-
-        disciplinaAtualizada.modulos.push(novoModuloCompleto);
-        setDisciplinas([...disciplinas]);
-      }
-
-      setDialogAberto(false);
-      setNovoModulo({});
-    } catch (error) {
-      console.error("Erro ao adicionar módulo:", error);
+      const qs: any = {};
+      if (filtroSalaId) qs.salaId = filtroSalaId;
+      if (filtroHorarioId) qs.horarioId = filtroHorarioId;
+      if (filtroDe) qs.dateFrom = filtroDe;
+      if (filtroAte) qs.dateTo = filtroAte;
+      const resp = await reservasSalaService.list(qs);
+      setReservas(resp.reservas || []);
+    } catch (e) {
+      setReservas([]);
     }
   };
 
-  const handleRemoverModulo = async (
-    disciplinaId: string,
-    moduloId: string
-  ) => {
-    try {
-      // Em produção, isso seria uma chamada para a API
-      console.log("Removendo módulo:", moduloId);
+  useEffect(() => {
+    const hoje = new Date();
+    const yyyy = hoje.getFullYear();
+    const mm = String(hoje.getMonth() + 1).padStart(2, '0');
+    const de = `${yyyy}-${mm}-01`;
+    const ate = `${yyyy}-${mm}-28`;
+    setFiltroDe(de);
+    setFiltroAte(ate);
+    carregarReservas();
+  }, [turmaSelecionada]);
 
-      const disciplina = disciplinas.find((d) => d.id === disciplinaId);
-      if (disciplina) {
-        disciplina.modulos = disciplina.modulos.filter(
-          (m) => m.id !== moduloId
-        );
-        setDisciplinas([...disciplinas]);
-      }
+  const handleCriarReserva = async () => {
+    try {
+      if (!novaReserva.salaId || !novaReserva.horarioId || !novaReserva.date || !novaReserva.titulo) return;
+      await reservasSalaService.create({
+        salaId: novaReserva.salaId,
+        horarioId: novaReserva.horarioId,
+        date: novaReserva.date,
+        titulo: novaReserva.titulo,
+        descricao: novaReserva.descricao,
+        recurrenceRule: novaReserva.recurrenceRule,
+        recurrenceEnd: novaReserva.recurrenceEnd,
+      } as CreateReservaSalaRequest);
+      setDialogAberto(false);
+      setNovaReserva({});
+      await carregarReservas();
     } catch (error) {
-      console.error("Erro ao remover módulo:", error);
+      console.error("Erro ao criar reserva:", error);
+    }
+  };
+
+  const handleCancelarReserva = async (id: string) => {
+    try {
+      await reservasSalaService.cancel(id);
+      await carregarReservas();
+    } catch (error) {
+      console.error("Erro ao cancelar reserva:", error);
+    }
+  };
+
+  const handleCancelarSerie = async (seriesId: string) => {
+    try {
+      await reservasSalaService.cancelSeries(seriesId);
+      await carregarReservas();
+    } catch (error) {
+      console.error("Erro ao cancelar série:", error);
     }
   };
 
@@ -300,42 +328,21 @@ export default function GradeMensalPage() {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Adicionar Módulo
+                Adicionar Reserva
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Adicionar Módulo Extra</DialogTitle>
+                <DialogTitle>Adicionar Reserva de Sala</DialogTitle>
               </DialogHeader>
 
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="disciplina">Disciplina</Label>
-                  <Select
-                    value={novoModulo.id_disciplina || ""}
-                    onValueChange={(value) =>
-                      setNovoModulo({ ...novoModulo, id_disciplina: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma disciplina" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {disciplinas.map((disciplina) => (
-                        <SelectItem key={disciplina.id} value={disciplina.id}>
-                          {disciplina.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
                   <Label htmlFor="sala">Sala</Label>
                   <Select
-                    value={novoModulo.id_sala || ""}
+                    value={novaReserva.salaId || ""}
                     onValueChange={(value) =>
-                      setNovoModulo({ ...novoModulo, id_sala: value })
+                      setNovaReserva({ ...novaReserva, salaId: value })
                     }
                   >
                     <SelectTrigger>
@@ -344,7 +351,7 @@ export default function GradeMensalPage() {
                     <SelectContent>
                       {salas.map((sala) => (
                         <SelectItem key={sala.id} value={sala.id}>
-                          {sala.nome} - {sala.predio?.nome || 'Prédio não informado'}
+                          {sala.nome}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -354,9 +361,9 @@ export default function GradeMensalPage() {
                 <div>
                   <Label htmlFor="horario">Horário</Label>
                   <Select
-                    value={novoModulo.id_horario || ""}
+                    value={novaReserva.horarioId || ""}
                     onValueChange={(value) =>
-                      setNovoModulo({ ...novoModulo, id_horario: value })
+                      setNovaReserva({ ...novaReserva, horarioId: value })
                     }
                   >
                     <SelectTrigger>
@@ -365,8 +372,7 @@ export default function GradeMensalPage() {
                     <SelectContent>
                       {horarios.map((horario) => (
                         <SelectItem key={horario.id} value={horario.id}>
-                          {horario.dia_semana} - {horario.codigo} (
-                          {horario.horario_inicio} - {horario.horario_fim})
+                          {horario.dia_semana} - {horario.codigo} ({horario.horario_inicio} - {horario.horario_fim})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -374,46 +380,64 @@ export default function GradeMensalPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="data_inicio">Data de Início</Label>
+                  <Label htmlFor="date">Data</Label>
                   <Input
-                    id="data_inicio"
+                    id="date"
                     type="date"
-                    value={novoModulo.data_inicio || ""}
-                    onChange={(e) =>
-                      setNovoModulo({
-                        ...novoModulo,
-                        data_inicio: e.target.value,
-                      })
-                    }
+                    value={novaReserva.date || ""}
+                    onChange={(e) => setNovaReserva({ ...novaReserva, date: e.target.value })}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="data_fim">Data de Fim</Label>
+                  <Label htmlFor="titulo">Título</Label>
                   <Input
-                    id="data_fim"
-                    type="date"
-                    value={novoModulo.data_fim || ""}
-                    onChange={(e) =>
-                      setNovoModulo({ ...novoModulo, data_fim: e.target.value })
-                    }
+                    id="titulo"
+                    type="text"
+                    value={novaReserva.titulo || ""}
+                    onChange={(e) => setNovaReserva({ ...novaReserva, titulo: e.target.value })}
                   />
                 </div>
 
-                <div className="flex gap-2 pt-4">
-                  <Button
-                    onClick={handleAdicionarModulo}
-                    disabled={
-                      !novoModulo.id_disciplina ||
-                      !novoModulo.id_sala ||
-                      !novoModulo.id_horario ||
-                      !novoModulo.data_inicio ||
-                      !novoModulo.data_fim
-                    }
-                    className="flex-1"
+                <div>
+                  <Label htmlFor="descricao">Descrição</Label>
+                  <Input
+                    id="descricao"
+                    type="text"
+                    value={novaReserva.descricao || ""}
+                    onChange={(e) => setNovaReserva({ ...novaReserva, descricao: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="recorrencia">Recorrência semanal (opcional)</Label>
+                  <Select
+                    value={novaReserva.recurrenceRule || ""}
+                    onValueChange={(value) => setNovaReserva({ ...novaReserva, recurrenceRule: value as any })}
                   >
-                    Adicionar
-                  </Button>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sem recorrência" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WEEKLY">Semanal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {novaReserva.recurrenceRule === 'WEEKLY' && (
+                  <div>
+                    <Label htmlFor="recurrenceEnd">Fim da recorrência</Label>
+                    <Input
+                      id="recurrenceEnd"
+                      type="date"
+                      value={novaReserva.recurrenceEnd || ""}
+                      onChange={(e) => setNovaReserva({ ...novaReserva, recurrenceEnd: e.target.value })}
+                    />
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-4">
+                  <Button onClick={handleCriarReserva} disabled={!novaReserva.salaId || !novaReserva.horarioId || !novaReserva.date || !novaReserva.titulo} className="flex-1">Salvar</Button>
                   <Button
                     variant="outline"
                     onClick={() => setDialogAberto(false)}
@@ -488,9 +512,9 @@ export default function GradeMensalPage() {
               <Calendar className="h-4 w-4" />
               <span>Grade Mensal</span>
             </TabsTrigger>
-            <TabsTrigger value="modulos" className="flex items-center space-x-2">
+            <TabsTrigger value="reservas" className="flex items-center space-x-2">
               <Clock className="h-4 w-4" />
-              <span>Gerenciar Módulos</span>
+              <span>Gerenciar Reservas</span>
             </TabsTrigger>
           </TabsList>
 
@@ -508,124 +532,88 @@ export default function GradeMensalPage() {
             <GradeMensal disciplinas={disciplinas} turma={turmaSelecionada || undefined} />
           </TabsContent>
 
-          {/* Gerenciamento de Módulos */}
-          <TabsContent value="modulos">
+          {/* Gerenciamento de Reservas */}
+          <TabsContent value="reservas">
             <Card>
               <CardHeader>
-                <CardTitle>Gerenciar Módulos</CardTitle>
+                <CardTitle>Gerenciar Reservas</CardTitle>
               </CardHeader>
               <CardContent>
             <div className="space-y-6">
-              {disciplinas.map((disciplina) => (
-                <div key={disciplina.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="font-medium text-lg">{disciplina.nome}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Carga horária: {disciplina.carga_horaria}/
-                        {disciplina.total_aulas}h
-                      </p>
-                    </div>
-                    <Badge variant="outline">
-                      {disciplina.modulos.filter((m) => m.ativo).length}{" "}
-                      módulo(s)
-                    </Badge>
-                  </div>
-
-                  {/* Alocações principais */}
-                  <div className="mb-4">
-                    <h4 className="font-medium text-sm mb-2">
-                      Alocações Principais:
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {disciplina.alocacoes.map((alocacao) => (
-                        <div
-                          key={alocacao.id}
-                          className="bg-primary/10 border border-primary/20 rounded p-2"
-                        >
-                          <div className="text-sm font-medium">
-                            {alocacao.horario.dia_semana} -{" "}
-                            {alocacao.horario.codigo}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {alocacao.sala.nome} ({alocacao.sala.predio.nome})
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {alocacao.horario.horario_inicio} -{" "}
-                            {alocacao.horario.horario_fim}
-                          </div>
-                        </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <Label>Sala</Label>
+                  <Select value={filtroSalaId} onValueChange={setFiltroSalaId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todas as salas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {salas.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Horário</Label>
+                  <Select value={filtroHorarioId} onValueChange={setFiltroHorarioId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todos os horários" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {horarios.map((h) => (
+                        <SelectItem key={h.id} value={h.id}>{h.dia_semana} - {h.codigo}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Data inicial</Label>
+                  <Input type="date" value={filtroDe} onChange={(e) => setFiltroDe(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Data final</Label>
+                  <Input type="date" value={filtroAte} onChange={(e) => setFiltroAte(e.target.value)} />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={carregarReservas}>Buscar</Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {reservas.map((r) => (
+                  <div key={r.id} className="border rounded p-3 flex items-start justify-between">
+                    <div className="space-y-1">
+                      <div className="font-medium">{r.titulo}</div>
+                      <div className="text-sm text-muted-foreground">{r.sala?.nome} • {r.horario?.dia_semana} {r.horario?.codigo}</div>
+                      <div className="text-sm text-muted-foreground">{r.date}</div>
+                      {r.recurrenceRule === 'WEEKLY' && (
+                        <div className="text-xs font-semibold text-primary">Recorrente até {r.recurrenceEnd}</div>
+                      )}
+                      <Badge variant={r.status === 'ATIVA' ? 'secondary' : 'outline'}>{r.status}</Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {r.seriesId ? (
+                        <Button variant="outline" size="sm" onClick={() => handleCancelarSerie(r.seriesId!)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" onClick={() => handleCancelarReserva(r.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
                     </div>
                   </div>
-
-                  {/* Módulos extras */}
-                  {disciplina.modulos.length > 0 && (
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">
-                        Módulos Extras:
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {disciplina.modulos
-                          .filter((m) => m.ativo)
-                          .map((modulo) => (
-                            <div
-                              key={modulo.id}
-                              className="bg-secondary/50 border border-secondary rounded p-2"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <div className="text-sm font-medium">
-                                    {modulo.horario.dia_semana} -{" "}
-                                    {modulo.horario.codigo}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {modulo.sala.nome} ({modulo.sala.predio})
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {modulo.horario.horario_inicio} -{" "}
-                                    {modulo.horario.horario_fim}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {format(
-                                      new Date(modulo.data_inicio),
-                                      "dd/MM/yyyy",
-                                      { locale: ptBR }
-                                    )}{" "}
-                                    -{" "}
-                                    {format(
-                                      new Date(modulo.data_fim),
-                                      "dd/MM/yyyy",
-                                      { locale: ptBR }
-                                    )}
-                                  </div>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleRemoverModulo(
-                                      disciplina.id,
-                                      modulo.id
-                                    )
-                                  }
-                                  className="text-destructive hover:text-destructive/80"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                ))}
+                {reservas.length === 0 && (
+                  <div className="text-sm text-muted-foreground">Nenhuma reserva encontrada para os filtros.</div>
+                )}
+              </div>
             </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
           </TabsContent>
-        </Tabs>
+          </Tabs>
       </div>
     </MainLayout>
   );

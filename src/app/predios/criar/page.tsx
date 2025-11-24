@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { MainLayout } from '@/components/layout/main-layout';
+import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +15,7 @@ import { toast } from 'sonner';
 
 export default function CriarPredioPage() {
   const router = useRouter();
+  const { user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     codigo: '',
@@ -53,84 +56,99 @@ export default function CriarPredioPage() {
     }));
   };
 
+  if (user?.role !== 'ADMIN') {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-foreground mb-2">Acesso Negado</h2>
+            <p className="text-muted-foreground">Você não tem permissão para acessar esta página.</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => router.back()}
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Voltar
-        </Button>
-        <h1 className="text-2xl font-bold">Criar Novo Prédio</h1>
+    <MainLayout>
+      <div className="container mx-auto py-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.back()}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+          <h1 className="text-2xl font-bold">Criar Novo Prédio</h1>
+        </div>
+
+        <Card className="max-w-2xl">
+          <CardHeader>
+            <CardTitle>Informações do Prédio</CardTitle>
+            <CardDescription>
+              Preencha as informações básicas do prédio
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="codigo">Código do Prédio *</Label>
+                <Input
+                  id="codigo"
+                  type="text"
+                  placeholder="Ex: A, B, C1, LAB"
+                  value={formData.codigo}
+                  onChange={(e) => handleInputChange('codigo', e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="nome">Nome do Prédio *</Label>
+                <Input
+                  id="nome"
+                  type="text"
+                  placeholder="Ex: Prédio Principal, Laboratórios"
+                  value={formData.nome}
+                  onChange={(e) => handleInputChange('nome', e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="descricao">Descrição</Label>
+                <Textarea
+                  id="descricao"
+                  placeholder="Descrição opcional do prédio"
+                  value={formData.descricao}
+                  onChange={(e) => handleInputChange('descricao', e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.back()}
+                  disabled={isLoading}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {isLoading ? 'Criando...' : 'Criar Prédio'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
-
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>Informações do Prédio</CardTitle>
-          <CardDescription>
-            Preencha as informações básicas do prédio
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="codigo">Código do Prédio *</Label>
-              <Input
-                id="codigo"
-                type="text"
-                placeholder="Ex: A, B, C1, LAB"
-                value={formData.codigo}
-                onChange={(e) => handleInputChange('codigo', e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="nome">Nome do Prédio *</Label>
-              <Input
-                id="nome"
-                type="text"
-                placeholder="Ex: Prédio Principal, Laboratórios"
-                value={formData.nome}
-                onChange={(e) => handleInputChange('nome', e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="descricao">Descrição</Label>
-              <Textarea
-                id="descricao"
-                placeholder="Descrição opcional do prédio"
-                value={formData.descricao}
-                onChange={(e) => handleInputChange('descricao', e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.back()}
-                disabled={isLoading}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={isLoading}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {isLoading ? 'Criando...' : 'Criar Prédio'}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+    </MainLayout>
   );
 }

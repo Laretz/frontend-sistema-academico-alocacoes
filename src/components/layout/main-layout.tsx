@@ -46,15 +46,20 @@ const navigation = [
   { name: "Prédios", href: "/predios", icon: Building, adminOnly: true },
   { name: "Disciplinas", href: "/disciplinas", icon: BookOpen },
   {
-    name: "Professor-Disciplina",
+    name: "Disciplinas por Prof.",
     href: "/professor-disciplina",
     icon: UserCheck,
     adminOnly: true,
   },
   { name: "Turmas", href: "/turmas", icon: GraduationCap },
   { name: "Salas", href: "/salas", icon: MapPin },
-  { name: "Alocações", href: "/alocacoes", icon: Calendar },
-  { name: "Feedbacks", href: "/admin/feedbacks", icon: MessageSquare, adminOnly: true },
+  { name: "Alocações", href: "/alocacoes", icon: Calendar, adminOnly: true },
+  {
+    name: "Feedbacks",
+    href: "/admin/feedbacks",
+    icon: MessageSquare,
+    adminOnly: true,
+  },
   { name: "Grade de Horários", href: "/grade-horarios", icon: CalendarDays },
 ];
 
@@ -100,6 +105,12 @@ export function MainLayout({ children }: MainLayoutProps) {
   const filteredNavigation = navigation.filter((item) => {
     if (item.adminOnly && user?.role !== "ADMIN") {
       return false;
+    }
+    if ("hiddenForRoles" in item) {
+      const hidden = (item as { hiddenForRoles?: string[] }).hiddenForRoles;
+      if (hidden && user?.role && hidden.includes(user.role)) {
+        return false;
+      }
     }
     return true;
   });

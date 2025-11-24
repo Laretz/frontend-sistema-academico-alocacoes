@@ -656,7 +656,7 @@ export default function DisciplinasPage() {
                                       title="Editar disciplina"
                                       onClick={() => handleEdit(disciplina)}
                                     >
-                                      <Edit className="h-4 w-4 text-blue-600" />
+                                      <Edit className="h-4 w-4 text-shadblue-primary" />
                                     </Button>
                                     <Button
                                       variant="outline"
@@ -666,7 +666,7 @@ export default function DisciplinasPage() {
                                         handleDelete(disciplina.id)
                                       }
                                     >
-                                      <Trash2 className="h-4 w-4 text-red-600" />
+                                      <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>
                                   </div>
                                 </TableCell>

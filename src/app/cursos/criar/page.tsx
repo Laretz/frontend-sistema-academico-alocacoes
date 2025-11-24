@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { MainLayout } from '@/components/layout/main-layout';
+import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +15,7 @@ import { toast } from 'sonner';
 
 export default function CriarCursoPage() {
   const router = useRouter();
+  const { user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<{
     codigo: string;
@@ -61,8 +64,22 @@ export default function CriarCursoPage() {
     }));
   };
 
+  if (user?.role !== 'ADMIN' && user?.role !== 'COORDENADOR') {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-foreground mb-2">Acesso Negado</h2>
+            <p className="text-muted-foreground">Você não tem permissão para acessar esta página.</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
-    <div className="container mx-auto py-6">
+    <MainLayout>
+      <div className="container mx-auto py-6">
       <div className="flex items-center gap-4 mb-6">
         <Button
           variant="outline"
@@ -160,6 +177,7 @@ export default function CriarCursoPage() {
           </form>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </MainLayout>
   );
 }

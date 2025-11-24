@@ -215,27 +215,23 @@ export default function TurmasPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="turno">Turno</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Input
-                          id="turno"
-                          value={formData.turno}
-                          onChange={(e) =>
-                            setFormData({ ...formData, turno: e.target.value })
-                          }
-                          placeholder="Ex: MATUTINO, VESPERTINO, NOTURNO"
-                          className="max-w-full truncate"
-                          required
-                        />
-                      </TooltipTrigger>
-                      {formData.turno && formData.turno.length > 15 && (
-                        <TooltipContent className="max-w-xs p-2 text-sm bg-popover text-popover-foreground border rounded shadow-lg">
-                          <p className="break-words">{formData.turno}</p>
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
+                  <Select
+                    value={formData.turno}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, turno: value })
+                    }
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o turno" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MATUTINO">Matutino</SelectItem>
+                      <SelectItem value="VESPERTINO">Vespertino</SelectItem>
+                      <SelectItem value="NOTURNO">Noturno</SelectItem>
+                      <SelectItem value="INTEGRAL">Integral</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="id_curso">Curso</Label>
@@ -393,14 +389,14 @@ export default function TurmasPage() {
                       size="sm"
                       onClick={() => handleEdit(turma)}
                     >
-                      <Edit className="h-4 w-4" />
+                      <Edit className="h-4 w-4 text-shadblue-primary" />
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleDelete(turma.id)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 </CardContent>

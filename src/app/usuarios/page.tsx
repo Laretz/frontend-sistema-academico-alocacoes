@@ -305,7 +305,7 @@ export default function UsuariosPage() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Telefone</TableHead>
+                
                 <TableHead>Especialização</TableHead>
                 <TableHead>Role</TableHead>
                 {/* Removido: coluna Status */}
@@ -317,7 +317,7 @@ export default function UsuariosPage() {
                 <TableRow key={usuario.id}>
                   <TableCell className="font-medium">{usuario.nome}</TableCell>
                   <TableCell>{usuario.email}</TableCell>
-                  <TableCell>{usuario.telefone || "-"}</TableCell>
+                  
                   <TableCell>{usuario.especializacao}</TableCell>
                   <TableCell>
                     {user?.role === "ADMIN" ? (
@@ -377,6 +377,7 @@ export default function UsuariosPage() {
                           }}
                           title="Vincular/Desvincular cursos"
                         >
+                          <Plus className="h-4 w-4 text-green-600 mr-1" />
                           Vincular Cursos
                         </Button>
                       )}
@@ -387,14 +388,14 @@ export default function UsuariosPage() {
                             size="sm"
                             onClick={() => handleEditUser(usuario.id)}
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-4 w-4 text-shadblue-primary" />
                           </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
                               <Button variant="outline" size="sm">
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
-                            </AlertDialogTrigger>
+                              </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>
@@ -412,7 +413,7 @@ export default function UsuariosPage() {
                                   onClick={() =>
                                     handleDeleteUser(usuario.id, usuario.nome)
                                   }
-                                  className="bg-red-600 hover:bg-red-700"
+                                  className="bg-destructive hover:bg-destructive/90"
                                 >
                                   Excluir
                                 </AlertDialogAction>

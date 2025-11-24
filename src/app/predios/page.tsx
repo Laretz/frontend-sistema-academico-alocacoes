@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Building, MapPin, ArrowLeft, Eye, Trash2 } from "lucide-react";
+import { Plus, Building, MapPin, Eye, Trash2 } from "lucide-react";
 import { predioService, salaService } from "@/services/entities";
 import { Predio, Sala } from "@/types/entities";
 import { toast } from "sonner";
@@ -94,15 +94,6 @@ export default function PrediosPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.back()}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar
-            </Button>
             <div>
               <h1 className="text-2xl font-bold">Prédios</h1>
               <p className="text-muted-foreground">

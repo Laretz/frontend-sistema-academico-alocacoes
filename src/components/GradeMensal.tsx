@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Calendar, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import {
   format,
   startOfMonth,
@@ -68,9 +68,11 @@ interface Disciplina {
   }>;
 }
 
+import type { Turma } from '@/types/entities';
+
 interface GradeMensalProps {
   disciplinas: Disciplina[];
-  turma?: any;
+  turma?: Turma;
 }
 
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -154,71 +156,49 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
   };
 
   const getDisciplinasNoDia = (dia: Date) => {
+    const normalizar = (valor: string) =>
+      valor
+        ?.normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z]/g, "");
+
+    const resolveDiaIndex = (valor: string): number | null => {
+      const v = normalizar(valor || "");
+      if (!v) return null;
+      if (v.startsWith("domingo") || v.startsWith("dom") || v.startsWith("sun")) return 0;
+      if (v.startsWith("segunda") || v.startsWith("seg") || v.startsWith("mon")) return 1;
+      if (v.startsWith("terca") || v.startsWith("tca") || v.startsWith("ter") || v.startsWith("tue")) return 2;
+      if (v.startsWith("quarta") || v.startsWith("qua") || v.startsWith("wed")) return 3;
+      if (v.startsWith("quinta") || v.startsWith("qui") || v.startsWith("thu")) return 4;
+      if (v.startsWith("sexta") || v.startsWith("sex") || v.startsWith("fri")) return 5;
+      if (v.startsWith("sabado") || v.startsWith("sabad") || v.startsWith("sab") || v.startsWith("sat")) return 6;
+      return null;
+    };
+
+    const diaSemana = dia.getDay();
+
     const resultado = disciplinas
       .filter((disciplina) => {
-        
-        if (!disciplina.data_inicio) {
-          return false;
-        }
+        const temDatas = disciplina.data_inicio && disciplina.data_fim_prevista;
+        const dataInicio = disciplina.data_inicio ? new Date(disciplina.data_inicio) : null;
+        const dataFim = disciplina.data_fim_prevista ? new Date(disciplina.data_fim_prevista) : null;
+        const dentroPeriodo = temDatas ? (dataInicio && dataFim ? dia >= dataInicio && dia <= dataFim : true) : true;
+        if (!dentroPeriodo) return false;
 
-        const dataInicio = new Date(disciplina.data_inicio);
-        const dataFim = disciplina.data_fim_prevista
-          ? new Date(disciplina.data_fim_prevista)
-          : null;
-
-        if (!dataFim) {
-          return false;
-        }
-
-        // Verificar se o dia está no período da disciplina
-        const dentroPeríodo = dia >= dataInicio && dia <= dataFim;
-
-        if (!dentroPeríodo) return false;
-    
-        // Verificar se há aula neste dia da semana
-        const diaSemana = dia.getDay(); // 0 = domingo, 1 = segunda, etc.
-        
-        const diasSemanaMap: { [key: string]: number } = {
-          domingo: 0,
-          segunda: 1,
-          terca: 2,
-          quarta: 3,
-          quinta: 4,
-          sexta: 5,
-          sabado: 6,
-        };
-    
-        // Verificar alocações principais
         const temAulaRegular = disciplina.alocacoes?.some((alocacao) => {
-          const diaAlocacao =
-            diasSemanaMap[alocacao.horario.dia_semana.toLowerCase()];
-          return diaAlocacao === diaSemana;
+          const idx = resolveDiaIndex(alocacao.horario?.dia_semana || "");
+          return idx === diaSemana;
         }) || false;
-    
-        // Verificar módulos extras
-        const temModulo = disciplina.modulos?.some((modulo) => {
-          if (!modulo.ativo) return false;
-          const dataInicioModulo = new Date(modulo.data_inicio);
-          const dataFimModulo = new Date(modulo.data_fim);
-          const dentroPeríodoModulo =
-            dia >= dataInicioModulo && dia <= dataFimModulo;
-    
-          if (!dentroPeríodoModulo) return false;
-    
-          const diaModulo = diasSemanaMap[modulo.horario.dia_semana.toLowerCase()];
-          return diaModulo === diaSemana;
-        }) || false;
-    
 
-    
-        return temAulaRegular || temModulo;
+        return temAulaRegular;
       })
       .filter(
         (disciplina) =>
           disciplinasSelecionadas.length === 0 ||
           disciplinasSelecionadas.includes(disciplina.id)
       );
-    
+
     return resultado;
   };
 
@@ -387,15 +367,7 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
                         <div className="truncate font-medium">
                           {disciplina.nome}
                         </div>
-                        {disciplina.modulos.some((m) => m.ativo) && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            <span>
-                              +
-                              {disciplina.modulos.filter((m) => m.ativo).length}
-                            </span>
-                          </div>
-                        )}
+                        
                       </div>
                     ))}
                     {disciplinasNoDia.length > 3 && (
@@ -420,7 +392,6 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
           <div className="space-y-4">
             {disciplinas.map((disciplina) => {
               const progresso = calcularProgresso(disciplina);
-              const modulosAtivos = disciplina.modulos.filter((m) => m.ativo);
 
               return (
                 <div key={disciplina.id} className="border rounded-lg p-4">
@@ -475,14 +446,7 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
                       </div>
                     )}
 
-                    {modulosAtivos.length > 0 && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Clock className="h-4 w-4 text-secondary-foreground" />
-                        <span className="text-secondary-foreground">
-                          {modulosAtivos.length} módulo(s) extra(s) ativo(s)
-                        </span>
-                      </div>
-                    )}
+                    
                   </div>
                 </div>
               );
