@@ -53,7 +53,7 @@ export default function RegistroPage() {
         // Força criação de professor: não solicitar perfil
         role: 'PROFESSOR' as const,
         especializacao: formData.especializacao || undefined,
-        cargaHorariaMax: formData.cargaHorariaMax ? parseInt(formData.cargaHorariaMax) : undefined,
+        carga_horaria_max: formData.cargaHorariaMax ? parseInt(formData.cargaHorariaMax) : undefined,
         preferencia: formData.preferencia || undefined
       };
 

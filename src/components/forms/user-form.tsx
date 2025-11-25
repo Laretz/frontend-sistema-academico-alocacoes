@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -102,17 +102,32 @@ export function UserForm({
     data: CreateUserFormData | UpdateUserFormData
   ) => {
     try {
-      // Converter cargaHorariaMax para number se for string
-      const formattedData = {
-        ...data,
-        cargaHorariaMax: data.cargaHorariaMax
-          ? Number(data.cargaHorariaMax)
-          : undefined,
-        especializacao: data.especializacao || undefined,
-        preferencia: data.preferencia || undefined,
-      };
-
-      await onSubmit(formattedData);
+      if (isEditing) {
+        const payload: UpdateUserRequest = {
+          nome: (data as UpdateUserFormData).nome,
+          email: (data as UpdateUserFormData).email,
+          role: (data as UpdateUserFormData).role,
+          especializacao: (data as UpdateUserFormData).especializacao || undefined,
+          carga_horaria_max: (data as UpdateUserFormData).cargaHorariaMax
+            ? Number((data as UpdateUserFormData).cargaHorariaMax)
+            : undefined,
+          preferencia: (data as UpdateUserFormData).preferencia || undefined,
+        };
+        await onSubmit(payload);
+      } else {
+        const payload: CreateUserRequest = {
+          nome: (data as CreateUserFormData).nome,
+          email: (data as CreateUserFormData).email,
+          senha: (data as CreateUserFormData).senha,
+          role: (data as CreateUserFormData).role,
+          especializacao: (data as CreateUserFormData).especializacao || undefined,
+          carga_horaria_max: (data as CreateUserFormData).cargaHorariaMax
+            ? Number((data as CreateUserFormData).cargaHorariaMax)
+            : undefined,
+          preferencia: (data as CreateUserFormData).preferencia || undefined,
+        };
+        await onSubmit(payload);
+      }
     } catch (error) {
       console.error("Erro ao salvar usuário:", error);
     }
@@ -189,9 +204,9 @@ export function UserForm({
                   )}
                 </Button>
               </div>
-              {!isEditing && (errors as any).senha && (
+              {!isEditing && (errors as FieldErrors<CreateUserFormData>).senha && (
                 <p className="text-sm text-destructive">
-                  {(errors as any).senha.message}
+                  {(errors as FieldErrors<CreateUserFormData>).senha?.message as string}
                 </p>
               )}
             </div>

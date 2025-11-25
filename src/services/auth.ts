@@ -16,7 +16,7 @@ export interface RegisterData {
   senha: string;
   role: "PROFESSOR" | "ADMIN" | "COORDENADOR";
   especializacao?: string;
-  cargaHorariaMax?: number;
+  carga_horaria_max?: number;
   preferencia?: string;
 }
 
@@ -28,7 +28,6 @@ export const authService = {
   },
 
   register: async (data: RegisterData): Promise<void> => {
-    // Backend espera POST /register para criar usuário
     await api.post("/register", data);
   },
 

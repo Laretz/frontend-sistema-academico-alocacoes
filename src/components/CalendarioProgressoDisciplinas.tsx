@@ -6,7 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { disciplinasProgressoService } from "@/services/disciplinas-progresso";
-import { temAulaNoDia, calcularAulasNoDia, calcularUltimoDiaAula } from "@/utils/horario-consolidado-cronograma";
+import {
+  temAulaNoDia,
+  calcularAulasNoDia,
+  calcularUltimoDiaAula,
+} from "@/utils/horario-consolidado-cronograma";
 
 import {
   ChevronLeft,
@@ -108,8 +112,6 @@ const DIAS_SEMANA_MAP: { [key: string]: number } = {
   sexta: 6,
   sabado: 7,
 };
-
-
 
 const CORES_DISCIPLINAS = [
   "bg-shadred-primary",
@@ -411,7 +413,8 @@ export function CalendarioProgressoDisciplinas({
           {/* Resumo das disciplinas */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {disciplinasFiltradas.map((disciplina, index) => {
-              const previsaoConclusao = calcularPrevisaoConclusaoSimplificada(disciplina);
+              const previsaoConclusao =
+                calcularPrevisaoConclusaoSimplificada(disciplina);
               // Usar progresso_aulas calculado pelo backend
               const aulasMinistradas = disciplina.aulas_ministradas;
               const percentualAtual = disciplina.progresso_aulas;
@@ -559,7 +562,10 @@ export function CalendarioProgressoDisciplinas({
 
                       {disciplinasVisveis &&
                         disciplinasVisveis
-                          .filter((item) => item && item.disciplina && item.disciplina.id)
+                          .filter(
+                            (item) =>
+                              item && item.disciplina && item.disciplina.id
+                          )
                           .map((item, index) => {
                             const cor = obterCorDisciplina(
                               item.disciplina.id,
@@ -571,23 +577,23 @@ export function CalendarioProgressoDisciplinas({
                                 key={`${item.disciplina.id}-${index}`}
                                 className="mb-1"
                               >
-                              <div className="flex items-center gap-1">
-                                <Badge
-                                  variant="secondary"
-                                  className={`text-xs p-1 ${cor} text-white ${item.isUltimoDia ? 'ring-2 ring-yellow-400' : ''}`}
-                                >
-                                  {formatarDuracaoAulas(item.quantidadeAulas)}
-                                  {item.isUltimoDia && (
-                                    <span className="ml-1 text-yellow-300">📍</span>
-                                  )}
-                                </Badge>
+                                <div className="flex items-center gap-1">
+                                  <Badge
+                                    variant="secondary"
+                                    className={`text-xs p-1 ${cor} text-white`}
+                                  >
+                                    {formatarDuracaoAulas(item.quantidadeAulas)}
+                                    {item.isUltimoDia && (
+                                      <span className="ml-1 text-yellow-500">📍</span>
+                                    )}
+                                  </Badge>
+                                </div>
+                                <div className={`text-xs mt-1 ${dia.getTime() > Date.now() ? 'text-gray-500 italic underline decoration-dotted' : 'text-gray-600'}`}>
+                                  {`${Math.round(item.percentualConcluido)}%`}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-600 mt-1">
-                                {item.isUltimoDia ? '🏁 Último' : `${Math.round(item.percentualConcluido)}%`}
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
                     </div>
                   );
                 })}
@@ -595,41 +601,24 @@ export function CalendarioProgressoDisciplinas({
             </CardContent>
           </Card>
 
-          {/* Legenda */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Legenda</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-blue-50 border border-blue-200 rounded"></div>
-                  <span>Dias com aulas</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="secondary" className="text-xs">
-                    2 aulas
-                  </Badge>
-                  <span>Duração das aulas</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-600">45%</span>
-                  <span>Progresso acumulado</span>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="h-4 w-4 text-green-500" />
-                  <span>Previsão de conclusão</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="secondary" className="text-xs ring-2 ring-yellow-400">
-                    📍 2h
-                  </Badge>
-                  <span>🏁 Último dia da disciplina</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 bg-blue-50 border border-blue-200 rounded"></div>
+              <span>Dias com aulas</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-600">45%</span>
+              <span>Progresso acumulado</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-500 italic underline decoration-dotted">45%</span>
+              <span>Projeção</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-yellow-500">📍</span>
+              <span> Último dia da disciplina</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -644,101 +633,166 @@ const calcularCronogramaSimplificado = (
 ): AulasDia[] => {
   const cronograma: AulasDia[] = [];
   const diasDoMes = eachDayOfInterval({ start: dataInicio, end: dataFim });
-  
+  let aulasAcumuladas = 0;
+
   // Usar apenas dados calculados pelo backend
   const aulasMinistradas = disciplina.aulas_ministradas || 0;
   const totalAulas = disciplina.total_aulas || 0;
   const progressoAtual = disciplina.progresso_aulas || 0;
-  
+
   // Verificar se a disciplina tem horário consolidado para determinar dias com aula
-  const temHorarioConsolidado = disciplina.horario_consolidado && disciplina.horario_consolidado.trim() !== "";
-  
+  const temHorarioConsolidado =
+    disciplina.horario_consolidado &&
+    disciplina.horario_consolidado.trim() !== "";
+
   // Verificar se a disciplina já começou (data_inicio)
-  const dataInicioDisc = disciplina.data_inicio ? new Date(disciplina.data_inicio) : null;
-  
+  const dataInicioDisc = disciplina.data_inicio
+    ? new Date(disciplina.data_inicio)
+    : null;
+
   // Calcular o último dia de aula baseado no horário consolidado
-  const ultimoDiaAula = temHorarioConsolidado && dataInicioDisc ? 
-    calcularUltimoDiaAula(disciplina.horario_consolidado, dataInicioDisc, totalAulas) : 
-    null;
-  
+  const ultimoDiaAula =
+    temHorarioConsolidado && dataInicioDisc
+      ? calcularUltimoDiaAula(
+          disciplina.horario_consolidado,
+          dataInicioDisc,
+          totalAulas
+        )
+      : null;
+
   // Usar o último dia calculado ou fallback para data_fim_real do backend
-  const dataFimDisc = ultimoDiaAula || (disciplina.data_fim_real ? new Date(disciplina.data_fim_real) : null);
-  
+  const dataFimDisc =
+    ultimoDiaAula ||
+    (disciplina.data_fim_real ? new Date(disciplina.data_fim_real) : null);
+
+  // Pré-acúmulo antes do início do mês selecionado
+  if (dataInicioDisc) {
+    const preRangeEnd = new Date(dataInicio);
+    preRangeEnd.setDate(preRangeEnd.getDate() - 1);
+    if (preRangeEnd >= dataInicioDisc) {
+      const diasPreMes = eachDayOfInterval({
+        start: dataInicioDisc,
+        end: preRangeEnd,
+      });
+      diasPreMes.forEach((diaPre) => {
+        const d = getDay(diaPre);
+        if (d === 0 || d === 6) return;
+        if (dataFimDisc && diaPre > dataFimDisc) return;
+        let temAulaPre = false;
+        let qtdPre = 0;
+        if (temHorarioConsolidado) {
+          const diaSemanaParaHorario = d + 1;
+          temAulaPre = temAulaNoDia(
+            disciplina.horario_consolidado,
+            diaSemanaParaHorario
+          );
+          if (temAulaPre) {
+            qtdPre = calcularAulasNoDia(
+              disciplina.horario_consolidado,
+              diaSemanaParaHorario
+            );
+          }
+        } else {
+          temAulaPre = true;
+          qtdPre = 1;
+        }
+        if (temAulaPre) {
+          aulasAcumuladas += qtdPre;
+        }
+      });
+    }
+  }
   diasDoMes.forEach((dia) => {
     const diaSemanaGetDay = getDay(dia);
-    
+
     // Não há aulas nos fins de semana
     if (diaSemanaGetDay === 0 || diaSemanaGetDay === 6) {
       return; // Não adicionar fins de semana ao cronograma
     }
-    
+
     // Verificar se a disciplina já começou
     if (dataInicioDisc && dia < dataInicioDisc) {
       return; // Não exibir dias antes do início da disciplina
     }
-    
+
     // Verificar se a disciplina já terminou
     if (dataFimDisc && dia > dataFimDisc) {
       return; // Não exibir dias após o fim da disciplina
     }
-    
+
     // Verificar se há aula neste dia baseado no horário consolidado
     let temAulaNoDiaAtual = false;
     let quantidadeAulasNoDia = 0;
-    
+
     if (temHorarioConsolidado) {
       // Converter getDay() para o formato usado pelas funções utilitárias
       // getDay(): 0=domingo, 1=segunda, 2=terça, 3=quarta, 4=quinta, 5=sexta, 6=sábado
       // horario_consolidado: 1=domingo, 2=segunda, 3=terça, 4=quarta, 5=quinta, 6=sexta, 7=sábado
       const diaSemanaParaHorario = diaSemanaGetDay + 1;
-      
+
       // Usar a função utilitária para verificar se tem aula no dia
-      temAulaNoDiaAtual = temAulaNoDia(disciplina.horario_consolidado, diaSemanaParaHorario);
-      
+      temAulaNoDiaAtual = temAulaNoDia(
+        disciplina.horario_consolidado,
+        diaSemanaParaHorario
+      );
+
       // Calcular quantas aulas há neste dia
       if (temAulaNoDiaAtual) {
-        quantidadeAulasNoDia = calcularAulasNoDia(disciplina.horario_consolidado, diaSemanaParaHorario);
+        quantidadeAulasNoDia = calcularAulasNoDia(
+          disciplina.horario_consolidado,
+          diaSemanaParaHorario
+        );
       }
     } else {
       // Se não há horário consolidado, assumir que há aulas em dias úteis
       temAulaNoDiaAtual = true;
       quantidadeAulasNoDia = 1; // Assumir 1 aula por dia útil se não há horário consolidado
     }
-    
+
     // Só adicionar dias que têm aula
     if (temAulaNoDiaAtual) {
       // Verificar se é o último dia de aula (comparar apenas a data, ignorando horário)
-      const isUltimoDia = ultimoDiaAula ? 
-        dia.toDateString() === ultimoDiaAula.toDateString() : 
-        false;
-      
+      const isUltimoDia = ultimoDiaAula
+        ? dia.toDateString() === ultimoDiaAula.toDateString()
+        : false;
+      aulasAcumuladas += quantidadeAulasNoDia;
+      const totalAulasValidas = totalAulas || 0;
+      const percentualDia =
+        totalAulasValidas > 0
+          ? Math.min((aulasAcumuladas / totalAulasValidas) * 100, 100)
+          : 0;
+
       cronograma.push({
         data: dia,
-        disciplinas: [{
-          disciplina: disciplina,
-          quantidadeAulas: quantidadeAulasNoDia,
-          aulasCumulativas: aulasMinistradas,
-          percentualConcluido: progressoAtual,
-          isUltimoDia: isUltimoDia,
-        }],
+        disciplinas: [
+          {
+            disciplina: disciplina,
+            quantidadeAulas: quantidadeAulasNoDia,
+            aulasCumulativas: aulasAcumuladas,
+            percentualConcluido: percentualDia,
+            isUltimoDia: isUltimoDia,
+          },
+        ],
       });
     }
   });
-  
+
   return cronograma;
 };
 
 // Usar data_fim_real calculada corretamente pelo backend
-const calcularPrevisaoConclusaoSimplificada = (disciplina: Disciplina): Date | null => {
+const calcularPrevisaoConclusaoSimplificada = (
+  disciplina: Disciplina
+): Date | null => {
   // Usar data_fim_real calculada pelo backend (agora com lógica correta)
   if (disciplina.data_fim_real) {
     return parseISO(disciplina.data_fim_real);
   }
-  
+
   // Fallback para data_fim_prevista
   if (disciplina.data_fim_prevista) {
     return parseISO(disciplina.data_fim_prevista);
   }
-  
+
   return null;
 };

@@ -51,7 +51,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { GradeHorariosProfessor } from "@/components/GradeHorariosProfessor";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { userCursoService } from "@/services/user-curso";
 import { cursoService } from "@/services/entities";
 
@@ -141,7 +148,7 @@ export default function UsuariosPage() {
       setUsuarios((prev) =>
         prev.map((user) =>
           user.id === userId
-            ? { ...user, role: newRole as "PROFESSOR" | "ADMIN" }
+            ? { ...user, role: newRole as "PROFESSOR" | "ADMIN" | "COORDENADOR" }
             : user
         )
       );
@@ -191,6 +198,8 @@ export default function UsuariosPage() {
         return "Administrador";
       case "PROFESSOR":
         return "Professor";
+      case "COORDENADOR":
+        return "Coordenador";
       case "ALUNO":
         return "Aluno";
       default:
@@ -208,7 +217,7 @@ export default function UsuariosPage() {
   };
 
   // Verificar se o usuário tem permissão para ver esta página
-  if (user?.role !== "ADMIN") {
+  if (user?.role !== "ADMIN" && user?.role !== "COORDENADOR") {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-[400px]">
@@ -235,7 +244,7 @@ export default function UsuariosPage() {
               Gerencie os usuários do sistema
             </p>
           </div>
-          {user?.role === "ADMIN" && (
+          {(user?.role === "ADMIN" || user?.role === "COORDENADOR") && (
             <Button onClick={handleNewUser}>
               <Plus className="mr-2 h-4 w-4" />
               Novo Usuário
@@ -254,7 +263,7 @@ export default function UsuariosPage() {
             <CardContent>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {filteredUsuarios
-                  .filter((usuario) => usuario.role === "PROFESSOR")
+
                   .sort(
                     (a, b) =>
                       (cargaHorariaProfessores[b.id] || 0) -
@@ -305,8 +314,9 @@ export default function UsuariosPage() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Email</TableHead>
-                
+
                 <TableHead>Especialização</TableHead>
+                <TableHead>Carga Máx.</TableHead>
                 <TableHead>Role</TableHead>
                 {/* Removido: coluna Status */}
                 <TableHead className="text-center">Ações</TableHead>
@@ -317,10 +327,11 @@ export default function UsuariosPage() {
                 <TableRow key={usuario.id}>
                   <TableCell className="font-medium">{usuario.nome}</TableCell>
                   <TableCell>{usuario.email}</TableCell>
-                  
+
                   <TableCell>{usuario.especializacao}</TableCell>
+                  <TableCell> {usuario.carga_horaria_max ? `${usuario.carga_horaria_max}h` : "-"}</TableCell>
                   <TableCell>
-                    {user?.role === "ADMIN" ? (
+                    {user?.role === "ADMIN" || user?.role === "COORDENADOR" ? (
                       <Select
                         value={usuario.role}
                         onValueChange={(value) =>
@@ -333,6 +344,7 @@ export default function UsuariosPage() {
                         <SelectContent>
                           <SelectItem value="PROFESSOR">Professor</SelectItem>
                           <SelectItem value="ADMIN">Admin</SelectItem>
+                          <SelectItem value="COORDENADOR">Coordenador</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -342,7 +354,9 @@ export default function UsuariosPage() {
                   {/* Removido: célula de Status */}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end space-x-2">
-                      {(usuario.role === "PROFESSOR" || usuario.role === "ADMIN" || usuario.role === "COORDENADOR") && (
+                      {(usuario.role === "PROFESSOR" ||
+                        usuario.role === "ADMIN" ||
+                        usuario.role === "COORDENADOR") && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -364,10 +378,11 @@ export default function UsuariosPage() {
                             setManageUser(usuario);
                             setManageOpen(true);
                             try {
-                              const [vinculadosRes, cursosRes] = await Promise.all([
-                                userCursoService.getCursosByUser(usuario.id),
-                                cursoService.getAll(1),
-                              ]);
+                              const [vinculadosRes, cursosRes] =
+                                await Promise.all([
+                                  userCursoService.getCursosByUser(usuario.id),
+                                  cursoService.getAll(1),
+                                ]);
                               setCursosVinculados(vinculadosRes.cursos || []);
                               setCursosDisponiveis(cursosRes.cursos || []);
                             } catch (error) {
@@ -390,12 +405,12 @@ export default function UsuariosPage() {
                           >
                             <Edit className="h-4 w-4 text-shadblue-primary" />
                           </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
                               <Button variant="outline" size="sm">
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
-                              </AlertDialogTrigger>
+                            </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>
@@ -455,7 +470,8 @@ export default function UsuariosPage() {
               <DialogHeader>
                 <DialogTitle>Gerenciar Cursos — {manageUser.nome}</DialogTitle>
                 <DialogDescription>
-                  Vincule ou remova cursos deste professor. Filtro por nome disponível.
+                  Vincule ou remova cursos deste professor. Filtro por nome
+                  disponível.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-6">
@@ -471,16 +487,25 @@ export default function UsuariosPage() {
 
                 {/* Cursos vinculados */}
                 <div>
-                  <h3 className="text-sm font-semibold mb-2">Cursos vinculados ({cursosVinculados.length})</h3>
+                  <h3 className="text-sm font-semibold mb-2">
+                    Cursos vinculados ({cursosVinculados.length})
+                  </h3>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {cursosVinculados.length === 0 && (
-                      <p className="text-muted-foreground text-sm">Nenhum curso vinculado.</p>
+                      <p className="text-muted-foreground text-sm">
+                        Nenhum curso vinculado.
+                      </p>
                     )}
                     {cursosVinculados.map((curso) => (
-                      <div key={curso.id} className="flex items-center justify-between p-2 border rounded-md">
+                      <div
+                        key={curso.id}
+                        className="flex items-center justify-between p-2 border rounded-md"
+                      >
                         <div>
                           <p className="font-medium">{curso.nome}</p>
-                          <p className="text-xs text-muted-foreground">{curso.codigo} • {curso.turno}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {curso.codigo} • {curso.turno}
+                          </p>
                         </div>
                         <Button
                           variant="destructive"
@@ -488,9 +513,14 @@ export default function UsuariosPage() {
                           onClick={async () => {
                             setIsSaving(true);
                             try {
-                              await userCursoService.desvincular({ id_user: manageUser.id, id_curso: curso.id });
+                              await userCursoService.desvincular({
+                                id_user: manageUser.id,
+                                id_curso: curso.id,
+                              });
                               toast.success("Desvinculado com sucesso");
-                              setCursosVinculados((prev) => prev.filter((c) => c.id !== curso.id));
+                              setCursosVinculados((prev) =>
+                                prev.filter((c) => c.id !== curso.id)
+                              );
                             } catch (error) {
                               console.error(error);
                               toast.error("Erro ao desvincular curso");
@@ -508,16 +538,27 @@ export default function UsuariosPage() {
 
                 {/* Cursos disponíveis */}
                 <div>
-                  <h3 className="text-sm font-semibold mb-2">Cursos disponíveis</h3>
+                  <h3 className="text-sm font-semibold mb-2">
+                    Cursos disponíveis
+                  </h3>
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {cursosDisponiveis
-                      .filter((c) => !cursosVinculados.some((v) => v.id === c.id))
-                      .filter((c) => c.nome.toLowerCase().includes(cursoSearch.toLowerCase()))
+                      .filter(
+                        (c) => !cursosVinculados.some((v) => v.id === c.id)
+                      )
+                      .filter((c) =>
+                        c.nome.toLowerCase().includes(cursoSearch.toLowerCase())
+                      )
                       .map((curso) => (
-                        <div key={curso.id} className="flex items-center justify-between p-2 border rounded-md">
+                        <div
+                          key={curso.id}
+                          className="flex items-center justify-between p-2 border rounded-md"
+                        >
                           <div>
                             <p className="font-medium">{curso.nome}</p>
-                            <p className="text-xs text-muted-foreground">{curso.codigo} • {curso.turno}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {curso.codigo} • {curso.turno}
+                            </p>
                           </div>
                           <Button
                             variant="secondary"
@@ -525,13 +566,21 @@ export default function UsuariosPage() {
                             onClick={async () => {
                               setIsSaving(true);
                               try {
-                                await userCursoService.vincular({ id_user: manageUser.id, id_curso: curso.id });
+                                await userCursoService.vincular({
+                                  id_user: manageUser.id,
+                                  id_curso: curso.id,
+                                });
                                 toast.success("Curso vinculado");
                                 // Atualiza listas
-                                const vinculadosRes = await userCursoService.getCursosByUser(manageUser.id);
+                                const vinculadosRes =
+                                  await userCursoService.getCursosByUser(
+                                    manageUser.id
+                                  );
                                 setCursosVinculados(vinculadosRes.cursos || []);
                               } catch (error: any) {
-                                const message = error?.response?.data?.message || "Erro ao vincular curso";
+                                const message =
+                                  error?.response?.data?.message ||
+                                  "Erro ao vincular curso";
                                 toast.error(message);
                               } finally {
                                 setIsSaving(false);
@@ -546,7 +595,13 @@ export default function UsuariosPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setManageOpen(false)} disabled={isSaving}>Fechar</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setManageOpen(false)}
+                  disabled={isSaving}
+                >
+                  Fechar
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

@@ -90,28 +90,49 @@ export default function DashboardPage() {
       setErrorAulas(null);
       try {
         // Importante: usar a rota correta para evitar colisão com /alocacoes/:id
-        const resp = await api.get('/grade-horarios');
-        const grade = resp.data?.gradeHorarios || resp.data?.grade || resp.data || {};
+        const resp = await api.get("/grade-horarios");
+        const grade =
+          resp.data?.gradeHorarios || resp.data?.grade || resp.data || {};
 
         // Normalizar chaves de dias para facilitar
         const hojeIdx = new Date().getDay(); // 0-dom ... 6-sab
-        const diaMap = ["domingo","segunda","terca","quarta","quinta","sexta","sabado"];
+        const diaMap = [
+          "domingo",
+          "segunda",
+          "terca",
+          "quarta",
+          "quinta",
+          "sexta",
+          "sabado",
+        ];
         const hojeKey = diaMap[hojeIdx];
 
-        const candidates: any[] = grade[hojeKey] || grade[hojeKey.toUpperCase()] || [];
+        const candidates: any[] =
+          grade[hojeKey] || grade[hojeKey.toUpperCase()] || [];
 
         // Gerar lista simplificada das próximas 3 aulas do dia, ordenadas por início
         const now = new Date();
         const proximas = (candidates || [])
           .filter((item: any) => item?.horario_inicio)
-          .sort((a: any, b: any) => new Date(a.horario_inicio).getTime() - new Date(b.horario_inicio).getTime())
-          .filter((item: any) => new Date(item.horario_fim).getTime() >= now.getTime())
+          .sort(
+            (a: any, b: any) =>
+              new Date(a.horario_inicio).getTime() -
+              new Date(b.horario_inicio).getTime()
+          )
+          .filter(
+            (item: any) => new Date(item.horario_fim).getTime() >= now.getTime()
+          )
           .slice(0, 3)
-          .map((item: any): ProximaAulaItem => ({
-            titulo: item?.disciplina?.nome || item?.disciplina_nome || 'Aula',
-            detalhe: `${item?.turma?.nome || item?.turma_nome || ''} - ${item?.sala?.nome || item?.sala_nome || ''}`.trim(),
-            codigoHorario: item?.horario?.codigo || item?.horario_codigo || '',
-          }));
+          .map(
+            (item: any): ProximaAulaItem => ({
+              titulo: item?.disciplina?.nome || item?.disciplina_nome || "Aula",
+              detalhe: `${item?.turma?.nome || item?.turma_nome || ""} - ${
+                item?.sala?.nome || item?.sala_nome || ""
+              }`.trim(),
+              codigoHorario:
+                item?.horario?.codigo || item?.horario_codigo || "",
+            })
+          );
 
         setProximasAulas(proximas);
       } catch (err: any) {
@@ -203,61 +224,64 @@ export default function DashboardPage() {
     },
   ];
 
-  const statsCards = useMemo(() => [
-    {
-      title: "Total de Usuários",
-      value: stats?.totals.usuarios || 0,
-      icon: Users,
-      color: "text-blue-600",
-      bgColor: "bg-blue-100",
-      adminOnly: true,
-    },
-    {
-      title: "Disciplinas",
-      value: stats?.totals.disciplinas || 0,
-      icon: BookOpen,
-      color: "text-purple-600",
-      bgColor: "bg-purple-100",
-    },
-    {
-      title: "Turmas",
-      value: stats?.totals.turmas || 0,
-      icon: GraduationCap,
-      color: "text-orange-600",
-      bgColor: "bg-orange-100",
-    },
-    {
-      title: "Salas",
-      value: stats?.totals.salas || 0,
-      icon: MapPin,
-      color: "text-green-600",
-      bgColor: "bg-green-100",
-    },
-    {
-      title: "Total de Alocações",
-      value: stats?.totals.alocacoes || 0,
-      icon: Calendar,
-      color: "text-destructive",
-      bgColor: "bg-red-100",
-    },
-    {
-      title: "Alocações Hoje",
-      value: stats?.hoje.alocacoesHoje || 0,
-      icon: Clock,
-      color: "text-indigo-600",
-      bgColor: "bg-indigo-100",
-    },
-    {
-      title: "Reservas Ativas",
-      value: stats?.totals.reservasAtivas || 0,
-      icon: CalendarRange,
-      color: "text-teal-600",
-      bgColor: "bg-teal-100",
-    },
-  ], [stats]);
+  const statsCards = useMemo(
+    () => [
+      {
+        title: "Total de Usuários",
+        value: stats?.totals.usuarios || 0,
+        icon: Users,
+        color: "text-blue-600",
+        bgColor: "bg-blue-100",
+        adminOnly: true,
+      },
+      {
+        title: "Disciplinas",
+        value: stats?.totals.disciplinas || 0,
+        icon: BookOpen,
+        color: "text-purple-600",
+        bgColor: "bg-purple-100",
+      },
+      {
+        title: "Turmas",
+        value: stats?.totals.turmas || 0,
+        icon: GraduationCap,
+        color: "text-orange-600",
+        bgColor: "bg-orange-100",
+      },
+      {
+        title: "Salas",
+        value: stats?.totals.salas || 0,
+        icon: MapPin,
+        color: "text-green-600",
+        bgColor: "bg-green-100",
+      },
+      {
+        title: "Total de Alocações",
+        value: stats?.totals.alocacoes || 0,
+        icon: Calendar,
+        color: "text-destructive",
+        bgColor: "bg-red-100",
+      },
+      {
+        title: "Alocações Hoje",
+        value: stats?.hoje.alocacoesHoje || 0,
+        icon: Clock,
+        color: "text-indigo-600",
+        bgColor: "bg-indigo-100",
+      },
+      {
+        title: "Reservas Ativas",
+        value: stats?.totals.reservasAtivas || 0,
+        icon: CalendarRange,
+        color: "text-teal-600",
+        bgColor: "bg-teal-100",
+      },
+    ],
+    [stats]
+  );
 
   const filteredStatsCards = statsCards.filter((card) => {
-    if (card.adminOnly && user?.role !== "ADMIN") {
+    if (card.adminOnly && user?.role !== "ADMIN" && user?.role !== "COORDENADOR") {
       return false;
     }
     return true;
@@ -357,7 +381,7 @@ export default function DashboardPage() {
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" /> Próximas Aulas (hoje)
             </CardTitle>
-            <CardDescription>Baseadas na grade geral de alocações</CardDescription>
+            <CardDescription></CardDescription>
           </CardHeader>
           <CardContent>
             {loadingAulas && (
@@ -371,13 +395,22 @@ export default function DashboardPage() {
             {!loadingAulas && !errorAulas && (
               <div className="space-y-3">
                 {proximasAulas.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Nenhuma aula próxima para hoje.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma aula próxima para hoje.
+                  </p>
                 )}
                 {proximasAulas.map((aula, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                  >
                     <div>
-                      <p className="font-medium text-foreground">{aula.titulo}</p>
-                      <p className="text-sm text-muted-foreground">{aula.detalhe}</p>
+                      <p className="font-medium text-foreground">
+                        {aula.titulo}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {aula.detalhe}
+                      </p>
                     </div>
                     <Badge variant="outline">{aula.codigoHorario || "-"}</Badge>
                   </div>
@@ -389,7 +422,10 @@ export default function DashboardPage() {
 
         {/* Link para visão completa de Alocações */}
         <div className="flex justify-end">
-          <Link href="/alocacoes" className="text-sm text-primary hover:underline">
+          <Link
+            href="/alocacoes"
+            className="text-sm text-primary hover:underline"
+          >
             Ver todas as alocações →
           </Link>
         </div>

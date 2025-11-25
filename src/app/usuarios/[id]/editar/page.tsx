@@ -27,7 +27,7 @@ export default function EditarUsuarioPage() {
 
   useEffect(() => {
     // Verificar se o usuário tem permissão para editar usuários
-    if (currentUser?.role !== 'ADMIN') {
+    if (currentUser?.role !== 'ADMIN' && currentUser?.role !== 'COORDENADOR') {
       router.push('/usuarios');
       toast.error('Você não tem permissão para acessar esta página.');
       return;

@@ -56,7 +56,7 @@ export default function CriarPredioPage() {
     }));
   };
 
-  if (user?.role !== 'ADMIN') {
+  if (user?.role !== 'ADMIN' && user?.role !== 'COORDENADOR') {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-[400px]">

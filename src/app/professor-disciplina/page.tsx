@@ -357,7 +357,6 @@ export default function ProfessorDisciplinaPage() {
           </div>
         </div>
 
-        {/* Filtros */}
         <FilterSection
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -365,8 +364,6 @@ export default function ProfessorDisciplinaPage() {
           onSemestreChange={setSelectedSemestre}
           selectedCurso={selectedCurso}
           onCursoChange={setSelectedCurso}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
           cursos={cursos}
           searchPlaceholder="Buscar disciplina por nome ou código..."
         />
@@ -374,18 +371,38 @@ export default function ProfessorDisciplinaPage() {
         {/* Formulário de Vinculação Consolidado */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {viewMode === "professor" ? (
-                <>
-                  <Users className="w-5 h-5" />
-                  Vincular Professor às Disciplinas
-                </>
-              ) : (
-                <>
-                  <BookOpen className="w-5 h-5" />
-                  Vincular Professores à Disciplina
-                </>
-              )}
+            <CardTitle className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                {viewMode === "professor" ? (
+                  <>
+                    <Users className="w-5 h-5" />
+                    Vincular Professor às Disciplinas
+                  </>
+                ) : (
+                  <>
+                    <BookOpen className="w-5 h-5" />
+                    Vincular Professores à Disciplina
+                  </>
+                )}
+              </span>
+              <span className="flex rounded-md border border-input bg-background p-1">
+                <Button
+                  variant={viewMode === "professor" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("professor")}
+                  className="h-8"
+                >
+                  Professor
+                </Button>
+                <Button
+                  variant={viewMode === "disciplina" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("disciplina")}
+                  className="h-8"
+                >
+                  Disciplina
+                </Button>
+              </span>
             </CardTitle>
             <CardDescription>
               {viewMode === "professor"

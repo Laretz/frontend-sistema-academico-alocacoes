@@ -103,7 +103,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   };
 
   const filteredNavigation = navigation.filter((item) => {
-    if (item.adminOnly && user?.role !== "ADMIN") {
+    if (item.adminOnly && user?.role !== "ADMIN" && user?.role !== "COORDENADOR") {
       return false;
     }
     if ("hiddenForRoles" in item) {

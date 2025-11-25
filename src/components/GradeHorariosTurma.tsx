@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, GraduationCap, User } from "lucide-react";
+import { GradeLegend } from "@/components/GradeLegend";
 import { Turma } from "@/types/entities";
 
 interface AlocacaoInfo {
@@ -579,6 +580,7 @@ export function GradeHorariosTurma({
                 <CardDescription>
                   Visualização completa dos horários da turma por dia da semana
                 </CardDescription>
+                <GradeLegend />
               </CardHeader>
               <CardContent>
                 <div className="w-full overflow-x-auto">

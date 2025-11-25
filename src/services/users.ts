@@ -8,7 +8,7 @@ export interface CreateUserRequest {
   senha: string;
   role: 'ADMIN' | 'PROFESSOR' | 'COORDENADOR';
   especializacao?: string;
-  cargaHorariaMax?: number;
+  carga_horaria_max?: number;
   preferencia?: string;
 }
 
@@ -17,7 +17,7 @@ export interface UpdateUserRequest {
   email?: string;
   role?: 'ADMIN' | 'PROFESSOR' | 'COORDENADOR';
   especializacao?: string;
-  cargaHorariaMax?: number;
+  carga_horaria_max?: number;
   preferencia?: string;
 }
 
@@ -41,9 +41,8 @@ export const userService = {
     return usuario;
   },
 
-  create: async (data: CreateUserRequest): Promise<User> => {
-    const response = await api.post<{ usuario: User }>('/users', data);
-    return response.data.usuario;
+  create: async (data: CreateUserRequest): Promise<void> => {
+    await api.post('/register', data);
   },
 
   update: async (id: string, data: UpdateUserRequest): Promise<User> => {
