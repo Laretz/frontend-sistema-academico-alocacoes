@@ -181,11 +181,23 @@ export const salaService = {
 
 // Horários
 export const horarioService = {
-  getAll: async (): Promise<Horario[]> => {
-    const response = await api.get<{ horarios: Horario[] }>('/horarios');
+  getAll: async (
+    regime?: 'SUPERIOR' | 'TECNICO',
+    options?: { dia_semana?: string; page?: number; limit?: number }
+  ): Promise<Horario[]> => {
+    const params: Partial<{ regime: 'SUPERIOR'|'TECNICO'; dia_semana: string; page: number; limit: number }> = {};
+    if (regime) params.regime = regime;
+    if (options?.dia_semana) params.dia_semana = options.dia_semana;
+    if (options && options.page !== undefined) params.page = options.page;
+    if (options && options.limit !== undefined) params.limit = options.limit;
+
+    const response = await api.get<{ horarios: Horario[]; total?: number; page?: number; limit?: number; totalPages?: number }>(
+      '/horarios',
+      { params: Object.keys(params).length ? params : undefined }
+    );
     return response.data.horarios;
   },
-
+  
   getById: async (id: string): Promise<Horario> => {
     const response = await api.get<Horario>(`/horarios/${id}`);
     return response.data;
@@ -201,6 +213,11 @@ export const horarioService = {
 export const alocacaoService = {
   getAll: async (page = 1): Promise<{ alocacoes: Alocacao[] }> => {
     const response = await api.get<{ alocacoes: Alocacao[] }>(`/alocacoes?page=${page}`);
+    return response.data;
+  },
+
+  getByProfessor: async (id_professor: string, page = 1): Promise<{ alocacoes: Alocacao[] }> => {
+    const response = await api.get<{ alocacoes: Alocacao[] }>(`/alocacoes/professor/${id_professor}?page=${page}`);
     return response.data;
   },
 
@@ -229,13 +246,22 @@ export const alocacaoService = {
     id_user?: string;
     id_sala?: string;
   }): Promise<GradeHorario> => {
+    // Preferir endpoints específicos quando disponíveis para garantir grade completa
+    if (filters?.id_turma) {
+      const response = await api.get<unknown>(`/turmas/${filters.id_turma}/grade-horarios`);
+      const data = response.data as { grade?: Record<string, unknown> };
+      return (data.grade || {}) as unknown as GradeHorario;
+    }
+    if (filters?.id_sala) {
+      const response = await api.get<unknown>(`/salas/${filters.id_sala}/grade-horarios`);
+      const data = response.data as { grade?: Record<string, unknown> };
+      return (data.grade || {}) as unknown as GradeHorario;
+    }
+
     const params = new URLSearchParams();
-    if (filters?.id_turma) params.append('id_turma', filters.id_turma);
     if (filters?.id_user) params.append('id_user', filters.id_user);
-    if (filters?.id_sala) params.append('id_sala', filters.id_sala);
-    
-    const response = await api.get<GradeHorario>(`/grade-horarios?${params.toString()}`);
-    return response.data;
+    const response = await api.get<unknown>(`/grade-horarios?${params.toString()}`);
+    return response.data as GradeHorario;
   },
 
   // Buscar alocações do período manhã
@@ -259,7 +285,7 @@ export const alocacaoService = {
 
 // Professor-Disciplina
 export const professorDisciplinaService = {
-  vincular: async (data: { id_user: string; id_disciplina: string }): Promise<any> => {
+  vincular: async (data: { id_user: string; id_disciplina: string }): Promise<unknown> => {
     const response = await api.post('/professor-disciplina/vincular', data);
     return response.data;
   },

@@ -55,6 +55,8 @@ export interface AlocacaoDialogProps {
   submitting: boolean;
   handleSubmit: (e: React.FormEvent) => void;
   todasDisciplinas: Disciplina[];
+  regime: 'SUPERIOR' | 'TECNICO';
+  setRegime: (value: 'SUPERIOR' | 'TECNICO') => void;
 }
 
 export const AlocacaoDialog: React.FC<AlocacaoDialogProps> = ({

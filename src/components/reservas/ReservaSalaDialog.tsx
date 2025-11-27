@@ -57,6 +57,7 @@ interface ReservaSalaDialogProps {
 export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }: ReservaSalaDialogProps) {
   const [open, setOpen] = useState(false)
   const [horarios, setHorarios] = useState<Horario[]>([])
+  const [regime, setRegime] = useState<'SUPERIOR' | 'TECNICO' | 'todos'>('todos')
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [horarioId, setHorarioId] = useState<string>('')
@@ -73,15 +74,17 @@ export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }
   useEffect(() => {
     async function fetchHorarios() {
       try {
-        const resp = await api.get<{ horarios: Horario[] }>('/horarios')
+        const resp = await api.get<{ horarios: Horario[] }>('/horarios', {
+          params: regime === 'todos' ? undefined : { regime }
+        })
         setHorarios(resp.data.horarios || [])
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Erro ao carregar horários', error)
         toast.error('Não foi possível carregar horários')
       }
     }
     if (open) fetchHorarios()
-  }, [open])
+  }, [open, regime])
 
   // Filtrar horários pelo dia correspondente à data selecionada
   const diaKey = useMemo(() => getDiaSemanaKey(selectedDate), [selectedDate])
@@ -231,30 +234,47 @@ export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Data</Label>
-              <DatePicker date={selectedDate} onDateChange={setSelectedDate} />
-            </div>
-            <div className="space-y-2">
-              <Label>Horário</Label>
-              <Select onValueChange={(value) => setHorarioId(value)} value={horarioId ?? undefined}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecione o horário" />
-                </SelectTrigger>
-                <SelectContent>
-                  {horariosFiltrados.map((h) => (
-                    <SelectItem
-                      key={h.id}
-                      value={h.id}
-                    >
-                      {`${h.codigo}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Data</Label>
+            <DatePicker date={selectedDate} onDateChange={setSelectedDate} />
           </div>
+          <div className="space-y-2">
+            <Label>Regime</Label>
+            <Select value={regime} onValueChange={(value) => setRegime(value as 'SUPERIOR' | 'TECNICO' | 'todos')}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione o regime" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="SUPERIOR">Superior</SelectItem>
+                <SelectItem value="TECNICO">Técnico</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Horário</Label>
+            <Select onValueChange={(value) => setHorarioId(value)} value={horarioId ?? undefined}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione o horário" />
+              </SelectTrigger>
+              <SelectContent>
+                {horariosFiltrados.map((h) => (
+                  <SelectItem
+                    key={h.id}
+                    value={h.id}
+                  >
+                    {`${h.codigo}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div></div>
+        </div>
 
           {hasConflict && (
             <div className="rounded border border-destructive/30 bg-destructive/10 p-2 text-destructive text-sm">

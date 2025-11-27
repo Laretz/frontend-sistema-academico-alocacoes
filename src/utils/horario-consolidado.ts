@@ -15,39 +15,42 @@ interface HorarioAgrupado {
  * Converte horário ISO para código de horário (M1, M2, T1, etc.)
  */
 export function converterHorarioParaCodigo(horarioISO: string): string {
-  // Extrair apenas a parte do horário (HH:MM)
-  const horario = horarioISO.split("T")[1]?.split(":") || horarioISO.split(":");
-  const hora = parseInt(horario[0]);
-  const minuto = parseInt(horario[1]);
+  const partes = horarioISO.includes("T")
+    ? horarioISO.split("T")[1]!.split(":")
+    : horarioISO.split(":");
+  const hora = parseInt(partes[0] || "0");
+  const minuto = parseInt(partes[1] || "0");
+  const totalMin = hora * 60 + minuto;
 
-  // Mapear horários para códigos
-  const mapeamentoHorarios: Record<string, string> = {
-    "07:00": "M1",
-    "07:50": "M2",
-    "08:40": "M3",
-    "09:30": "M4",
-    "10:20": "M5",
-    "11:10": "M6",
-    "13:00": "T1",
-    "13:50": "T2",
-    "14:40": "T3",
-    "14:55": "T3", // Horário alternativo
-    "15:30": "T4",
-    "15:45": "T4", // Horário alternativo
-    "16:20": "T5",
-    "16:50": "T5", // Horário alternativo
-    "17:10": "T6",
-    "17:40": "T6", // Horário alternativo
-    "19:00": "N1",
-    "19:50": "N2",
-    "20:40": "N3",
-    "21:30": "N4",
-  };
+  const targets: Array<{ code: string; min: number }> = [
+    { code: "M1", min: 7 * 60 + 0 },
+    { code: "M2", min: 7 * 60 + 50 },
+    { code: "M3", min: 8 * 60 + 40 },
+    { code: "M4", min: 9 * 60 + 30 },
+    { code: "M5", min: 10 * 60 + 20 },
+    { code: "M6", min: 11 * 60 + 10 },
+    { code: "T1", min: 13 * 60 + 0 },
+    { code: "T2", min: 13 * 60 + 50 },
+    { code: "T3", min: 14 * 60 + 40 },
+    { code: "T4", min: 15 * 60 + 30 },
+    { code: "T5", min: 16 * 60 + 20 },
+    { code: "T6", min: 17 * 60 + 10 },
+    { code: "N1", min: 19 * 60 + 0 },
+    { code: "N2", min: 19 * 60 + 50 },
+    { code: "N3", min: 20 * 60 + 40 },
+    { code: "N4", min: 21 * 60 + 30 },
+  ];
 
-  const horarioFormatado = `${hora.toString().padStart(2, "0")}:${minuto
-    .toString()
-    .padStart(2, "0")}`;
-  return mapeamentoHorarios[horarioFormatado] || horarioFormatado;
+  let best: { code: string; diff: number } | null = null;
+  for (const t of targets) {
+    const diff = Math.abs(totalMin - t.min);
+    if (!best || diff < best.diff) best = { code: t.code, diff };
+  }
+  if (best && best.diff <= 25) return best.code;
+
+  const hh = hora.toString().padStart(2, "0");
+  const mm = minuto.toString().padStart(2, "0");
+  return `${hh}:${mm}`;
 }
 
 /**

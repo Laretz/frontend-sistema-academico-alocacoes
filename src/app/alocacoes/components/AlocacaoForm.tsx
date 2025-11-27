@@ -57,6 +57,8 @@ interface AlocacaoFormProps {
   submitting: boolean;
   handleSubmit: (e: React.FormEvent) => void;
   todasDisciplinas: Disciplina[];
+  regime: 'SUPERIOR' | 'TECNICO';
+  setRegime: (value: 'SUPERIOR' | 'TECNICO') => void;
 }
 
 export const AlocacaoForm: React.FC<AlocacaoFormProps> = ({
@@ -80,6 +82,8 @@ export const AlocacaoForm: React.FC<AlocacaoFormProps> = ({
   submitting,
   handleSubmit,
   todasDisciplinas,
+  regime,
+  setRegime,
 }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -315,6 +319,18 @@ export const AlocacaoForm: React.FC<AlocacaoFormProps> = ({
             </Select>
           </div>
         </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="regime">Regime</Label>
+        <Select value={regime} onValueChange={(value) => setRegime(value as 'SUPERIOR' | 'TECNICO')}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecione o regime" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="SUPERIOR">Superior</SelectItem>
+            <SelectItem value="TECNICO">Técnico</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <HorariosGrid
         horarios={horarios}

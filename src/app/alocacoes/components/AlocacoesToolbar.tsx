@@ -71,6 +71,8 @@ interface AlocacoesToolbarProps {
   submitting: boolean;
   handleSubmit: (e: React.FormEvent) => void;
   todasDisciplinas: Disciplina[];
+  regime: 'SUPERIOR' | 'TECNICO';
+  setRegime: (value: 'SUPERIOR' | 'TECNICO') => void;
 }
 
 export const AlocacoesToolbar: React.FC<AlocacoesToolbarProps> = ({
@@ -107,6 +109,8 @@ export const AlocacoesToolbar: React.FC<AlocacoesToolbarProps> = ({
   submitting,
   handleSubmit,
   todasDisciplinas,
+  regime,
+  setRegime,
 }) => {
   return (
     <div className="space-y-4">
@@ -142,6 +146,8 @@ export const AlocacoesToolbar: React.FC<AlocacoesToolbarProps> = ({
           submitting={submitting}
           handleSubmit={handleSubmit}
           todasDisciplinas={todasDisciplinas}
+          regime={regime}
+          setRegime={setRegime}
         />
       </div>
 

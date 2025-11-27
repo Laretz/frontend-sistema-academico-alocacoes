@@ -1,8 +1,6 @@
 "use client";
 import { AlocacoesToolbar } from "@/app/alocacoes/components/AlocacoesToolbar";
 
-
-
 import { MainLayout } from "@/components/layout/main-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,9 +9,24 @@ import { Badge } from "@/components/ui/badge";
 // Removed Dialog components (encapsulated in AlocacaoDialog)
 // import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 // Keep Select components (used in Filtros Avançados)
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 // Clean lucide-react imports: remove Plus, Search (moved to AlocacoesToolbar)
-import { Edit, Trash2, Calendar, Clock, MapPin, User as UserIcon, BookOpen, GraduationCap } from "lucide-react";
+import {
+  Edit,
+  Trash2,
+  Calendar,
+  Clock,
+  MapPin,
+  User as UserIcon,
+  BookOpen,
+  GraduationCap,
+} from "lucide-react";
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -38,9 +51,7 @@ import {
 } from "@/types/entities";
 import { User } from "@/types/entities";
 
-
 import { cursoService } from "@/services/entities";
-
 
 interface FormData {
   id_user: string;
@@ -78,9 +89,13 @@ export default function AlocacoesPage() {
   >([]);
   const [todasDisciplinas, setTodasDisciplinas] = useState<Disciplina[]>([]);
   const [mostrarTodasDisciplinas, setMostrarTodasDisciplinas] = useState(false);
-  const [todasDisciplinasCurso, setTodasDisciplinasCurso] = useState<Disciplina[]>([]);
+  const [todasDisciplinasCurso, setTodasDisciplinasCurso] = useState<
+    Disciplina[]
+  >([]);
   // Novos: ids de disciplinas vinculadas ao curso da turma selecionada
-  const [disciplinasVinculadasCurso, setDisciplinasVinculadasCurso] = useState<string[]>([]);
+  const [disciplinasVinculadasCurso, setDisciplinasVinculadasCurso] = useState<
+    string[]
+  >([]);
   const [conflictingHorarios, setConflictingHorarios] = useState<
     Map<
       string,
@@ -96,6 +111,7 @@ export default function AlocacoesPage() {
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [salas, setSalas] = useState<Sala[]>([]);
   const [horarios, setHorarios] = useState<Horario[]>([]);
+  const [regime, setRegime] = useState<"SUPERIOR" | "TECNICO">("SUPERIOR");
   //estados para filtros
   const [filtroDataInicio, setFiltroDataInicio] = useState<Date | undefined>(
     undefined
@@ -125,6 +141,14 @@ export default function AlocacoesPage() {
     );
   }, [formData.id_user, formData.id_sala, formData.id_turma]);
 
+  useEffect(() => {
+    checkHorarioConflicts(
+      formData.id_user,
+      formData.id_sala,
+      formData.id_turma
+    );
+  }, [horarios]);
+
   // Carregar disciplinas do curso da turma selecionada quando turma/toggle mudarem
   useEffect(() => {
     const loadCursoDisciplinas = async () => {
@@ -145,7 +169,18 @@ export default function AlocacoesPage() {
         const cursoDisciplinas = disciplinasData?.disciplinas || [];
         setTodasDisciplinasCurso(cursoDisciplinas);
         if (mostrarTodasDisciplinas) {
-          setDisciplinas(cursoDisciplinas);
+          const selecionadaId = formData.id_disciplina;
+          const contemSelecionada = !!cursoDisciplinas.find(
+            (d: any) => d.id === selecionadaId
+          );
+          const listaComSelecionada =
+            contemSelecionada || !selecionadaId
+              ? cursoDisciplinas
+              : [
+                  ...cursoDisciplinas,
+                  ...todasDisciplinas.filter((d) => d.id === selecionadaId),
+                ];
+          setDisciplinas(listaComSelecionada);
         }
       } catch (error) {
         console.error("Erro ao buscar disciplinas do curso:", error);
@@ -156,16 +191,48 @@ export default function AlocacoesPage() {
     loadCursoDisciplinas();
   }, [formData.id_turma, turmas, mostrarTodasDisciplinas]);
 
-  // Recomputar a lista exibida ao alternar o toggle
+  // Recomputar a lista exibida somente ao alternar o toggle
   useEffect(() => {
     if (mostrarTodasDisciplinas) {
-      setDisciplinas(todasDisciplinasCurso.length ? todasDisciplinasCurso : todasDisciplinas);
+      setDisciplinas(
+        todasDisciplinasCurso.length ? todasDisciplinasCurso : todasDisciplinas
+      );
     } else {
       setDisciplinas(disciplinasProfessor || []);
     }
-    // limpar seleção de disciplina ao alternar
     setFormData((prev) => ({ ...prev, id_disciplina: "" }));
-  }, [mostrarTodasDisciplinas, disciplinasProfessor, todasDisciplinasCurso, todasDisciplinas]);
+  }, [mostrarTodasDisciplinas]);
+
+  // Atualizar lista quando vínculos do professor mudarem, sem limpar seleção
+  useEffect(() => {
+    if (!mostrarTodasDisciplinas) {
+      setDisciplinas(disciplinasProfessor || []);
+    }
+  }, [disciplinasProfessor, mostrarTodasDisciplinas]);
+
+  // Atualizar lista quando disciplinas do curso mudarem, preservando seleção
+  useEffect(() => {
+    if (mostrarTodasDisciplinas) {
+      const selecionadaId = formData.id_disciplina;
+      const base = todasDisciplinasCurso.length
+        ? todasDisciplinasCurso
+        : todasDisciplinas;
+      const contemSelecionada = !!base.find((d: any) => d.id === selecionadaId);
+      const novaLista =
+        contemSelecionada || !selecionadaId
+          ? base
+          : [
+              ...base,
+              ...todasDisciplinas.filter((d) => d.id === selecionadaId),
+            ];
+      setDisciplinas(novaLista);
+    }
+  }, [
+    todasDisciplinasCurso,
+    todasDisciplinas,
+    mostrarTodasDisciplinas,
+    formData.id_disciplina,
+  ]);
 
   const fetchAlocacoes = async () => {
     try {
@@ -205,30 +272,36 @@ export default function AlocacoesPage() {
 
   const fetchSelectData = async () => {
     try {
-      const [
-        usuariosData,
-        disciplinasData,
-        turmasData,
-        salasData,
-        horariosData,
-      ] = await Promise.all([
-        userService.getAll(1),
-        disciplinaService.getAll(),
-        turmaService.getAll(1),
-        salaService.getAll(1),
-        horarioService.getAll(),
-      ]);
+      const [usuariosData, disciplinasData, turmasData, salasData] =
+        await Promise.all([
+          userService.getAll(1),
+          disciplinaService.getAll(),
+          turmaService.getAll(1),
+          salaService.getAll(1),
+        ]);
 
       setUsuarios(usuariosData.usuarios || []);
       setTodasDisciplinas(disciplinasData.disciplinas || []);
       setDisciplinas(disciplinasData.disciplinas || []);
       setTurmas(turmasData.turmas || []);
       setSalas(salasData.salas || []);
+      const horariosData = await horarioService.getAll(regime);
       setHorarios(horariosData || []);
     } catch (error) {
       console.error("Erro ao buscar dados para os selects:", error);
     }
   };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const horariosData = await horarioService.getAll(regime);
+        setHorarios(horariosData || []);
+      } catch (e) {
+        console.error("Erro ao buscar horários por regime", e);
+      }
+    })();
+  }, [regime]);
 
   const fetchDisciplinasProfessor = async (id_user: string) => {
     try {
@@ -258,6 +331,19 @@ export default function AlocacoesPage() {
       return;
     }
 
+    const overlaps = (
+      aInicio: string,
+      aFim: string,
+      bInicio: string,
+      bFim: string
+    ) => {
+      const ai = new Date(aInicio).getTime();
+      const af = new Date(aFim).getTime();
+      const bi = new Date(bInicio).getTime();
+      const bf = new Date(bFim).getTime();
+      return ai < bf && bi < af;
+    };
+
     try {
       const conflicts = new Map<
         string,
@@ -271,58 +357,157 @@ export default function AlocacoesPage() {
       >();
 
       const response = await alocacaoService.getAll(1);
-      const alocacoes = response.alocacoes || [];
+      const alocacoes: Alocacao[] = response.alocacoes || [];
 
-      alocacoes.forEach((alocacao: any) => {
-        const conflictTypes: string[] = [];
-
-        // Verificar conflitos do professor
-        if (professorId && alocacao.id_user === professorId) {
-          conflictTypes.push("professor");
+      let alocacoesProfessor: Alocacao[] = [];
+      if (professorId) {
+        let page = 1;
+        while (true) {
+          const { alocacoes: pageItems } = await alocacaoService.getByProfessor(
+            professorId,
+            page
+          );
+          const list = pageItems || [];
+          alocacoesProfessor.push(...list);
+          if (list.length < 20) break;
+          page += 1;
+          if (page > 50) break;
         }
+      }
 
-        // Verificar conflitos da sala
-        if (salaId && alocacao.id_sala === salaId) {
-          conflictTypes.push("sala");
-        }
-
-        // Verificar conflitos da turma
-        if (turmaId && alocacao.id_turma === turmaId) {
-          conflictTypes.push("turma");
-        }
-
-        // Definir o tipo de conflito baseado nas combinações
-        if (conflictTypes.length > 0) {
-          let conflictType:
-            | "professor"
-            | "sala"
-            | "turma"
-            | "professor_sala"
-            | "professor_turma"
-            | "sala_turma"
-            | "todos";
-
-          if (conflictTypes.length === 3) {
-            conflictType = "todos";
-          } else if (conflictTypes.length === 2) {
-            if (
-              conflictTypes.includes("professor") &&
-              conflictTypes.includes("sala")
-            ) {
-              conflictType = "professor_sala";
-            } else if (
-              conflictTypes.includes("professor") &&
-              conflictTypes.includes("turma")
-            ) {
-              conflictType = "professor_turma";
-            } else {
-              conflictType = "sala_turma";
-            }
-          } else {
-            conflictType = conflictTypes[0] as "professor" | "sala" | "turma";
+      let alocacoesTurma: Alocacao[] = [];
+      if (turmaId) {
+        const periodos = ["M", "T", "N"];
+        for (const periodo of periodos) {
+          let page = 1;
+          while (true) {
+            const { alocacoes: pageItems } =
+              await alocacaoService.getByTurmaPeriodo(turmaId, periodo, page);
+            const list = pageItems || [];
+            alocacoesTurma.push(...list);
+            if (list.length < 20) break;
+            page += 1;
+            if (page > 50) break;
           }
+        }
+      }
 
-          conflicts.set(alocacao.id_horario, conflictType);
+      let salaIntervals: Array<{ dia: string; inicio: string; fim: string }> =
+        [];
+      if (salaId) {
+        const grade = await alocacaoService.getGradeHorarios({
+          id_sala: salaId,
+        });
+        const flatten = (
+          g: Record<string, Record<string, any>> | undefined
+        ) => {
+          const out: Array<{ dia: string; inicio: string; fim: string }> = [];
+          if (!g) return out;
+          Object.keys(g).forEach((dia) => {
+            const mapa = g[dia] || {};
+            Object.keys(mapa).forEach((codigo) => {
+              const entry = mapa[codigo];
+              if (!entry) return;
+              if (Array.isArray(entry)) {
+                entry.forEach((a) => {
+                  const h = a?.horario;
+                  if (h)
+                    out.push({
+                      dia: h.dia_semana,
+                      inicio: h.horario_inicio,
+                      fim: h.horario_fim,
+                    });
+                });
+              } else {
+                const h = entry?.horario;
+                if (h)
+                  out.push({
+                    dia: h.dia_semana,
+                    inicio: h.horario_inicio,
+                    fim: h.horario_fim,
+                  });
+              }
+            });
+          });
+          return out;
+        };
+        salaIntervals = flatten(
+          grade as unknown as Record<string, Record<string, any>>
+        );
+      }
+
+      horarios.forEach((h) => {
+        const hasProf = !!professorId;
+        const hasSala = !!salaId;
+        const hasTurma = !!turmaId;
+
+        let markProf = false;
+        let markSala = false;
+        let markTurma = false;
+
+        if (hasProf) {
+          markProf = alocacoesProfessor.some((a) => {
+            const ah = a.horario;
+            if (!ah) return false;
+            if (ah.dia_semana !== h.dia_semana) return false;
+            if (a.id_user !== professorId) return false;
+            return overlaps(
+              ah.horario_inicio,
+              ah.horario_fim,
+              h.horario_inicio,
+              h.horario_fim
+            );
+          });
+        }
+
+        if (hasTurma) {
+          markTurma = alocacoesTurma.some((a) => {
+            const ah = a.horario;
+            if (!ah) return false;
+            if (ah.dia_semana !== h.dia_semana) return false;
+            if (a.id_turma !== turmaId) return false;
+            return overlaps(
+              ah.horario_inicio,
+              ah.horario_fim,
+              h.horario_inicio,
+              h.horario_fim
+            );
+          });
+        }
+
+        if (hasSala) {
+          markSala = salaIntervals.some(
+            (it) =>
+              it.dia === h.dia_semana &&
+              overlaps(it.inicio, it.fim, h.horario_inicio, h.horario_fim)
+          );
+        }
+
+        let conflictType:
+          | "professor"
+          | "sala"
+          | "turma"
+          | "professor_sala"
+          | "professor_turma"
+          | "sala_turma"
+          | "todos"
+          | undefined;
+
+        const count =
+          (markProf ? 1 : 0) + (markSala ? 1 : 0) + (markTurma ? 1 : 0);
+        if (count === 3) conflictType = "todos";
+        else if (count === 2) {
+          if (markProf && markSala) conflictType = "professor_sala";
+          else if (markProf && markTurma) conflictType = "professor_turma";
+          else conflictType = "sala_turma";
+        } else if (count === 1) {
+          if (markProf) conflictType = "professor";
+          else if (markSala) conflictType = "sala";
+          else conflictType = "turma";
+        }
+
+        if (conflictType) {
+          conflicts.set(h.id, conflictType);
         }
       });
 
@@ -348,23 +533,34 @@ export default function AlocacoesPage() {
 
       // Buscar vínculos CursoDisciplina do curso para mapear disciplina → id_curso_disciplina
       const { vinculos } = await cursoService.getDisciplinaVinculos(idCurso);
-      const vinculo = vinculos.find((v) => v.id_disciplina === formData.id_disciplina);
+      const vinculo = vinculos.find(
+        (v) => v.id_disciplina === formData.id_disciplina
+      );
       if (!vinculo) {
-        toast.error("Disciplina não está vinculada ao curso da turma selecionada");
+        toast.error(
+          "Disciplina não está vinculada ao curso da turma selecionada"
+        );
         return;
       }
 
       // Verificar vínculo professor-disciplina; se ausente, criar automaticamente
-      const professorPossuiVinculo = disciplinasProfessor.some((d) => d.id === formData.id_disciplina);
+      const professorPossuiVinculo = disciplinasProfessor.some(
+        (d) => d.id === formData.id_disciplina
+      );
       if (!professorPossuiVinculo) {
         try {
-          await professorDisciplinaService.vincular({ id_user: formData.id_user, id_disciplina: formData.id_disciplina });
+          await professorDisciplinaService.vincular({
+            id_user: formData.id_user,
+            id_disciplina: formData.id_disciplina,
+          });
           toast.success("Vínculo professor-disciplina criado automaticamente");
         } catch (err: any) {
           console.error("Erro ao criar vínculo professor-disciplina:", err);
           if (err?.response?.status === 409) {
             // Vínculo já existe; seguir adiante
-            console.warn("Vínculo professor-disciplina já existente (409). Prosseguindo.");
+            console.warn(
+              "Vínculo professor-disciplina já existente (409). Prosseguindo."
+            );
           } else {
             toast.error("Falha ao criar vínculo professor-disciplina");
             setSubmitting(false);
@@ -556,14 +752,43 @@ export default function AlocacoesPage() {
   };
 
   const getHorariosAgrupados = () => {
-    const grupos: { [key: string]: typeof horarios } = {};
+    const ordemDias = [
+      "SEGUNDA",
+      "TERCA",
+      "QUARTA",
+      "QUINTA",
+      "SEXTA",
+      "SABADO",
+    ];
+
+    const gruposTmp: { [key: string]: typeof horarios } = {};
     horarios.forEach((horario) => {
-      if (!grupos[horario.dia_semana]) {
-        grupos[horario.dia_semana] = [];
-      }
-      grupos[horario.dia_semana].push(horario);
+      const dia = horario.dia_semana;
+      if (!gruposTmp[dia]) gruposTmp[dia] = [];
+      gruposTmp[dia].push(horario);
     });
-    return grupos;
+
+    const ordenarCodigo = (a: Horario, b: Horario) => {
+      const rank = (codigo: string) => {
+        const p = codigo.charAt(0);
+        const n = parseInt(codigo.slice(1)) || 0;
+        const base = p === "M" ? 0 : p === "T" ? 100 : p === "N" ? 200 : 300;
+        return base + n;
+      };
+      return rank(a.codigo) - rank(b.codigo);
+    };
+
+    // Ordenar cada grupo por código M->T->N e depois número
+    Object.keys(gruposTmp).forEach((dia) => {
+      gruposTmp[dia] = gruposTmp[dia].slice().sort(ordenarCodigo);
+    });
+
+    // Montar objeto final respeitando ordem fixa dos dias
+    const gruposOrdenados: { [key: string]: typeof horarios } = {};
+    ordemDias.forEach((dia) => {
+      gruposOrdenados[dia] = gruposTmp[dia] || [];
+    });
+    return gruposOrdenados;
   };
 
   return (
@@ -591,10 +816,14 @@ export default function AlocacoesPage() {
           disciplinas={disciplinas}
           mostrarTodasDisciplinas={mostrarTodasDisciplinas}
           handleProfessorChange={handleProfessorChange}
-          handleMostrarTodasDisciplinasChange={handleMostrarTodasDisciplinasChange}
+          handleMostrarTodasDisciplinasChange={
+            handleMostrarTodasDisciplinasChange
+          }
           turmas={turmas}
           salas={salas}
           horarios={horarios}
+          regime={regime}
+          setRegime={setRegime}
           conflictingHorarios={conflictingHorarios}
           handleHorarioChange={handleHorarioChange}
           getDiaSemanaLabel={getDiaSemanaLabel}
@@ -619,7 +848,10 @@ export default function AlocacoesPage() {
                   <label className="text-sm font-medium text-foreground mb-1 block">
                     Turma
                   </label>
-                  <Select value={filtroTurmaId} onValueChange={setFiltroTurmaId}>
+                  <Select
+                    value={filtroTurmaId}
+                    onValueChange={setFiltroTurmaId}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione uma turma" />
                     </SelectTrigger>
@@ -627,7 +859,8 @@ export default function AlocacoesPage() {
                       <SelectItem value="todas">Todas as turmas</SelectItem>
                       {turmas.map((turma) => (
                         <SelectItem key={turma.id} value={turma.id}>
-                          {turma.nome} - {turma.periodo}º período ({turma.turno})
+                          {turma.nome} - {turma.periodo}º período ({turma.turno}
+                          )
                         </SelectItem>
                       ))}
                     </SelectContent>
