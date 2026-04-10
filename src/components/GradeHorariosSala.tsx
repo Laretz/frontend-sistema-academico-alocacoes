@@ -22,7 +22,12 @@ import { Calendar, Clock, User, GraduationCap, X } from "lucide-react";
 import { Sala, ReservaSala, Horario } from "@/types/entities";
 import { api } from "@/lib/api";
 import { reservasSalaService } from "@/services/reservas-sala";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface AlocacaoInfo {
   id: string;
@@ -39,7 +44,7 @@ interface AlocacaoInfo {
     id: string;
     nome: string;
     num_alunos: number;
-    periodo: number;
+    semestre: number;
     turno: string;
   };
   horario: {
@@ -103,8 +108,7 @@ const horariosDisponiveis = [
   "N6",
 ];
 
-
-function getPeriodoHorario(periodo: string): string {
+function getHorarioPorCodigo(codigo: string): string {
   const horarios: { [key: string]: string } = {
     M1: "07:00 - 07:50",
     M2: "07:50 - 08:40",
@@ -123,14 +127,12 @@ function getPeriodoHorario(periodo: string): string {
     N3: "20:35 - 21:25",
     N4: "21:25 - 22:15",
   };
-  return horarios[periodo] || "";
+  return horarios[codigo] || "";
 }
-
-
 
 export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
   const [gradeData, setGradeData] = useState<GradeHorariosSalaResponse | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -157,8 +159,12 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
   function formatMonthDay(dateStr: string): string {
     // Garantir interpretação em UTC para strings YYYY-MM-DD
     const date = new Date(`${dateStr}T00:00:00Z`);
-    const month = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(date);
-    const day = new Intl.DateTimeFormat('pt-BR', { day: '2-digit' }).format(date);
+    const month = new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(
+      date,
+    );
+    const day = new Intl.DateTimeFormat("pt-BR", { day: "2-digit" }).format(
+      date,
+    );
     const monthCap = month.charAt(0).toUpperCase() + month.slice(1);
     // Remover possíveis zeros à esquerda do dia para ficar mais natural (ex: "09" -> "9")
     const dayNum = String(parseInt(day, 10));
@@ -169,7 +175,10 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
     try {
       const [horariosResp, reservasResp] = await Promise.all([
         api.get<{ horarios: Horario[] }>("/horarios"),
-        reservasSalaService.list({ salaId: sala.id, dateFrom: new Date().toISOString().slice(0,10) })
+        reservasSalaService.list({
+          salaId: sala.id,
+          dateFrom: new Date().toISOString().slice(0, 10),
+        }),
       ]);
       setHorarios(horariosResp.data.horarios || []);
       setReservas(reservasResp.reservas || []);
@@ -186,7 +195,7 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
 
     try {
       const response = await fetch(
-        `http://localhost:3333/salas/${sala.id}/grade-horarios`
+        `http://localhost:3333/salas/${sala.id}/grade-horarios`,
       );
 
       if (!response.ok) {
@@ -209,11 +218,19 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
     }
   }, [open, fetchGradeHorarios, fetchAuxData]);
 
-  const renderAlocacao = (alocacao: AlocacaoInfo | null, diaKey: string, codigo: string) => {
-    const reservasCell = reservas.filter(r => {
+  const renderAlocacao = (
+    alocacao: AlocacaoInfo | null,
+    diaKey: string,
+    codigo: string,
+  ) => {
+    const reservasCell = reservas.filter((r) => {
       const diaReserva = dateStrToDiaKey(r.date);
-      const codigoReserva = horarios.find(h => h.id === r.horarioId)?.codigo;
-      return diaReserva === diaKey && codigoReserva === codigo && r.status === "ATIVA";
+      const codigoReserva = horarios.find((h) => h.id === r.horarioId)?.codigo;
+      return (
+        diaReserva === diaKey &&
+        codigoReserva === codigo &&
+        r.status === "ATIVA"
+      );
     });
 
     if (!alocacao && reservasCell.length === 0) {
@@ -248,12 +265,15 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
             >
               {alocacao.disciplina.nome}
             </div>
-            <div className="text-primary truncate" title={alocacao.professor.nome}>
+            <div
+              className="text-primary truncate"
+              title={alocacao.professor.nome}
+            >
               {alocacao.professor.nome}
             </div>
             <div
               className="text-primary/80 truncate"
-              title={`${alocacao.turma.nome} - ${alocacao.turma.periodo}º período`}
+              title={`${alocacao.turma.nome} - ${alocacao.turma.semestre}º semestre`}
             >
               {alocacao.turma.nome}
             </div>
@@ -269,24 +289,41 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
                 {`Reserva - ${formatMonthDay(primeiraReserva.date)}`}
               </div>
               {primeiraReserva.criadorNome && (
-                <div className="text-primary truncate" title={primeiraReserva.criadorNome}>{primeiraReserva.criadorNome}</div>
+                <div
+                  className="text-primary truncate"
+                  title={primeiraReserva.criadorNome}
+                >
+                  {primeiraReserva.criadorNome}
+                </div>
               )}
-              <div className="text-primary/80 truncate" title={primeiraReserva.titulo}>{primeiraReserva.titulo}</div>
+              <div
+                className="text-primary/80 truncate"
+                title={primeiraReserva.titulo}
+              >
+                {primeiraReserva.titulo}
+              </div>
             </div>
             {extraCount > 0 && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="text-xs text-muted-foreground truncate cursor-help" title={`+${extraCount} reservas futuras`}>
+                    <div
+                      className="text-xs text-muted-foreground truncate cursor-help"
+                      title={`+${extraCount} reservas futuras`}
+                    >
                       {`+${extraCount} reservas futuras`}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
                     <div className="space-y-1">
-                      {reservasOrdenadas.slice(1, 6).map(rv => (
+                      {reservasOrdenadas.slice(1, 6).map((rv) => (
                         <div key={rv.id} className="flex items-center gap-2">
-                          <span className="font-semibold">{formatMonthDay(rv.date)}</span>
-                          <span className="opacity-80 truncate max-w-[140px]">{rv.titulo}</span>
+                          <span className="font-semibold">
+                            {formatMonthDay(rv.date)}
+                          </span>
+                          <span className="opacity-80 truncate max-w-[140px]">
+                            {rv.titulo}
+                          </span>
                         </div>
                       ))}
                       {extraCount > 5 && (
@@ -382,7 +419,9 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
                       <p className="text-sm font-medium">
                         {gradeData.resumo.disciplinasUnicas}
                       </p>
-                      <p className="text-xs text-muted-foreground">Disciplinas</p>
+                      <p className="text-xs text-muted-foreground">
+                        Disciplinas
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -395,7 +434,9 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
                       <p className="text-sm font-medium">
                         {gradeData.resumo.professoresUnicos}
                       </p>
-                      <p className="text-xs text-muted-foreground">Professores</p>
+                      <p className="text-xs text-muted-foreground">
+                        Professores
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -447,7 +488,7 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
                           <td className="border border-border p-1 bg-muted/30 text-xs font-medium text-center w-[10%]">
                             <div className="font-semibold">{horario}</div>
                             <div className="text-muted-foreground text-xs">
-                              {getPeriodoHorario(horario)}
+                              {getHorarioPorCodigo(horario)}
                             </div>
                           </td>
                           {diasSemana.map((dia) => {

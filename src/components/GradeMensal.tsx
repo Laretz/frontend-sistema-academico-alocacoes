@@ -29,6 +29,8 @@ interface Disciplina {
   data_fim_prevista?: string;
   data_fim_real?: string;
   tipo_de_sala: string;
+  progresso_aulas?: number;
+  progresso_temporal?: number;
   alocacoes: Array<{
     id: string;
     horario: {

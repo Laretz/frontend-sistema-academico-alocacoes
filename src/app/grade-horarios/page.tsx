@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
+import { LimparDisciplinaDialog } from "./components/LimparDisciplinaDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -79,9 +80,9 @@ export default function GradeHorariosPage() {
         ]);
         setTurmas(turmasRes.turmas || []);
         setSalas(salasRes.salas || []);
-        const profs = (profsRes.usuarios || []).filter(
-          (u) => u.role === "PROFESSOR"
-        );
+        const profs = (
+          (profsRes.usuarios as unknown as Usuario[]) || []
+        ).filter((u) => u.role === "PROFESSOR");
         setProfessores(profs);
         if (turmasRes.turmas && turmasRes.turmas.length > 0)
           setTurmaId(turmasRes.turmas[0].id);
@@ -93,6 +94,24 @@ export default function GradeHorariosPage() {
     };
     carregarListas();
   }, []);
+
+  const disciplinasDaGrade = useMemo(() => {
+    if (!grade) return [];
+    const map = new Map<string, string>();
+    Object.values(grade).forEach((dia) => {
+      Object.values(dia).forEach((alocacoes) => {
+        // alocacoes é um array de Alocacao
+        if (Array.isArray(alocacoes)) {
+          alocacoes.forEach((a) => {
+            if (a.disciplina) {
+              map.set(a.disciplina.id, a.disciplina.nome);
+            }
+          });
+        }
+      });
+    });
+    return Array.from(map.entries()).map(([id, nome]) => ({ id, nome }));
+  }, [grade]);
 
   const carregarGrade = async () => {
     try {
@@ -107,15 +126,21 @@ export default function GradeHorariosPage() {
       // 1) { gradeHorarios: { segunda: HorarioAlocacao[], ... } }
       // 2) { grade: GradeHorario }
       // 3) GradeHorario direto
-      const dataMap = data as unknown as { grade?: unknown; gradeHorarios?: unknown };
-      const gradeObj = (dataMap.grade ?? dataMap.gradeHorarios ?? data) as unknown;
+      const dataMap = data as unknown as {
+        grade?: unknown;
+        gradeHorarios?: unknown;
+      };
+      const gradeObj = (dataMap.grade ??
+        dataMap.gradeHorarios ??
+        data) as unknown;
 
       // Normalizar para o formato esperado pelo componente: GradeHorario
       // Estrutura: { DIA: { CODIGO: Alocacao[] } }
       const normalizeGrade = (raw: unknown): GradeHorario => {
         if (!raw || typeof raw !== "object") return {} as GradeHorario;
+        const rawRecord = raw as Record<string, unknown>;
 
-        const dias = Object.keys(raw);
+        const dias = Object.keys(rawRecord);
         const result: GradeHorario = {} as GradeHorario;
 
         const diaMap: Record<string, string> = {
@@ -136,7 +161,7 @@ export default function GradeHorariosPage() {
         };
 
         dias.forEach((diaKey) => {
-          const lista = raw[diaKey];
+          const lista = rawRecord[diaKey];
           const destKey =
             diaMap[String(diaKey).toLowerCase()] ||
             String(diaKey).toUpperCase();
@@ -147,11 +172,41 @@ export default function GradeHorariosPage() {
             Object.keys(map || {}).forEach((codigo: string) => {
               const item = map[codigo] as unknown as {
                 id?: string;
-                disciplina?: { id?: string; nome?: string; cargaHoraria?: number; cargaHorariaTotal?: number; codigo?: string; horario_consolidado?: string };
-                professor?: { id?: string; nome?: string; email?: string };
-                turma?: { id?: string; nome?: string; num_alunos?: number; periodo?: number; turno?: string };
-                sala?: { id?: string; nome?: string; capacidade?: number; tipo?: string; predio?: string };
-                horario?: { id?: string; codigo?: string; dia_semana?: string; horario_inicio?: string; horario_fim?: string };
+                disciplina?: {
+                  id?: string;
+                  nome?: string;
+                  cargaHoraria?: number;
+                  cargaHorariaTotal?: number;
+                  codigo?: string;
+                  horario_consolidado?: string;
+                };
+                professor?: {
+                  id?: string;
+                  nome?: string;
+                  email?: string;
+                  role?: string;
+                };
+                turma?: {
+                  id?: string;
+                  nome?: string;
+                  num_alunos?: number;
+                  semestre?: number;
+                  turno?: string;
+                };
+                sala?: {
+                  id?: string;
+                  nome?: string;
+                  capacidade?: number;
+                  tipo?: string;
+                  predio?: string;
+                };
+                horario?: {
+                  id?: string;
+                  codigo?: string;
+                  dia_semana?: string;
+                  horario_inicio?: string;
+                  horario_fim?: string;
+                };
               };
               if (!item) {
                 result[destKey][codigo] = [];
@@ -172,7 +227,7 @@ export default function GradeHorariosPage() {
                       id: String(item.professor.id || ""),
                       nome: String(item.professor.nome || ""),
                       email: String(item.professor.email || ""),
-                      role: "PROFESSOR",
+                      role: (item.professor.role as any) || "PROFESSOR",
                     }
                   : undefined,
                 disciplina: item.disciplina
@@ -180,15 +235,19 @@ export default function GradeHorariosPage() {
                       id: String(item.disciplina.id || ""),
                       nome: String(item.disciplina.nome || ""),
                       carga_horaria: Number(
-                        item.disciplina.cargaHoraria ?? item.disciplina.cargaHorariaTotal ?? 0
+                        item.disciplina.cargaHoraria ??
+                          item.disciplina.cargaHorariaTotal ??
+                          0,
                       ),
                       total_aulas: 0,
+                      aulas_ministradas: 0,
                       tipo_de_sala: "Sala",
                       periodo_letivo: "",
                       semestre: 0,
                       obrigatoria: true,
                       codigo: item.disciplina.codigo || undefined,
-                      horario_consolidado: item.disciplina.horario_consolidado || undefined,
+                      horario_consolidado:
+                        item.disciplina.horario_consolidado || undefined,
                       id_curso: "",
                     }
                   : undefined,
@@ -197,7 +256,7 @@ export default function GradeHorariosPage() {
                       id: String(item.turma.id || ""),
                       nome: String(item.turma.nome || ""),
                       num_alunos: Number(item.turma.num_alunos || 0),
-                      periodo: Number(item.turma.periodo || 0),
+                      semestre: Number(item.turma.semestre || 0),
                       turno: String(item.turma.turno || ""),
                       id_curso: "",
                     }
@@ -233,8 +292,19 @@ export default function GradeHorariosPage() {
           result[destKey] = {} as Record<string, Alocacao[]>;
           type RawItem = {
             id?: string;
-            professor?: { id?: string; nome?: string; email?: string };
-            user?: { id?: string; nome?: string; email?: string };
+            codigo?: string; // Adicionado para corrigir erro de TS
+            professor?: {
+              id?: string;
+              nome?: string;
+              email?: string;
+              role?: string;
+            };
+            user?: {
+              id?: string;
+              nome?: string;
+              email?: string;
+              role?: string;
+            };
             disciplina?: {
               id?: string;
               nome?: string;
@@ -246,6 +316,7 @@ export default function GradeHorariosPage() {
               semestre?: number;
               obrigatoria?: boolean;
               codigo?: string;
+
               horario_consolidado?: string;
               id_curso?: string;
               curso?: { id?: string };
@@ -254,7 +325,7 @@ export default function GradeHorariosPage() {
               id?: string;
               nome?: string;
               num_alunos?: number;
-              periodo?: number;
+              semestre?: number;
               turno?: string;
               id_curso?: string;
               curso?: { id?: string };
@@ -276,20 +347,27 @@ export default function GradeHorariosPage() {
             horario_inicio?: string;
             horario_fim?: string;
           };
-          const items: RawItem[] = Array.isArray(lista) ? (lista as RawItem[]) : [];
+          const items: RawItem[] = Array.isArray(lista)
+            ? (lista as RawItem[])
+            : [];
           items.forEach((item: RawItem) => {
             // Tentar obter/derivar o código do horário
-            const codigo =
+            const horarioStr =
+              item?.horario_inicio || item?.horario?.horario_inicio;
+            let codigo =
               item?.horario?.codigo ||
               item?.codigo ||
-              (item?.horario_inicio || item?.horario?.horario_inicio
-                ? converterHorarioParaCodigo(
-                    String(
-                      item?.horario_inicio || item?.horario?.horario_inicio
-                    )
-                  )
+              (horarioStr
+                ? converterHorarioParaCodigo(String(horarioStr))
                 : undefined);
-            if (!codigo) return;
+
+            // Fallback para alocações sem horário definido ou código não reconhecido
+            // Isso garante que a disciplina apareça na lista para exclusão, mesmo se não renderizar na grade visual corretamente
+            if (!codigo) {
+              codigo = "SEM_HORARIO";
+            }
+
+            if (!result[destKey]) result[destKey] = {};
             if (!result[destKey][codigo]) result[destKey][codigo] = [];
 
             // Converter para um objeto semelhante a Alocacao usado na UI
@@ -307,9 +385,16 @@ export default function GradeHorariosPage() {
                     id: String(item.professor.id || ""),
                     nome: String(item.professor.nome || ""),
                     email: String(item.professor.email || ""),
-                    role: "PROFESSOR",
+                    role: (item.professor.role as any) || "PROFESSOR",
                   }
-                : item?.user,
+                : item?.user
+                  ? {
+                      id: String(item.user.id || ""),
+                      nome: String(item.user.nome || ""),
+                      email: String(item.user.email || ""),
+                      role: (item.user.role as any) || "PROFESSOR",
+                    }
+                  : undefined,
               disciplina: item?.disciplina
                 ? {
                     id: String(item.disciplina.id || ""),
@@ -317,13 +402,15 @@ export default function GradeHorariosPage() {
                     carga_horaria: Number(
                       item.disciplina.cargaHoraria ||
                         item.disciplina.carga_horaria ||
-                        0
+                        0,
                     ),
                     total_aulas: Number(item.disciplina.total_aulas || 0),
                     tipo_de_sala: String(
-                      item.disciplina.tipo_de_sala || "Sala"
+                      item.disciplina.tipo_de_sala || "Sala",
                     ),
-                    periodo_letivo: String(item.disciplina.periodo_letivo || ""),
+                    periodo_letivo: String(
+                      item.disciplina.periodo_letivo || "",
+                    ),
                     semestre: Number(item.disciplina.semestre || 0),
                     obrigatoria: Boolean(item.disciplina.obrigatoria ?? true),
                     codigo: (item.disciplina.codigo as string) || undefined,
@@ -333,8 +420,9 @@ export default function GradeHorariosPage() {
                     id_curso: String(
                       item.disciplina.id_curso ||
                         item.disciplina.curso?.id ||
-                        ""
+                        "",
                     ),
+                    aulas_ministradas: 0,
                   }
                 : undefined,
               turma: item?.turma
@@ -342,10 +430,10 @@ export default function GradeHorariosPage() {
                     id: String(item.turma.id || ""),
                     nome: String(item.turma.nome || ""),
                     num_alunos: Number(item.turma.num_alunos || 0),
-                    periodo: Number(item.turma.periodo || 0),
+                    semestre: Number(item.turma.semestre || 0),
                     turno: String(item.turma.turno || ""),
                     id_curso: String(
-                      item.turma.id_curso || item.turma.curso?.id || ""
+                      item.turma.id_curso || item.turma.curso?.id || "",
                     ),
                   }
                 : undefined,
@@ -357,7 +445,8 @@ export default function GradeHorariosPage() {
                       id: "",
                       nome: (() => {
                         const p = item.sala?.predio;
-                        if (typeof p === "object" && p) return String((p as { nome?: string }).nome || "");
+                        if (typeof p === "object" && p)
+                          return String((p as { nome?: string }).nome || "");
                         return String(p || "");
                       })(),
                       codigo: "",
@@ -372,10 +461,10 @@ export default function GradeHorariosPage() {
                 codigo: String(item?.horario?.codigo || codigo),
                 dia_semana: String(item?.horario?.dia_semana || destKey),
                 horario_inicio: String(
-                  item?.horario_inicio || item?.horario?.horario_inicio || ""
+                  item?.horario_inicio || item?.horario?.horario_inicio || "",
                 ),
                 horario_fim: String(
-                  item?.horario_fim || item?.horario?.horario_fim || ""
+                  item?.horario_fim || item?.horario?.horario_fim || "",
                 ),
               },
             };
@@ -390,7 +479,14 @@ export default function GradeHorariosPage() {
       const normalized = normalizeGrade(gradeObj);
       // Garantir presença de todas as colunas M/T/N, mesmo sem alocação
       const ensureCodes = (obj: GradeHorario) => {
-        const allDays = ["SEGUNDA","TERCA","QUARTA","QUINTA","SEXTA","SABADO"];
+        const allDays = [
+          "SEGUNDA",
+          "TERCA",
+          "QUARTA",
+          "QUINTA",
+          "SEXTA",
+          "SABADO",
+        ];
         allDays.forEach((dia) => {
           if (!obj[dia]) obj[dia] = {} as Record<string, Alocacao[]>;
           codigosHorario.forEach((c) => {
@@ -487,19 +583,28 @@ export default function GradeHorariosPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="max-w-sm">
-                  <Select value={turmaId} onValueChange={setTurmaId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Escolha uma turma" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {turmas.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center gap-4 max-w-lg">
+                  <div className="flex-1">
+                    <Select value={turmaId} onValueChange={setTurmaId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Escolha uma turma" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {turmas.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {grade && turmaId && (
+                    <LimparDisciplinaDialog
+                      turmaId={turmaId}
+                      disciplinas={disciplinasDaGrade}
+                      onSuccess={carregarGrade}
+                    />
+                  )}
                 </div>
                 <GradeGrid grade={grade} loading={loading} />
               </CardContent>

@@ -35,7 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { disciplinaService, cursoService } from "@/services/entities";
 import { Disciplina, CreateDisciplinaRequest, Curso } from "@/types/entities";
@@ -74,6 +74,32 @@ export default function DisciplinasPage() {
     data_fim_prevista: undefined as Date | undefined,
   });
   const [submitting, setSubmitting] = useState(false);
+
+  const semestresDisponiveis = useMemo(() => {
+    const semestres = Array.from(
+      new Set(
+        disciplinas
+          .map((d) => d.semestre)
+          .filter((s): s is number => typeof s === "number"),
+      ),
+    );
+    semestres.sort((a, b) => a - b);
+    return semestres;
+  }, [disciplinas]);
+
+  const cursoLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    cursos.forEach((c) => {
+      map.set(c.id, `${c.nome} - ${c.turno}`);
+    });
+    return map;
+  }, [cursos]);
+
+  const limparFiltros = () => {
+    setSearchTerm("");
+    setSelectedCurso("todos");
+    setSelectedSemestre("todos");
+  };
 
   const filteredDisciplinas =
     disciplinas?.filter((disciplina) => {
@@ -488,7 +514,7 @@ export default function DisciplinasPage() {
           </Dialog>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
             <Input
@@ -498,10 +524,11 @@ export default function DisciplinasPage() {
               className="pl-8"
             />
           </div>
-          <div className="w-64">
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Select value={selectedCurso} onValueChange={setSelectedCurso}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por curso" />
+              <SelectTrigger className="w-full sm:w-[280px]">
+                <SelectValue placeholder="Curso" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos os cursos</SelectItem>
@@ -512,29 +539,41 @@ export default function DisciplinasPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="w-48">
-            <Select
-              value={selectedSemestre}
-              onValueChange={setSelectedSemestre}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por semestre" />
+
+            <Select value={selectedSemestre} onValueChange={setSelectedSemestre}>
+              <SelectTrigger className="w-full sm:w-[220px]">
+                <SelectValue placeholder="Semestre" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos os semestres</SelectItem>
-                <SelectItem value="1">1º Semestre</SelectItem>
-                <SelectItem value="2">2º Semestre</SelectItem>
-                <SelectItem value="3">3º Semestre</SelectItem>
-                <SelectItem value="4">4º Semestre</SelectItem>
-                <SelectItem value="5">5º Semestre</SelectItem>
-                <SelectItem value="6">6º Semestre</SelectItem>
-                <SelectItem value="7">7º Semestre</SelectItem>
-                <SelectItem value="8">8º Semestre</SelectItem>
+                {semestresDisponiveis.map((s) => (
+                  <SelectItem key={s} value={String(s)}>
+                    {s}º Semestre
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+
+            {(searchTerm || selectedCurso !== "todos" || selectedSemestre !== "todos") && (
+              <Button variant="outline" onClick={limparFiltros}>
+                Limpar filtros
+              </Button>
+            )}
           </div>
         </div>
+
+        {(selectedCurso !== "todos" || selectedSemestre !== "todos") && (
+          <div className="flex flex-wrap gap-2">
+            {selectedCurso !== "todos" && (
+              <Badge variant="secondary">
+                Curso: {cursoLabelById.get(selectedCurso) || "Selecionado"}
+              </Badge>
+            )}
+            {selectedSemestre !== "todos" && (
+              <Badge variant="secondary">Semestre: {selectedSemestre}º</Badge>
+            )}
+          </div>
+        )}
         {loading ? (
           <div className="flex justify-center items-center py-12">
             <Loader2 className="h-8 w-8 animate-spin" />

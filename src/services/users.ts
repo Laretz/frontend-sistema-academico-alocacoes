@@ -27,7 +27,7 @@ export const userService = {
     // Transformar os dados para compatibilidade com o frontend
     const usuarios = response.data.usuarios.map(user => ({
       ...user,
-      curso: user.cursos?.map(uc => uc.curso) || []
+      curso: user.cursos?.map((uc: { curso: { id: string; nome: string } }) => uc.curso) || []
     }));
     return { usuarios };
   },
@@ -36,7 +36,7 @@ export const userService = {
     const response = await api.get<{ usuario: User }>(`/users/${id}`);
     const usuario = {
       ...response.data.usuario,
-      curso: response.data.usuario.cursos?.map(uc => uc.curso) || []
+      curso: response.data.usuario.cursos?.map((uc: { curso: { id: string; nome: string } }) => uc.curso) || []
     };
     return usuario;
   },

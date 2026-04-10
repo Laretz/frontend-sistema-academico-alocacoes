@@ -39,7 +39,9 @@ interface AlocacaoInfo {
   sala: {
     id: string;
     nome: string;
-    predio: string;
+    predio: {
+      nome: string;
+    };
     capacidade: number;
   };
   horario: {
@@ -130,7 +132,7 @@ const getDisciplinaColor = (index: number) => {
   return colors[index % colors.length];
 };
 
-const getPeriodoHorario = (periodo: string): string => {
+const getHorarioPorCodigo = (codigo: string): string => {
   const horarios: { [key: string]: string } = {
     M1: "07:00-07:50",
     M2: "07:50-08:40",
@@ -149,7 +151,7 @@ const getPeriodoHorario = (periodo: string): string => {
     N3: "20:35-21:25",
     N4: "21:25-22:15",
   };
-  return horarios[periodo] || "";
+  return horarios[codigo] || "";
 };
 
 export function GradeHorariosTurma({
@@ -158,7 +160,7 @@ export function GradeHorariosTurma({
 }: GradeHorariosTurmaProps) {
   const [open, setOpen] = useState(false);
   const [gradeData, setGradeData] = useState<GradeHorariosTurmaResponse | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -169,7 +171,7 @@ export function GradeHorariosTurma({
       setError(null);
 
       const response = await fetch(
-        `http://localhost:3333/turmas/${turma.id}/grade-horarios`
+        `http://localhost:3333/turmas/${turma.id}/grade-horarios`,
       );
 
       if (!response.ok) {
@@ -194,13 +196,13 @@ export function GradeHorariosTurma({
   // Função para determinar a cor baseada no turno da turma vs horário da alocação usando tema shadcn/ui
   const getAlocacaoColor = (codigoHorario: string) => {
     const turnoTurma = turma.turno.toUpperCase();
-    const periodoHorario = codigoHorario.charAt(0); // M, T ou N
+    const turnoHorario = codigoHorario.charAt(0); // M, T ou N
 
     // Se o horário está no turno correto da turma, usa primary (normal)
     if (
-      (turnoTurma === "MATUTINO" && periodoHorario === "M") ||
-      (turnoTurma === "VESPERTINO" && periodoHorario === "T") ||
-      (turnoTurma === "NOTURNO" && periodoHorario === "N")
+      (turnoTurma === "MATUTINO" && turnoHorario === "M") ||
+      (turnoTurma === "VESPERTINO" && turnoHorario === "T") ||
+      (turnoTurma === "NOTURNO" && turnoHorario === "N")
     ) {
       return {
         border: "border-primary/20",
@@ -212,7 +214,7 @@ export function GradeHorariosTurma({
     }
 
     // Se é horário noturno fora do turno, usa destructive
-    if (periodoHorario === "N") {
+    if (turnoHorario === "N") {
       return {
         border: "border-destructive/20",
         bg: "bg-destructive/5",
@@ -289,7 +291,8 @@ export function GradeHorariosTurma({
             Grade de Horários - {turma.nome}
           </DialogTitle>
           <DialogDescription>
-            {turma.periodo}º período • {turma.turno} • {turma.num_alunos} alunos
+            {turma.semestre}º semestre • {turma.turno} • {turma.num_alunos}{" "}
+            alunos
             {gradeData && (
               <span className="ml-4">
                 {gradeData.resumo.totalAlocacoes} alocações •
@@ -422,12 +425,12 @@ export function GradeHorariosTurma({
                         .flatMap((dia) => Object.values(dia))
                         .filter(
                           (alocacao): alocacao is AlocacaoInfo =>
-                            alocacao !== null
+                            alocacao !== null,
                         )
                         .reduce((unique, alocacao) => {
                           const exists = unique.find(
                             (item) =>
-                              item.disciplina.id === alocacao.disciplina.id
+                              item.disciplina.id === alocacao.disciplina.id,
                           );
                           if (!exists) {
                             unique.push(alocacao);
@@ -441,8 +444,9 @@ export function GradeHorariosTurma({
 
                           if (!horarioConsolidado) {
                             // Buscar todos os horários desta disciplina e organizá-los por dia
-                            const horariosPorDia: { [dia: string]: string[] } = {};
-                            
+                            const horariosPorDia: { [dia: string]: string[] } =
+                              {};
+
                             Object.entries(gradeData.grade).forEach(
                               ([dia, horarios]) => {
                                 Object.entries(horarios).forEach(
@@ -456,58 +460,82 @@ export function GradeHorariosTurma({
                                       }
                                       horariosPorDia[dia].push(horario);
                                     }
-                                  }
+                                  },
                                 );
-                              }
+                              },
                             );
-                            
+
                             // Consolidar horários por dia
                             const horariosConsolidados: string[] = [];
-                            const diasSemana = ['SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA', 'SABADO'];
+                            const diasSemana = [
+                              "SEGUNDA",
+                              "TERCA",
+                              "QUARTA",
+                              "QUINTA",
+                              "SEXTA",
+                              "SABADO",
+                            ];
                             const diasMap: { [key: string]: string } = {
-                              'SEGUNDA': '2',
-                              'TERCA': '3', 
-                              'QUARTA': '4',
-                              'QUINTA': '5',
-                              'SEXTA': '6',
-                              'SABADO': '7'
+                              SEGUNDA: "2",
+                              TERCA: "3",
+                              QUARTA: "4",
+                              QUINTA: "5",
+                              SEXTA: "6",
+                              SABADO: "7",
                             };
-                            
-                            diasSemana.forEach(dia => {
-                              if (horariosPorDia[dia] && horariosPorDia[dia].length > 0) {
-                                const horariosOrdenados = horariosPorDia[dia].sort();
+
+                            diasSemana.forEach((dia) => {
+                              if (
+                                horariosPorDia[dia] &&
+                                horariosPorDia[dia].length > 0
+                              ) {
+                                const horariosOrdenados =
+                                  horariosPorDia[dia].sort();
                                 const turno = horariosOrdenados[0].charAt(0); // M, T, N
-                                
+
                                 if (horariosOrdenados.length === 1) {
                                   // Horário isolado
-                                  const numeroHorario = horariosOrdenados[0].charAt(1);
-                                  horariosConsolidados.push(`${diasMap[dia]}${turno}${numeroHorario}`);
+                                  const numeroHorario =
+                                    horariosOrdenados[0].charAt(1);
+                                  horariosConsolidados.push(
+                                    `${diasMap[dia]}${turno}${numeroHorario}`,
+                                  );
                                 } else {
                                   // Múltiplos horários - verificar se são consecutivos
-                                  const numeros = horariosOrdenados.map(h => parseInt(h.charAt(1)));
-                                  const saoConsecutivos = numeros.every((num, index) => 
-                                    index === 0 || num === numeros[index - 1] + 1
+                                  const numeros = horariosOrdenados.map((h) =>
+                                    parseInt(h.charAt(1)),
                                   );
-                                  
+                                  const saoConsecutivos = numeros.every(
+                                    (num, index) =>
+                                      index === 0 ||
+                                      num === numeros[index - 1] + 1,
+                                  );
+
                                   if (saoConsecutivos) {
                                     // Horários consecutivos - usar formato compacto
                                     const primeiroNumero = numeros[0];
-                                    const ultimoNumero = numeros[numeros.length - 1];
-                                    const sequencia = numeros.join('');
-                                    horariosConsolidados.push(`${diasMap[dia]}${turno}${sequencia}`);
+                                    const ultimoNumero =
+                                      numeros[numeros.length - 1];
+                                    const sequencia = numeros.join("");
+                                    horariosConsolidados.push(
+                                      `${diasMap[dia]}${turno}${sequencia}`,
+                                    );
                                   } else {
                                     // Horários não consecutivos - listar separadamente
-                                    numeros.forEach(num => {
-                                      horariosConsolidados.push(`${diasMap[dia]}${turno}${num}`);
+                                    numeros.forEach((num) => {
+                                      horariosConsolidados.push(
+                                        `${diasMap[dia]}${turno}${num}`,
+                                      );
                                     });
                                   }
                                 }
                               }
                             });
-                            
-                            horarioConsolidado = horariosConsolidados.length > 0
-                              ? horariosConsolidados.join(", ")
-                              : "-";
+
+                            horarioConsolidado =
+                              horariosConsolidados.length > 0
+                                ? horariosConsolidados.join(", ")
+                                : "-";
                           }
 
                           return (
@@ -555,12 +583,12 @@ export function GradeHorariosTurma({
                                 <Badge
                                   className={getStatusColor(
                                     turma.num_alunos,
-                                    turma.num_alunos
+                                    turma.num_alunos,
                                   )}
                                 >
                                   {getStatusText(
                                     turma.num_alunos,
-                                    turma.num_alunos
+                                    turma.num_alunos,
                                   )}
                                 </Badge>
                               </td>
@@ -611,7 +639,7 @@ export function GradeHorariosTurma({
                               {horario}
                             </div>
                             <div className="text-muted-foreground text-xs">
-                              {getPeriodoHorario(horario)}
+                              {getHorarioPorCodigo(horario)}
                             </div>
                           </td>
                           {diasSemana.map((dia) => {

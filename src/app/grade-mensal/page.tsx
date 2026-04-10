@@ -487,8 +487,8 @@ export default function GradeMensalPage() {
               {turmaSelecionada && (
                 <div className="flex gap-2">
                   <Badge variant="outline">
-                    {turmaSelecionada.periodo}º Período
-                  </Badge>
+              {turmaSelecionada.semestre}º Semestre
+            </Badge>
                   <Badge variant="outline">
                     {turmaSelecionada.turno}
                   </Badge>

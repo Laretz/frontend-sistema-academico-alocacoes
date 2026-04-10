@@ -92,18 +92,22 @@ interface DisciplinaVinculada {
 
 const diasSemana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
 const horarios = [
-  { codigo: "M1", periodo: "Manhã", inicio: "07:00", fim: "07:50" },
-  { codigo: "M2", periodo: "Manhã", inicio: "07:50", fim: "08:40" },
-  { codigo: "M3", periodo: "Manhã", inicio: "08:40", fim: "09:30" },
-  { codigo: "M4", periodo: "Manhã", inicio: "09:50", fim: "10:40" },
-  { codigo: "M5", periodo: "Manhã", inicio: "10:40", fim: "11:30" },
-  { codigo: "M6", periodo: "Manhã", inicio: "11:30", fim: "12:20" },
-  { codigo: "T1", periodo: "Tarde", inicio: "13:00", fim: "13:50" },
-  { codigo: "T2", periodo: "Tarde", inicio: "13:50", fim: "14:40" },
-  { codigo: "T3", periodo: "Tarde", inicio: "14:40", fim: "15:30" },
-  { codigo: "T4", periodo: "Tarde", inicio: "15:50", fim: "16:40" },
-  { codigo: "T5", periodo: "Tarde", inicio: "16:40", fim: "17:30" },
-  { codigo: "T6", periodo: "Tarde", inicio: "17:30", fim: "18:20" },
+  { codigo: "M1", turno: "Manhã", inicio: "07:00", fim: "07:50" },
+  { codigo: "M2", turno: "Manhã", inicio: "07:50", fim: "08:40" },
+  { codigo: "M3", turno: "Manhã", inicio: "08:40", fim: "09:30" },
+  { codigo: "M4", turno: "Manhã", inicio: "09:50", fim: "10:40" },
+  { codigo: "M5", turno: "Manhã", inicio: "10:40", fim: "11:30" },
+  { codigo: "M6", turno: "Manhã", inicio: "11:30", fim: "12:20" },
+  { codigo: "T1", turno: "Tarde", inicio: "13:00", fim: "13:50" },
+  { codigo: "T2", turno: "Tarde", inicio: "13:50", fim: "14:40" },
+  { codigo: "T3", turno: "Tarde", inicio: "14:40", fim: "15:30" },
+  { codigo: "T4", turno: "Tarde", inicio: "15:50", fim: "16:40" },
+  { codigo: "T5", turno: "Tarde", inicio: "16:40", fim: "17:30" },
+  { codigo: "T6", turno: "Tarde", inicio: "17:30", fim: "18:20" },
+  { codigo: "N1", turno: "Noite", inicio: "18:45", fim: "19:35" },
+  { codigo: "N2", turno: "Noite", inicio: "19:35", fim: "20:25" },
+  { codigo: "N3", turno: "Noite", inicio: "20:35", fim: "21:25" },
+  { codigo: "N4", turno: "Noite", inicio: "21:25", fim: "22:15" },
 ];
 
 export function GradeHorariosProfessor({
@@ -206,8 +210,8 @@ export function GradeHorariosProfessor({
     return codigo ? `${codigo}` : nome;
   };
 
-  const getPeriodoHorario = (codigo: string) => {
-    const periodos: { [key: string]: string } = {
+  const getTurnoHorario = (codigo: string) => {
+    const turnos: { [key: string]: string } = {
       M1: "Matutino",
       M2: "Matutino",
       M3: "Matutino",
@@ -224,16 +228,17 @@ export function GradeHorariosProfessor({
       N2: "Noturno",
       N3: "Noturno",
       N4: "Noturno",
+      N5: "Noturno", // Adicionado N5 por segurança
     };
-    return periodos[codigo] || "Indefinido";
+    return turnos[codigo] || "Indefinido";
   };
 
   const getAlocacaoColor = (alocacao: any, horario: string) => {
     if (!alocacao) return "";
 
-    const periodo = getPeriodoHorario(horario);
+    const turno = getTurnoHorario(horario);
 
-    switch (periodo) {
+    switch (turno) {
       case "Matutino":
         return "border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100";
       case "Vespertino":
@@ -245,7 +250,9 @@ export function GradeHorariosProfessor({
     }
   };
 
-  const formatSalaField = (value: string | { nome: string } | null | undefined): string => {
+  const formatSalaField = (
+    value: string | { nome: string } | null | undefined,
+  ): string => {
     if (value && typeof value === "object") {
       const nome = (value as any)?.nome;
       return typeof nome === "string" ? nome : "";
@@ -283,7 +290,9 @@ export function GradeHorariosProfessor({
                 <Card>
                   <CardHeader className="flex items-center justify-between">
                     <CardTitle className="text-lg">Grade de Horários</CardTitle>
-                    <Badge variant="outline" className="ml-2">Alocações: {cargaHoraria}</Badge>
+                    <Badge variant="outline" className="ml-2">
+                      Alocações: {cargaHoraria}
+                    </Badge>
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="overflow-x-auto">
@@ -305,7 +314,10 @@ export function GradeHorariosProfessor({
                         </thead>
                         <tbody>
                           {horarios.map((horario) => (
-                            <tr key={horario.codigo} className="hover:bg-muted/50">
+                            <tr
+                              key={horario.codigo}
+                              className="hover:bg-muted/50"
+                            >
                               <td className="border border-border p-3 font-medium bg-primary/10">
                                 <div className="text-center">
                                   <div className="font-bold text-primary text-sm">
@@ -319,7 +331,7 @@ export function GradeHorariosProfessor({
                               {diasSemana.map((dia) => {
                                 const alocacao = getAlocacaoParaHorario(
                                   dia,
-                                  horario.codigo
+                                  horario.codigo,
                                 );
                                 return (
                                   <td
@@ -342,7 +354,9 @@ export function GradeHorariosProfessor({
                                         <div className="text-primary/70 text-xs">
                                           <span className="inline-block w-2 h-2 bg-orange-500 rounded-full mr-1"></span>
                                           Sala{" "}
-                                          {formatSalaField(alocacao.sala.numero)}
+                                          {formatSalaField(
+                                            alocacao.sala.numero,
+                                          )}
                                         </div>
                                       </div>
                                     ) : (
@@ -392,9 +406,12 @@ export function GradeHorariosProfessor({
 
                 <Card className="mt-6">
                   <CardHeader>
-                    <CardTitle className="text-lg">Disciplinas do Professor</CardTitle>
+                    <CardTitle className="text-lg">
+                      Disciplinas do Professor
+                    </CardTitle>
                     <div className="text-sm text-muted-foreground">
-                      Detalhes completos das disciplinas ministradas por este professor
+                      Detalhes completos das disciplinas ministradas por este
+                      professor
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -429,7 +446,8 @@ export function GradeHorariosProfessor({
                           {alocacoes
                             .reduce((unique, alocacao) => {
                               const exists = unique.find(
-                                (item) => item.disciplina.id === alocacao.disciplina.id
+                                (item) =>
+                                  item.disciplina.id === alocacao.disciplina.id,
                               );
                               if (!exists) {
                                 unique.push(alocacao);
@@ -444,7 +462,10 @@ export function GradeHorariosProfessor({
                               if (!horarioConsolidado) {
                                 const horariosAlocacao: string[] = [];
                                 alocacoes.forEach((a) => {
-                                  if (a.disciplina.codigo === alocacao.disciplina.codigo) {
+                                  if (
+                                    a.disciplina.codigo ===
+                                    alocacao.disciplina.codigo
+                                  ) {
                                     horariosAlocacao.push(a.horario.codigo);
                                   }
                                 });
@@ -457,16 +478,25 @@ export function GradeHorariosProfessor({
                               return (
                                 <tr
                                   key={alocacao.disciplina.id}
-                                  className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}
+                                  className={
+                                    index % 2 === 0
+                                      ? "bg-background"
+                                      : "bg-muted/30"
+                                  }
                                 >
                                   <td className="px-3 py-2 text-sm font-medium text-foreground border-r border-border">
-                                    {String(alocacao.disciplina.codigo || "---")}
+                                    {String(
+                                      alocacao.disciplina.codigo || "---",
+                                    )}
                                   </td>
                                   <td className="px-3 py-2 text-sm text-foreground border-r border-border max-w-xs">
                                     {String(alocacao.disciplina.nome || "")}
                                   </td>
                                   <td className="px-3 py-2 text-sm text-foreground border-r border-border">
-                                    {String(alocacao.disciplina.carga_horaria || 0)}h
+                                    {String(
+                                      alocacao.disciplina.carga_horaria || 0,
+                                    )}
+                                    h
                                   </td>
                                   <td className="px-3 py-2 text-sm text-foreground font-mono border-r border-border">
                                     {String(horarioConsolidado || "")}
@@ -477,7 +507,9 @@ export function GradeHorariosProfessor({
                                   <td className="px-3 py-2 text-sm text-foreground border-r border-border">
                                     {typeof alocacao.sala.predio === "object"
                                       ? alocacao.sala.predio?.nome || ""
-                                      : String(alocacao.sala.predio || "")}, {typeof alocacao.sala.nome === "object"
+                                      : String(alocacao.sala.predio || "")}
+                                    ,{" "}
+                                    {typeof alocacao.sala.nome === "object"
                                       ? alocacao.sala.nome?.nome || ""
                                       : String(alocacao.sala.nome || "")}
                                   </td>
@@ -504,14 +536,21 @@ export function GradeHorariosProfessor({
                   {/* Disciplinas primeiro (esquerda) */}
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Disciplinas do Professor</CardTitle>
-                      <div className="text-sm text-muted-foreground">Total: {disciplinas.length}</div>
+                      <CardTitle className="text-lg">
+                        Disciplinas do Professor
+                      </CardTitle>
+                      <div className="text-sm text-muted-foreground">
+                        Total: {disciplinas.length}
+                      </div>
                     </CardHeader>
                     <CardContent>
                       {disciplinas.length > 0 ? (
                         <ul className="space-y-2">
                           {disciplinas.map((disc) => (
-                            <li key={disc.id} className="flex items-center justify-between">
+                            <li
+                              key={disc.id}
+                              className="flex items-center justify-between"
+                            >
                               <div>
                                 <span className="font-medium">
                                   {disc.codigo ?? "---"} - {disc.nome}
@@ -520,12 +559,16 @@ export function GradeHorariosProfessor({
                                   ({disc.curso.codigo} - {disc.curso.nome})
                                 </span>
                               </div>
-                              <Badge variant="outline" className="text-xs">Sem {disc.semestre}</Badge>
+                              <Badge variant="outline" className="text-xs">
+                                Sem {disc.semestre}
+                              </Badge>
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <div className="text-muted-foreground">Nenhuma disciplina vinculada.</div>
+                        <div className="text-muted-foreground">
+                          Nenhuma disciplina vinculada.
+                        </div>
                       )}
                     </CardContent>
                   </Card>
@@ -533,23 +576,34 @@ export function GradeHorariosProfessor({
                   {/* Cursos ao lado direito */}
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Cursos do Professor</CardTitle>
-                      <div className="text-sm text-muted-foreground">Total: {cursos.length}</div>
+                      <CardTitle className="text-lg">
+                        Cursos do Professor
+                      </CardTitle>
+                      <div className="text-sm text-muted-foreground">
+                        Total: {cursos.length}
+                      </div>
                     </CardHeader>
                     <CardContent>
                       {cursos.length > 0 ? (
                         <ul className="space-y-2">
                           {cursos.map((curso) => (
-                            <li key={curso.id} className="flex items-center justify-between">
+                            <li
+                              key={curso.id}
+                              className="flex items-center justify-between"
+                            >
                               <span className="font-medium">
                                 {curso.codigo} - {curso.nome}
                               </span>
-                              <Badge variant="outline" className="text-xs">{curso.turno}</Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {curso.turno}
+                              </Badge>
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <div className="text-muted-foreground">Nenhum curso vinculado.</div>
+                        <div className="text-muted-foreground">
+                          Nenhum curso vinculado.
+                        </div>
                       )}
                     </CardContent>
                   </Card>
@@ -559,25 +613,69 @@ export function GradeHorariosProfessor({
               <TabsContent value="resumo">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Informações do Professor</CardTitle>
-                    <div className="text-sm text-muted-foreground">Resumo geral</div>
+                    <CardTitle className="text-lg">
+                      Informações do Professor
+                    </CardTitle>
+                    <div className="text-sm text-muted-foreground">
+                      Resumo geral
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <div className="text-sm"><span className="font-semibold">Nome:</span> {professor?.nome}</div>
-                        <div className="text-sm"><span className="font-semibold">Email:</span> {professor?.email}</div>
-                        <div className="text-sm"><span className="font-semibold">Role:</span> {professor?.role ?? "-"}</div>
+                        <div className="text-sm">
+                          <span className="font-semibold">Nome:</span>{" "}
+                          {professor?.nome}
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-semibold">Email:</span>{" "}
+                          {professor?.email}
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-semibold">Role:</span>{" "}
+                          {professor?.role ?? "-"}
+                        </div>
                         {professor?.especializacao && (
-                          <div className="text-sm"><span className="font-semibold">Especialização:</span> {typeof professor.especializacao === "string" ? professor.especializacao : professor.especializacao?.nome || "Não informado"}</div>
+                          <div className="text-sm">
+                            <span className="font-semibold">
+                              Especialização:
+                            </span>{" "}
+                            {typeof professor.especializacao === "string"
+                              ? professor.especializacao
+                              : professor.especializacao?.nome ||
+                                "Não informado"}
+                          </div>
                         )}
-                        <div className="text-sm"><span className="font-semibold">Carga horária máx:</span> {typeof professor?.carga_horaria_max === "number" ? `${professor?.carga_horaria_max}h` : "-"}</div>
-                        <div className="text-sm"><span className="font-semibold">Preferência:</span> {professor?.preferencia ?? "-"}</div>
+                        <div className="text-sm">
+                          <span className="font-semibold">
+                            Carga horária máx:
+                          </span>{" "}
+                          {typeof professor?.carga_horaria_max === "number"
+                            ? `${professor?.carga_horaria_max}h`
+                            : "-"}
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-semibold">Preferência:</span>{" "}
+                          {professor?.preferencia ?? "-"}
+                        </div>
                       </div>
                       <div>
-                        <div className="text-sm"><span className="font-semibold">Alocações:</span> {cargaHoraria}</div>
-                        <div className="text-sm"><span className="font-semibold">Disciplinas vinculadas:</span> {disciplinas.length}</div>
-                        <div className="text-sm"><span className="font-semibold">Cursos vinculados:</span> {cursos.length}</div>
+                        <div className="text-sm">
+                          <span className="font-semibold">Alocações:</span>{" "}
+                          {cargaHoraria}
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-semibold">
+                            Disciplinas vinculadas:
+                          </span>{" "}
+                          {disciplinas.length}
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-semibold">
+                            Cursos vinculados:
+                          </span>{" "}
+                          {cursos.length}
+                        </div>
                       </div>
                     </div>
                   </CardContent>

@@ -79,11 +79,11 @@ export function gerarHorarioConsolidado(alocacoes: Alocacao[]): string {
   alocacoes.forEach((alocacao) => {
     const dia = alocacao.horario.dia_semana;
     const horarioInicio = alocacao.horario.horario_inicio;
-    
+
     // Se já é um código (M1, T2, etc.), usar diretamente
     // Caso contrário, converter de ISO para código
-    const horarioCodigo = /^[MTN]\d+$/.test(horarioInicio) 
-      ? horarioInicio 
+    const horarioCodigo = /^[MTN]\d+$/.test(horarioInicio)
+      ? horarioInicio
       : converterHorarioParaCodigo(horarioInicio);
 
     if (!alocacoesPorDia[dia]) {
@@ -122,7 +122,7 @@ export function gerarHorarioConsolidado(alocacoes: Alocacao[]): string {
   // Verificar se dois horários são sequenciais
   const verificarSequencialidade = (
     horario1: string,
-    horario2: string
+    horario2: string,
   ): boolean => {
     const num1 = parseInt(horario1.replace(/[A-Z]/g, ""));
     const num2 = parseInt(horario2.replace(/[A-Z]/g, ""));
@@ -159,7 +159,7 @@ export function gerarHorarioConsolidado(alocacoes: Alocacao[]): string {
 
   // Gerar horários agrupados
   const horariosAgrupados: HorarioAgrupado[] = Object.entries(
-    alocacoesPorDia
+    alocacoesPorDia,
   ).map(([dia, horarios]) => ({
     dia,
     horarios: horarios.sort(),
@@ -176,17 +176,17 @@ export function gerarHorarioConsolidado(alocacoes: Alocacao[]): string {
     "DOMINGO",
   ];
   horariosAgrupados.sort(
-    (a, b) => ordemDias.indexOf(a.dia) - ordemDias.indexOf(b.dia)
+    (a, b) => ordemDias.indexOf(a.dia) - ordemDias.indexOf(b.dia),
   );
 
   // Verificar se todos os horários de cada dia são sequenciais
   const todosSequenciais = horariosAgrupados.every((grupo) =>
-    verificarSequenciais(grupo.horarios)
+    verificarSequenciais(grupo.horarios),
   );
 
   // Verificar se os dias são consecutivos
   const diasConsecutivos = verificarDiasConsecutivos(
-    horariosAgrupados.map((g) => g.dia)
+    horariosAgrupados.map((g) => g.dia),
   );
 
   // Verificar se todos os dias têm os mesmos horários
@@ -198,8 +198,8 @@ export function gerarHorarioConsolidado(alocacoes: Alocacao[]): string {
       (grupo) =>
         grupo.horarios.length === primeiroGrupo.length &&
         grupo.horarios.every(
-          (horario, index) => horario === primeiroGrupo[index]
-        )
+          (horario, index) => horario === primeiroGrupo[index],
+        ),
     );
   };
 
@@ -220,8 +220,8 @@ export function gerarHorarioConsolidado(alocacoes: Alocacao[]): string {
       const numerosHorarios = horarios
         .map((h) => h.replace(/[A-Z]/g, ""))
         .join("");
-      const periodo = horarios[0].charAt(0); // M, T ou N
-      horarioConsolidado = `${diasNums}${periodo}${numerosHorarios}`;
+      const turno = horarios[0].charAt(0); // M, T ou N
+      horarioConsolidado = `${diasNums}${turno}${numerosHorarios}`;
     }
   } else {
     // Horários diferentes ou dia único: listar separadamente
@@ -234,8 +234,8 @@ export function gerarHorarioConsolidado(alocacoes: Alocacao[]): string {
         const numerosHorarios = grupo.horarios
           .map((h) => h.replace(/[A-Z]/g, ""))
           .join("");
-        const periodo = grupo.horarios[0].charAt(0); // M, T ou N
-        return `${diaNum}${periodo}${numerosHorarios}`;
+        const turno = grupo.horarios[0].charAt(0); // M, T ou N
+        return `${diaNum}${turno}${numerosHorarios}`;
       }
     });
 
@@ -250,10 +250,10 @@ export function gerarHorarioConsolidado(alocacoes: Alocacao[]): string {
  */
 export function gerarHorarioConsolidadoPorDisciplina(
   allocations: any[],
-  disciplinaId: string
+  disciplinaId: string,
 ): string {
   const alocacoesDisciplina = allocations.filter(
-    (allocation) => allocation.disciplina?.id === disciplinaId
+    (allocation) => allocation.disciplina?.id === disciplinaId,
   );
 
   // Debug: Log dos dados brutos

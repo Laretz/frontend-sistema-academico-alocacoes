@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 // Removed Dialog components (encapsulated in AlocacaoDialog)
 // import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 // Keep Select components (used in Filtros Avançados)
+import { LimparDisciplinaDialog } from "@/app/grade-horarios/components/LimparDisciplinaDialog";
 import {
   Select,
   SelectContent,
@@ -16,6 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 // Clean lucide-react imports: remove Plus, Search (moved to AlocacoesToolbar)
 import {
   Edit,
@@ -28,7 +37,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
 import { useRouter } from "next/navigation";
@@ -108,36 +117,54 @@ export default function AlocacoesPage() {
       | "todos"
     >
   >(new Map());
+  const conflictCheckSeq = useRef(0);
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [salas, setSalas] = useState<Sala[]>([]);
   const [horarios, setHorarios] = useState<Horario[]>([]);
   const [regime, setRegime] = useState<"SUPERIOR" | "TECNICO">("SUPERIOR");
   //estados para filtros
   const [filtroDataInicio, setFiltroDataInicio] = useState<Date | undefined>(
-    undefined
+    undefined,
   );
   const [filtroDataFim, setFiltroDataFim] = useState<Date | undefined>(
-    undefined
+    undefined,
   );
   const [filtroDiaSemana, setFiltroDiaSemana] = useState("");
-  const [filtroPeriodo, setFiltroPeriodo] = useState("");
+  const [filtroTurno, setFiltroTurno] = useState("");
   const [filtroTurmaId, setFiltroTurmaId] = useState("");
+
+  // New states for the requested flow
+  const [previewGrade, setPreviewGrade] = useState<any>(undefined);
+  const [qualifiedProfessorIds, setQualifiedProfessorIds] = useState<string[]>(
+    [],
+  );
 
   useEffect(() => {
     if (user?.role === "PROFESSOR") {
       router.replace("/dashboard");
     }
   }, [user?.role, router]);
+  const [dialogDataLoaded, setDialogDataLoaded] = useState(false);
+
+  useEffect(() => {
+    fetchTurmas();
+  }, []);
+
+  useEffect(() => {
+    if (isDialogOpen && !dialogDataLoaded) {
+      fetchDialogData();
+    }
+  }, [isDialogOpen, dialogDataLoaded]);
+
   useEffect(() => {
     fetchAlocacoes();
-    fetchSelectData();
-  }, []);
+  }, [filtroTurmaId]);
 
   useEffect(() => {
     checkHorarioConflicts(
       formData.id_user,
       formData.id_sala,
-      formData.id_turma
+      formData.id_turma,
     );
   }, [formData.id_user, formData.id_sala, formData.id_turma]);
 
@@ -145,99 +172,120 @@ export default function AlocacoesPage() {
     checkHorarioConflicts(
       formData.id_user,
       formData.id_sala,
-      formData.id_turma
+      formData.id_turma,
     );
   }, [horarios]);
 
-  // Carregar disciplinas do curso da turma selecionada quando turma/toggle mudarem
+  // Load course disciplines when turma changes
   useEffect(() => {
     const loadCursoDisciplinas = async () => {
+      if (!formData.id_turma) {
+        setTodasDisciplinasCurso([]);
+        setDisciplinas([]); // Clear disciplines if no turma
+        return;
+      }
+
       try {
-        if (!formData.id_turma) {
-          setTodasDisciplinasCurso([]);
-          if (mostrarTodasDisciplinas) setDisciplinas(todasDisciplinas);
-          return;
-        }
         const turma = turmas.find((t) => t.id === formData.id_turma);
         const idCurso = turma?.id_curso;
+
         if (!idCurso) {
+          // Fallback: show all disciplines if no course linked
           setTodasDisciplinasCurso([]);
-          if (mostrarTodasDisciplinas) setDisciplinas([]);
+          setDisciplinas(todasDisciplinas);
           return;
         }
+
         const disciplinasData = await cursoService.getDisciplinas(idCurso);
         const cursoDisciplinas = disciplinasData?.disciplinas || [];
         setTodasDisciplinasCurso(cursoDisciplinas);
-        if (mostrarTodasDisciplinas) {
-          const selecionadaId = formData.id_disciplina;
-          const contemSelecionada = !!cursoDisciplinas.find(
-            (d: any) => d.id === selecionadaId
-          );
-          const listaComSelecionada =
-            contemSelecionada || !selecionadaId
-              ? cursoDisciplinas
-              : [
-                  ...cursoDisciplinas,
-                  ...todasDisciplinas.filter((d) => d.id === selecionadaId),
-                ];
-          setDisciplinas(listaComSelecionada);
+
+        // Se estamos editando e a disciplina da alocação não está na lista do curso,
+        // adicionamos ela manualmente para não quebrar o select.
+        let finalDisciplinas = cursoDisciplinas;
+        if (editingAlocacao && editingAlocacao.id_turma === formData.id_turma) {
+          const disciplinaId = editingAlocacao.id_disciplina;
+          const exists = cursoDisciplinas.some((d) => d.id === disciplinaId);
+          if (!exists) {
+            let disciplina = todasDisciplinas.find(
+              (d) => d.id === disciplinaId,
+            );
+
+            // Fallback: usar o objeto disciplina da própria alocação se disponível
+            if (!disciplina && editingAlocacao.disciplina) {
+              disciplina = editingAlocacao.disciplina;
+            }
+
+            if (disciplina) {
+              finalDisciplinas = [...cursoDisciplinas, disciplina];
+            }
+          }
         }
+
+        setDisciplinas(finalDisciplinas);
       } catch (error) {
         console.error("Erro ao buscar disciplinas do curso:", error);
         setTodasDisciplinasCurso([]);
-        if (mostrarTodasDisciplinas) setDisciplinas([]);
+        setDisciplinas([]);
       }
     };
     loadCursoDisciplinas();
-  }, [formData.id_turma, turmas, mostrarTodasDisciplinas]);
+  }, [formData.id_turma, turmas, todasDisciplinas, editingAlocacao]);
 
-  // Recomputar a lista exibida somente ao alternar o toggle
+  // Fetch Preview Grade when Turma changes
   useEffect(() => {
-    if (mostrarTodasDisciplinas) {
-      setDisciplinas(
-        todasDisciplinasCurso.length ? todasDisciplinasCurso : todasDisciplinas
-      );
-    } else {
-      setDisciplinas(disciplinasProfessor || []);
-    }
-    setFormData((prev) => ({ ...prev, id_disciplina: "" }));
-  }, [mostrarTodasDisciplinas]);
+    const fetchPreview = async () => {
+      if (!formData.id_turma) {
+        setPreviewGrade(undefined);
+        return;
+      }
+      try {
+        // Use the existing service method or the generic one
+        // We want the grade of the TURMA to see how it's filling up
+        const grade = await alocacaoService.getGradeHorarios({
+          id_turma: formData.id_turma,
+        });
+        setPreviewGrade(grade);
+      } catch (error) {
+        console.error("Erro ao buscar grade de preview:", error);
+      }
+    };
+    fetchPreview();
+  }, [formData.id_turma]);
 
-  // Atualizar lista quando vínculos do professor mudarem, sem limpar seleção
+  // Fetch Qualified Professors when Disciplina changes
   useEffect(() => {
-    if (!mostrarTodasDisciplinas) {
-      setDisciplinas(disciplinasProfessor || []);
-    }
-  }, [disciplinasProfessor, mostrarTodasDisciplinas]);
-
-  // Atualizar lista quando disciplinas do curso mudarem, preservando seleção
-  useEffect(() => {
-    if (mostrarTodasDisciplinas) {
-      const selecionadaId = formData.id_disciplina;
-      const base = todasDisciplinasCurso.length
-        ? todasDisciplinasCurso
-        : todasDisciplinas;
-      const contemSelecionada = !!base.find((d: any) => d.id === selecionadaId);
-      const novaLista =
-        contemSelecionada || !selecionadaId
-          ? base
-          : [
-              ...base,
-              ...todasDisciplinas.filter((d) => d.id === selecionadaId),
-            ];
-      setDisciplinas(novaLista);
-    }
-  }, [
-    todasDisciplinasCurso,
-    todasDisciplinas,
-    mostrarTodasDisciplinas,
-    formData.id_disciplina,
-  ]);
+    setQualifiedProfessorIds([]); // Clear previous to avoid stale data
+    const fetchProfessores = async () => {
+      if (!formData.id_disciplina) {
+        return;
+      }
+      try {
+        const data = await professorDisciplinaService.getByDisciplina(
+          formData.id_disciplina,
+        );
+        // Assuming the API returns a list of professors (Users) or relations with id_user
+        // Safely mapping to get IDs
+        const ids = data.professores.map((p: any) => p.id_user || p.id);
+        setQualifiedProfessorIds(ids);
+      } catch (error) {
+        console.error("Erro ao buscar professores qualificados:", error);
+        setQualifiedProfessorIds([]);
+      }
+    };
+    fetchProfessores();
+  }, [formData.id_disciplina]);
 
   const fetchAlocacoes = async () => {
+    if (!filtroTurmaId) {
+      setAlocacoes([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const response = await alocacaoService.getAll(1);
+      // Busca todas as alocações da turma usando a rota dedicada sem paginação
+      const response = await alocacaoService.getAllByTurma(filtroTurmaId);
       setAlocacoes(response.alocacoes || []);
     } catch (error) {
       console.error("Erro ao buscar alocações:", error);
@@ -249,9 +297,10 @@ export default function AlocacoesPage() {
 
   const excluirTodasAlocacoesTurma = async () => {
     if (!filtroTurmaId) {
-      alert("Selecione uma turma");
+      toast.error("Selecione uma turma");
       return;
     }
+    // Usando confirm nativo por enquanto, poderia ser um Dialog também
     if (
       !confirm("Tem certeza que deseja excluir todas as alocações desta turma?")
     ) {
@@ -260,42 +309,67 @@ export default function AlocacoesPage() {
     try {
       setLoading(true);
       await alocacaoService.deleteAllByTurma(filtroTurmaId);
-      alert("Todas as alocações da turma foram excluídas com sucesso!");
+      toast.success("Todas as alocações da turma foram excluídas com sucesso!");
       fetchAlocacoes(); // Recarregar a lista
     } catch (error) {
       console.error("Erro ao excluir alocações da turma:", error);
-      alert("Erro ao excluir alocações da turma");
+      toast.error("Erro ao excluir alocações da turma");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchSelectData = async () => {
-    try {
-      const [usuariosData, disciplinasData, turmasData, salasData] =
-        await Promise.all([
-          userService.getAll(1),
-          disciplinaService.getAll(),
-          turmaService.getAll(1),
-          salaService.getAll(1),
-        ]);
+  const disciplinasDaTurma = alocacoes
+    .filter((a) => a.id_turma === filtroTurmaId)
+    .map((a) => a.disciplina)
+    .filter((d): d is Disciplina => !!d)
+    .reduce((acc, curr) => {
+      if (!acc.some((d) => d.id === curr.id)) {
+        acc.push(curr);
+      }
+      return acc;
+    }, [] as Disciplina[]);
 
-      setUsuarios(usuariosData.usuarios || []);
-      setTodasDisciplinas(disciplinasData.disciplinas || []);
-      setDisciplinas(disciplinasData.disciplinas || []);
+  const fetchTurmas = async () => {
+    try {
+      // Busca lista simples de todas as turmas
+      const turmasData = await turmaService.getAllSimple();
       setTurmas(turmasData.turmas || []);
-      setSalas(salasData.salas || []);
-      const horariosData = await horarioService.getAll(regime);
+
+      const horariosData = await horarioService.getAll(
+        regime as "SUPERIOR" | "TECNICO",
+      );
       setHorarios(horariosData || []);
     } catch (error) {
-      console.error("Erro ao buscar dados para os selects:", error);
+      console.error("Erro ao buscar turmas:", error);
+    }
+  };
+
+  const fetchDialogData = async () => {
+    try {
+      const [usuariosData, disciplinasData, salasData] = await Promise.all([
+        userService.getAll(1),
+        disciplinaService.getAll(),
+        salaService.getAll(1),
+      ]);
+
+      setUsuarios((usuariosData.usuarios as unknown as User[]) || []);
+      setTodasDisciplinas(disciplinasData.disciplinas || []);
+      setDisciplinas(disciplinasData.disciplinas || []);
+      setSalas(salasData.salas || []);
+
+      setDialogDataLoaded(true);
+    } catch (error) {
+      console.error("Erro ao buscar dados para o diálogo:", error);
     }
   };
 
   useEffect(() => {
     (async () => {
       try {
-        const horariosData = await horarioService.getAll(regime);
+        const horariosData = await horarioService.getAll(
+          regime as "SUPERIOR" | "TECNICO",
+        );
         setHorarios(horariosData || []);
       } catch (e) {
         console.error("Erro ao buscar horários por regime", e);
@@ -324,18 +398,21 @@ export default function AlocacoesPage() {
   const checkHorarioConflicts = async (
     professorId: string,
     salaId: string,
-    turmaId: string
+    turmaId: string,
   ) => {
+    const seq = ++conflictCheckSeq.current;
     if (!professorId && !salaId && !turmaId) {
       setConflictingHorarios(new Map());
       return;
     }
 
+    setConflictingHorarios(new Map());
+
     const overlaps = (
       aInicio: string,
       aFim: string,
       bInicio: string,
-      bFim: string
+      bFim: string,
     ) => {
       const ai = new Date(aInicio).getTime();
       const af = new Date(aFim).getTime();
@@ -365,7 +442,7 @@ export default function AlocacoesPage() {
         while (true) {
           const { alocacoes: pageItems } = await alocacaoService.getByProfessor(
             professorId,
-            page
+            page,
           );
           const list = pageItems || [];
           alocacoesProfessor.push(...list);
@@ -377,12 +454,12 @@ export default function AlocacoesPage() {
 
       let alocacoesTurma: Alocacao[] = [];
       if (turmaId) {
-        const periodos = ["M", "T", "N"];
-        for (const periodo of periodos) {
+        const turnos = ["M", "T", "N"];
+        for (const turno of turnos) {
           let page = 1;
           while (true) {
             const { alocacoes: pageItems } =
-              await alocacaoService.getByTurmaPeriodo(turmaId, periodo, page);
+              await alocacaoService.getByTurmaTurno(turmaId, turno, page);
             const list = pageItems || [];
             alocacoesTurma.push(...list);
             if (list.length < 20) break;
@@ -399,7 +476,7 @@ export default function AlocacoesPage() {
           id_sala: salaId,
         });
         const flatten = (
-          g: Record<string, Record<string, any>> | undefined
+          g: Record<string, Record<string, any>> | undefined,
         ) => {
           const out: Array<{ dia: string; inicio: string; fim: string }> = [];
           if (!g) return out;
@@ -432,7 +509,7 @@ export default function AlocacoesPage() {
           return out;
         };
         salaIntervals = flatten(
-          grade as unknown as Record<string, Record<string, any>>
+          grade as unknown as Record<string, Record<string, any>>,
         );
       }
 
@@ -455,7 +532,7 @@ export default function AlocacoesPage() {
               ah.horario_inicio,
               ah.horario_fim,
               h.horario_inicio,
-              h.horario_fim
+              h.horario_fim,
             );
           });
         }
@@ -470,7 +547,7 @@ export default function AlocacoesPage() {
               ah.horario_inicio,
               ah.horario_fim,
               h.horario_inicio,
-              h.horario_fim
+              h.horario_fim,
             );
           });
         }
@@ -479,7 +556,7 @@ export default function AlocacoesPage() {
           markSala = salaIntervals.some(
             (it) =>
               it.dia === h.dia_semana &&
-              overlaps(it.inicio, it.fim, h.horario_inicio, h.horario_fim)
+              overlaps(it.inicio, it.fim, h.horario_inicio, h.horario_fim),
           );
         }
 
@@ -511,9 +588,11 @@ export default function AlocacoesPage() {
         }
       });
 
+      if (seq !== conflictCheckSeq.current) return;
       setConflictingHorarios(conflicts);
     } catch (error) {
       console.error("Erro ao verificar conflitos de horário:", error);
+      if (seq !== conflictCheckSeq.current) return;
       setConflictingHorarios(new Map());
     }
   };
@@ -521,6 +600,23 @@ export default function AlocacoesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
+
+    // Workload Validation
+    const selectedDisciplina = todasDisciplinas.find(
+      (d) => d.id === formData.id_disciplina,
+    );
+    if (selectedDisciplina) {
+      const weeklyClasses = Math.ceil(selectedDisciplina.carga_horaria / 15);
+      const selectedCount = formData.id_horarios.length;
+
+      if (selectedCount < weeklyClasses) {
+        const confirmMessage = `A disciplina "${selectedDisciplina.nome}" exige aproximadamente ${weeklyClasses} aulas semanais, mas você selecionou apenas ${selectedCount}.\n\nDeseja continuar mesmo assim?`;
+        if (!confirm(confirmMessage)) {
+          return;
+        }
+      }
+    }
+
     setSubmitting(true);
     try {
       // Obter id_curso da turma selecionada
@@ -534,18 +630,18 @@ export default function AlocacoesPage() {
       // Buscar vínculos CursoDisciplina do curso para mapear disciplina → id_curso_disciplina
       const { vinculos } = await cursoService.getDisciplinaVinculos(idCurso);
       const vinculo = vinculos.find(
-        (v) => v.id_disciplina === formData.id_disciplina
+        (v) => v.id_disciplina === formData.id_disciplina,
       );
       if (!vinculo) {
         toast.error(
-          "Disciplina não está vinculada ao curso da turma selecionada"
+          "Disciplina não está vinculada ao curso da turma selecionada",
         );
         return;
       }
 
       // Verificar vínculo professor-disciplina; se ausente, criar automaticamente
       const professorPossuiVinculo = disciplinasProfessor.some(
-        (d) => d.id === formData.id_disciplina
+        (d) => d.id === formData.id_disciplina,
       );
       if (!professorPossuiVinculo) {
         try {
@@ -559,7 +655,7 @@ export default function AlocacoesPage() {
           if (err?.response?.status === 409) {
             // Vínculo já existe; seguir adiante
             console.warn(
-              "Vínculo professor-disciplina já existente (409). Prosseguindo."
+              "Vínculo professor-disciplina já existente (409). Prosseguindo.",
             );
           } else {
             toast.error("Falha ao criar vínculo professor-disciplina");
@@ -608,11 +704,16 @@ export default function AlocacoesPage() {
   const handleEdit = (alocacao: Alocacao) => {
     setEditingAlocacao(alocacao);
     setIsDialogOpen(true);
+
+    // Garantir que temos o ID da disciplina
+    const idDisciplina =
+      alocacao.id_disciplina || alocacao.disciplina?.id || "";
+
     setFormData({
-      id_user: alocacao.id_user,
-      id_disciplina: alocacao.id_disciplina,
-      id_turma: alocacao.id_turma,
-      id_sala: alocacao.id_sala,
+      id_user: alocacao.id_user || "",
+      id_disciplina: idDisciplina,
+      id_turma: alocacao.id_turma || "",
+      id_sala: alocacao.id_sala || "",
       id_horarios: [alocacao.id_horario],
     });
   };
@@ -640,15 +741,7 @@ export default function AlocacoesPage() {
   };
 
   const handleProfessorChange = (value: string) => {
-    setFormData({ ...formData, id_user: value, id_disciplina: "" });
-
-    if (value) {
-      fetchDisciplinasProfessor(value);
-    } else {
-      setDisciplinasProfessor([]);
-      setDisciplinas(todasDisciplinas);
-      setMostrarTodasDisciplinas(false);
-    }
+    setFormData({ ...formData, id_user: value });
   };
 
   const handleMostrarTodasDisciplinasChange = (checked: boolean) => {
@@ -706,17 +799,12 @@ export default function AlocacoesPage() {
       if (diaSemanaAlocacao !== filtroDiaSemana.toLowerCase()) return false;
     }
 
-    if (filtroPeriodo && filtroPeriodo !== "todos") {
+    if (filtroTurno && filtroTurno !== "todos") {
       const codigoHorario = alocacao.horario?.codigo?.toLowerCase();
-      if (
-        filtroPeriodo === "M" ||
-        filtroPeriodo === "T" ||
-        filtroPeriodo === "N"
-      ) {
-        if (!codigoHorario?.startsWith(filtroPeriodo.toLowerCase()))
-          return false;
+      if (filtroTurno === "M" || filtroTurno === "T" || filtroTurno === "N") {
+        if (!codigoHorario?.startsWith(filtroTurno.toLowerCase())) return false;
       } else {
-        if (codigoHorario !== filtroPeriodo.toLowerCase()) return false;
+        if (codigoHorario !== filtroTurno.toLowerCase()) return false;
       }
     }
 
@@ -762,7 +850,21 @@ export default function AlocacoesPage() {
     ];
 
     const gruposTmp: { [key: string]: typeof horarios } = {};
-    horarios.forEach((horario) => {
+
+    // Filtrar duplicatas de horários (mesmo dia e código)
+    // Isso previne que horários duplicados (ex: M1, M1) apareçam na interface
+    const horariosUnicos = horarios.reduce((acc, current) => {
+      const isDuplicate = acc.some(
+        (h) =>
+          h.dia_semana === current.dia_semana && h.codigo === current.codigo,
+      );
+      if (!isDuplicate) {
+        acc.push(current);
+      }
+      return acc;
+    }, [] as Horario[]);
+
+    horariosUnicos.forEach((horario) => {
       const dia = horario.dia_semana;
       if (!gruposTmp[dia]) gruposTmp[dia] = [];
       gruposTmp[dia].push(horario);
@@ -804,15 +906,19 @@ export default function AlocacoesPage() {
           setFiltroDataFim={setFiltroDataFim}
           filtroDiaSemana={filtroDiaSemana}
           setFiltroDiaSemana={setFiltroDiaSemana}
-          filtroPeriodo={filtroPeriodo}
-          setFiltroPeriodo={setFiltroPeriodo}
+          filtroTurno={filtroTurno}
+          setFiltroTurno={setFiltroTurno}
           isDialogOpen={isDialogOpen}
           setIsDialogOpen={setIsDialogOpen}
           editingAlocacao={editingAlocacao}
           setEditingAlocacao={setEditingAlocacao}
           formData={formData}
           setFormData={setFormData}
-          usuarios={usuarios}
+          usuarios={
+            formData.id_disciplina && qualifiedProfessorIds.length > 0
+              ? usuarios.filter((u) => qualifiedProfessorIds.includes(u.id))
+              : usuarios
+          }
           disciplinas={disciplinas}
           mostrarTodasDisciplinas={mostrarTodasDisciplinas}
           handleProfessorChange={handleProfessorChange}
@@ -833,51 +939,54 @@ export default function AlocacoesPage() {
           submitting={submitting}
           handleSubmit={handleSubmit}
           todasDisciplinas={todasDisciplinas}
+          previewGrade={previewGrade}
         />
 
         {/* Filtros Avançados */}
         <Card>
           <CardContent className="p-4">
-            <div>
-              <h3 className="text-lg font-medium text-foreground mb-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-foreground">
                 Filtros Avançados
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Filtro por Turma */}
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1 block">
-                    Turma
-                  </label>
-                  <Select
-                    value={filtroTurmaId}
-                    onValueChange={setFiltroTurmaId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma turma" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todas">Todas as turmas</SelectItem>
-                      {turmas.map((turma) => (
-                        <SelectItem key={turma.id} value={turma.id}>
-                          {turma.nome} - {turma.periodo}º período ({turma.turno}
-                          )
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="flex gap-2">
+                {filtroTurmaId && (
+                  <LimparDisciplinaDialog
+                    turmaId={filtroTurmaId}
+                    disciplinas={disciplinasDaTurma}
+                    onSuccess={fetchAlocacoes}
+                  />
+                )}
+                <Button
+                  onClick={excluirTodasAlocacoesTurma}
+                  variant="destructive"
+                  size="sm"
+                  disabled={!filtroTurmaId}
+                >
+                  Excluir Todas da Turma
+                </Button>
+              </div>
+            </div>
 
-                {/* Botões de Ação */}
-                <div className="flex flex-col space-y-2 md:col-span-2">
-                  <Button
-                    onClick={excluirTodasAlocacoesTurma}
-                    variant="destructive"
-                    size="sm"
-                    className="w-full"
-                  >
-                    Excluir Todas da Turma
-                  </Button>
-                </div>
+            <div className="flex flex-col md:flex-row gap-4 items-end">
+              {/* Filtro por Turma */}
+              <div className="flex-1">
+                <label className="text-sm font-medium text-foreground mb-1 block">
+                  Turma
+                </label>
+                <Select value={filtroTurmaId} onValueChange={setFiltroTurmaId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma turma" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {turmas.map((turma) => (
+                      <SelectItem key={turma.id} value={turma.id}>
+                        {turma.nome} - {turma.semestre}º semestre (
+                        {turma.turno || "Sem Turno"})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -894,7 +1003,7 @@ export default function AlocacoesPage() {
                   setFiltroDataInicio(undefined);
                   setFiltroDataFim(undefined);
                   setFiltroDiaSemana("");
-                  setFiltroPeriodo("");
+                  setFiltroTurno("");
                   setFiltroTurmaId("");
                   fetchAlocacoes();
                 }}
@@ -919,101 +1028,99 @@ export default function AlocacoesPage() {
                 filtroDataInicio ||
                 filtroDataFim ||
                 filtroDiaSemana ||
-                filtroPeriodo ||
+                filtroTurno ||
                 filtroTurmaId
                   ? "Nenhuma alocação encontrada com os filtros aplicados"
                   : "Nenhuma alocação cadastrada"}
               </p>
             </div>
           ) : (
-            filteredAlocacoes.map((alocacao) => (
-              <Card
-                key={alocacao.id}
-                className="hover:shadow-md transition-shadow"
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2">
-                          <BookOpen className="h-4 w-4 text-primary" />
-                          <span className="font-medium text-lg">
-                            {alocacao.disciplina?.nome ||
-                              "Disciplina não encontrada"}
-                          </span>
-                        </div>
-                        <Badge variant="outline">
-                          {alocacao.horario?.codigo || "Horário não encontrado"}
-                        </Badge>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center space-x-2">
-                          <UserIcon className="h-4 w-4" />
+            <div className="rounded-md border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Dia</TableHead>
+                    <TableHead>Horário</TableHead>
+                    <TableHead>Disciplina</TableHead>
+                    <TableHead>Professor</TableHead>
+                    <TableHead>Sala</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAlocacoes.map((alocacao) => (
+                    <TableRow key={alocacao.id}>
+                      <TableCell className="font-medium">
+                        {alocacao.horario
+                          ? getDiaSemanaLabel(alocacao.horario.dia_semana)
+                          : "N/A"}
+                      </TableCell>
+                      <TableCell>
+                        {alocacao.horario ? (
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {alocacao.horario.codigo}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {alocacao.horario.horario_inicio
+                                ?.split("T")[1]
+                                ?.substring(0, 5) ||
+                                alocacao.horario.horario_inicio}{" "}
+                              -{" "}
+                              {alocacao.horario.horario_fim
+                                ?.split("T")[1]
+                                ?.substring(0, 5) ||
+                                alocacao.horario.horario_fim}
+                            </span>
+                          </div>
+                        ) : (
+                          "N/A"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {alocacao.disciplina?.nome ||
+                          "Disciplina não encontrada"}
+                      </TableCell>
+                      <TableCell>
+                        {alocacao.user?.nome || "Professor não encontrado"}
+                      </TableCell>
+                      <TableCell>
+                        {alocacao.sala ? (
                           <span>
-                            {alocacao.user?.nome || "Professor não encontrado"}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <GraduationCap className="h-4 w-4" />
-                          <span>
-                            {alocacao.turma?.nome || "Turma não encontrada"}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <MapPin className="h-4 w-4" />
-                          <span>
-                            {alocacao.sala?.nome || "Sala não encontrada"}
-                            {alocacao.sala?.predio &&
+                            {alocacao.sala.nome}
+                            {alocacao.sala.predio &&
                               ` - ${alocacao.sala.predio.nome}`}
                           </span>
+                        ) : (
+                          "Sala não encontrada"
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(alocacao)}
+                            title="Editar"
+                          >
+                            <Edit className="h-4 w-4 text-shadblue-primary" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(alocacao.id)}
+                            className="text-destructive hover:text-destructive/80"
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Clock className="h-4 w-4" />
-                          <span>
-                            {alocacao.horario
-                              ? getDiaSemanaLabel(alocacao.horario.dia_semana)
-                              : "Horário não encontrado"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {alocacao.horario && (
-                        <div className="text-sm text-muted-foreground">
-                          Horário: {alocacao.horario.codigo} -{" "}
-                          {alocacao.horario.horario_inicio
-                            ?.split("T")[1]
-                            ?.substring(0, 5) ||
-                            alocacao.horario.horario_inicio}{" "}
-                          -{" "}
-                          {alocacao.horario.horario_fim
-                            ?.split("T")[1]
-                            ?.substring(0, 5) || alocacao.horario.horario_fim}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex space-x-2 ml-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(alocacao)}
-                      >
-                        <Edit className="h-4 w-4 text-shadblue-primary" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(alocacao.id)}
-                        className="text-destructive hover:text-destructive/80"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </div>
       </div>

@@ -78,7 +78,7 @@ interface CalendarioProgressoDisciplinasProps {
   turma?: {
     id: string;
     nome: string;
-    periodo: number;
+    semestre: number;
     turno: string;
   };
   turmaId?: string;
@@ -141,7 +141,7 @@ const CORES_DISCIPLINAS = [
 // Função para obter cor consistente para cada disciplina baseada no ID
 const obterCorDisciplina = (
   disciplinaId: string,
-  todasDisciplinas: Disciplina[]
+  todasDisciplinas: Disciplina[],
 ): string => {
   // Verificação de segurança
   if (!todasDisciplinas || todasDisciplinas.length === 0 || !disciplinaId) {
@@ -231,14 +231,14 @@ export function CalendarioProgressoDisciplinas({
   }, [turmaId]);
 
   const disciplinasFiltradas = disciplinas.filter((d) =>
-    disciplinasSelecionadas.includes(d.id)
+    disciplinasSelecionadas.includes(d.id),
   );
 
   const toggleDisciplina = (disciplinaId: string) => {
     setDisciplinasSelecionadas((prev) =>
       prev.includes(disciplinaId)
         ? prev.filter((id) => id !== disciplinaId)
-        : [...prev, disciplinaId]
+        : [...prev, disciplinaId],
     );
   };
 
@@ -277,12 +277,12 @@ export function CalendarioProgressoDisciplinas({
       const cronogramaDisciplina = calcularCronogramaSimplificado(
         disciplina,
         inicioMes,
-        fimMes
+        fimMes,
       );
 
       cronogramaDisciplina.forEach((item) => {
         const itemExistente = cronogramaCompleto.find(
-          (existing) => existing.data.getTime() === item.data.getTime()
+          (existing) => existing.data.getTime() === item.data.getTime(),
         );
 
         if (itemExistente) {
@@ -420,12 +420,12 @@ export function CalendarioProgressoDisciplinas({
               const percentualAtual = disciplina.progresso_aulas;
               const corDisciplina = obterCorDisciplina(
                 disciplina.id,
-                disciplinas
+                disciplinas,
               );
 
               // Debug: log para verificar os valores
               console.log(
-                `Disciplina ${disciplina.nome}: ${aulasMinistradas}/${disciplina.total_aulas} = ${percentualAtual}% (backend: ${disciplina.progresso_aulas}%)`
+                `Disciplina ${disciplina.nome}: ${aulasMinistradas}/${disciplina.total_aulas} = ${percentualAtual}% (backend: ${disciplina.progresso_aulas}%)`,
               );
 
               return (
@@ -436,7 +436,7 @@ export function CalendarioProgressoDisciplinas({
                     setDisciplinaSelecionada(
                       disciplinaSelecionada === disciplina.id
                         ? null
-                        : disciplina.id
+                        : disciplina.id,
                     )
                   }
                 >
@@ -498,7 +498,7 @@ export function CalendarioProgressoDisciplinas({
                     >
                       {dia}
                     </div>
-                  )
+                  ),
                 )}
               </div>
 
@@ -512,7 +512,7 @@ export function CalendarioProgressoDisciplinas({
                       key={`empty-${index}`}
                       className="min-h-[80px] border border-transparent"
                     ></div>
-                  )
+                  ),
                 )}
 
                 {diasDoMes.map((dia) => {
@@ -520,7 +520,7 @@ export function CalendarioProgressoDisciplinas({
                   const temAulas = dadosDia && dadosDia.disciplinas.length > 0;
                   const disciplinasVisveis = disciplinaSelecionada
                     ? dadosDia?.disciplinas.filter(
-                        (d) => d.disciplina.id === disciplinaSelecionada
+                        (d) => d.disciplina.id === disciplinaSelecionada,
                       )
                     : dadosDia?.disciplinas;
                   const ehHoje = isToday(dia);
@@ -564,12 +564,12 @@ export function CalendarioProgressoDisciplinas({
                         disciplinasVisveis
                           .filter(
                             (item) =>
-                              item && item.disciplina && item.disciplina.id
+                              item && item.disciplina && item.disciplina.id,
                           )
                           .map((item, index) => {
                             const cor = obterCorDisciplina(
                               item.disciplina.id,
-                              disciplinas
+                              disciplinas,
                             );
 
                             return (
@@ -584,11 +584,15 @@ export function CalendarioProgressoDisciplinas({
                                   >
                                     {formatarDuracaoAulas(item.quantidadeAulas)}
                                     {item.isUltimoDia && (
-                                      <span className="ml-1 text-yellow-500">📍</span>
+                                      <span className="ml-1 text-yellow-500">
+                                        📍
+                                      </span>
                                     )}
                                   </Badge>
                                 </div>
-                                <div className={`text-xs mt-1 ${dia.getTime() > Date.now() ? 'text-gray-500 italic underline decoration-dotted' : 'text-gray-600'}`}>
+                                <div
+                                  className={`text-xs mt-1 ${dia.getTime() > Date.now() ? "text-gray-500 italic underline decoration-dotted" : "text-gray-600"}`}
+                                >
                                   {`${Math.round(item.percentualConcluido)}%`}
                                 </div>
                               </div>
@@ -611,7 +615,9 @@ export function CalendarioProgressoDisciplinas({
               <span>Progresso acumulado</span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-500 italic underline decoration-dotted">45%</span>
+              <span className="text-xs text-gray-500 italic underline decoration-dotted">
+                45%
+              </span>
               <span>Projeção</span>
             </div>
             <div className="flex items-center space-x-2">
@@ -629,7 +635,7 @@ export function CalendarioProgressoDisciplinas({
 const calcularCronogramaSimplificado = (
   disciplina: Disciplina,
   dataInicio: Date,
-  dataFim: Date
+  dataFim: Date,
 ): AulasDia[] => {
   const cronograma: AulasDia[] = [];
   const diasDoMes = eachDayOfInterval({ start: dataInicio, end: dataFim });
@@ -654,9 +660,9 @@ const calcularCronogramaSimplificado = (
   const ultimoDiaAula =
     temHorarioConsolidado && dataInicioDisc
       ? calcularUltimoDiaAula(
-          disciplina.horario_consolidado,
+          disciplina.horario_consolidado || "",
           dataInicioDisc,
-          totalAulas
+          totalAulas,
         )
       : null;
 
@@ -683,13 +689,13 @@ const calcularCronogramaSimplificado = (
         if (temHorarioConsolidado) {
           const diaSemanaParaHorario = d + 1;
           temAulaPre = temAulaNoDia(
-            disciplina.horario_consolidado,
-            diaSemanaParaHorario
+            disciplina.horario_consolidado || "",
+            diaSemanaParaHorario,
           );
           if (temAulaPre) {
             qtdPre = calcularAulasNoDia(
-              disciplina.horario_consolidado,
-              diaSemanaParaHorario
+              disciplina.horario_consolidado || "",
+              diaSemanaParaHorario,
             );
           }
         } else {
@@ -732,15 +738,15 @@ const calcularCronogramaSimplificado = (
 
       // Usar a função utilitária para verificar se tem aula no dia
       temAulaNoDiaAtual = temAulaNoDia(
-        disciplina.horario_consolidado,
-        diaSemanaParaHorario
+        disciplina.horario_consolidado || "",
+        diaSemanaParaHorario,
       );
 
       // Calcular quantas aulas há neste dia
       if (temAulaNoDiaAtual) {
         quantidadeAulasNoDia = calcularAulasNoDia(
-          disciplina.horario_consolidado,
-          diaSemanaParaHorario
+          disciplina.horario_consolidado || "",
+          diaSemanaParaHorario,
         );
       }
     } else {
@@ -782,7 +788,7 @@ const calcularCronogramaSimplificado = (
 
 // Usar data_fim_real calculada corretamente pelo backend
 const calcularPrevisaoConclusaoSimplificada = (
-  disciplina: Disciplina
+  disciplina: Disciplina,
 ): Date | null => {
   // Usar data_fim_real calculada pelo backend (agora com lógica correta)
   if (disciplina.data_fim_real) {

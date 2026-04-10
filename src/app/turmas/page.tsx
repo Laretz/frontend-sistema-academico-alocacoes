@@ -27,23 +27,40 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Plus, Search, Edit, Trash2, Users, Calendar } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { turmaService, cursoService } from "@/services/entities";
 import { Turma, CreateTurmaRequest, Curso } from "@/types/entities";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { GradeHorariosTurma } from "@/components/GradeHorariosTurma";
 
 export default function TurmasPage() {
+  type TurmaWithCurso = Turma & {
+    curso?: {
+      id: string;
+      nome: string;
+      codigo?: string;
+      turno?: string;
+    };
+  };
+
   const [searchTerm, setSearchTerm] = useState("");
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [cursos, setCursos] = useState<Curso[]>([]);
+  const [semestreFiltro, setSemestreFiltro] = useState<string>("todos");
+  const [cursoFiltro, setCursoFiltro] = useState<string>("todos");
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTurma, setEditingTurma] = useState<Turma | null>(null);
   const [formData, setFormData] = useState<CreateTurmaRequest>({
     nome: "",
     num_alunos: 0,
-    periodo: 1,
+    semestre: 1,
     turno: "",
     id_curso: "",
   });
@@ -56,7 +73,7 @@ export default function TurmasPage() {
   const fetchTurmas = async () => {
     try {
       setLoading(true);
-      const response = await turmaService.getAll();
+      const response = await turmaService.getAllSimple();
       setTurmas(response.turmas);
     } catch (error) {
       console.error("Erro ao buscar turmas:", error);
@@ -94,7 +111,7 @@ export default function TurmasPage() {
     setFormData({
       nome: turma.nome,
       num_alunos: turma.num_alunos,
-      periodo: turma.periodo,
+      semestre: turma.semestre,
       turno: turma.turno,
       id_curso: turma.id_curso || "",
     });
@@ -118,15 +135,64 @@ export default function TurmasPage() {
     setFormData({
       nome: "",
       num_alunos: 0,
-      periodo: 1,
+      semestre: 1,
       turno: "",
       id_curso: "",
     });
   };
 
-  const filteredTurmas = turmas.filter((turma) =>
-    turma.nome.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const semestresDisponiveis = useMemo(() => {
+    const semestres = Array.from(
+      new Set(
+        turmas
+          .map((t) => t.semestre)
+          .filter((s): s is number => typeof s === "number"),
+      ),
+    );
+    semestres.sort((a, b) => a - b);
+    return semestres;
+  }, [turmas]);
+
+  const cursoLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    cursos.forEach((c) => {
+      map.set(c.id, `${c.nome} - ${c.turno}`);
+    });
+    return map;
+  }, [cursos]);
+
+  const filteredTurmas = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return turmas
+      .filter((turma) =>
+        normalizedSearch
+          ? turma.nome.toLowerCase().includes(normalizedSearch)
+          : true,
+      )
+      .filter((turma) =>
+        semestreFiltro === "todos"
+          ? true
+          : String(turma.semestre) === semestreFiltro,
+      )
+      .filter((turma) => {
+        if (cursoFiltro === "todos") return true;
+        const turmaWithCurso = turma as TurmaWithCurso;
+        return turma.id_curso === cursoFiltro || turmaWithCurso.curso?.id === cursoFiltro;
+      })
+      .sort((a, b) => {
+        const aSem = typeof a.semestre === "number" ? a.semestre : 9999;
+        const bSem = typeof b.semestre === "number" ? b.semestre : 9999;
+        if (aSem !== bSem) return aSem - bSem;
+        return a.nome.localeCompare(b.nome);
+      });
+  }, [turmas, searchTerm, semestreFiltro, cursoFiltro]);
+
+  const limparFiltros = () => {
+    setSearchTerm("");
+    setSemestreFiltro("todos");
+    setCursoFiltro("todos");
+  };
 
   return (
     <MainLayout>
@@ -198,15 +264,15 @@ export default function TurmasPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="periodo">Período</Label>
+                  <Label htmlFor="semestre">Semestre</Label>
                   <Input
-                    id="periodo"
+                    id="semestre"
                     type="number"
-                    value={formData.periodo}
+                    value={formData.semestre}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        periodo: parseInt(e.target.value) || 1,
+                        semestre: parseInt(e.target.value) || 1,
                       })
                     }
                     placeholder="Ex: 1"
@@ -250,13 +316,15 @@ export default function TurmasPage() {
                               {formData.id_curso ? (
                                 <span className="truncate block">
                                   {(() => {
-                                    const curso = cursos.find(c => c.id === formData.id_curso);
+                                    const curso = cursos.find(
+                                      (c) => c.id === formData.id_curso,
+                                    );
                                     if (!curso) return "Curso não encontrado";
                                     const nomeCompleto = `${curso.nome} - ${curso.turno}`;
-                                    return nomeCompleto.length > 30 
+                                    return nomeCompleto.length > 30
                                       ? nomeCompleto.substring(0, 30) + "..."
                                       : nomeCompleto;
-                                  })()} 
+                                  })()}
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground">
@@ -266,20 +334,29 @@ export default function TurmasPage() {
                             </div>
                           </SelectTrigger>
                         </TooltipTrigger>
-                        {formData.id_curso && (() => {
-                          const curso = cursos.find(c => c.id === formData.id_curso);
-                          const nomeCompleto = curso ? `${curso.nome} - ${curso.turno}` : "";
-                          return nomeCompleto.length > 30;
-                        })() && (
-                          <TooltipContent className="max-w-xs p-2 text-sm bg-popover text-popover-foreground border rounded shadow-lg">
-                            <p className="break-words">
-                              {(() => {
-                                const curso = cursos.find(c => c.id === formData.id_curso);
-                                return curso ? `${curso.nome} - ${curso.turno}` : "";
-                              })()}
-                            </p>
-                          </TooltipContent>
-                        )}
+                        {formData.id_curso &&
+                          (() => {
+                            const curso = cursos.find(
+                              (c) => c.id === formData.id_curso,
+                            );
+                            const nomeCompleto = curso
+                              ? `${curso.nome} - ${curso.turno}`
+                              : "";
+                            return nomeCompleto.length > 30;
+                          })() && (
+                            <TooltipContent className="max-w-xs p-2 text-sm bg-popover text-popover-foreground border rounded shadow-lg">
+                              <p className="break-words">
+                                {(() => {
+                                  const curso = cursos.find(
+                                    (c) => c.id === formData.id_curso,
+                                  );
+                                  return curso
+                                    ? `${curso.nome} - ${curso.turno}`
+                                    : "";
+                                })()}
+                              </p>
+                            </TooltipContent>
+                          )}
                       </Tooltip>
                     </TooltipProvider>
                     <SelectContent>
@@ -321,7 +398,7 @@ export default function TurmasPage() {
           </Dialog>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -331,7 +408,56 @@ export default function TurmasPage() {
               className="pl-8"
             />
           </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Select value={semestreFiltro} onValueChange={setSemestreFiltro}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Semestre" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os semestres</SelectItem>
+                {semestresDisponiveis.map((s) => (
+                  <SelectItem key={s} value={String(s)}>
+                    {s}º semestre
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={cursoFiltro} onValueChange={setCursoFiltro}>
+              <SelectTrigger className="w-full sm:w-[280px]">
+                <SelectValue placeholder="Curso" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os cursos</SelectItem>
+                {cursos.map((curso) => (
+                  <SelectItem key={curso.id} value={curso.id}>
+                    {curso.nome} - {curso.turno}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {(searchTerm || semestreFiltro !== "todos" || cursoFiltro !== "todos") && (
+              <Button variant="outline" onClick={limparFiltros}>
+                Limpar filtros
+              </Button>
+            )}
+          </div>
         </div>
+
+        {(semestreFiltro !== "todos" || cursoFiltro !== "todos") && (
+          <div className="flex flex-wrap gap-2">
+            {semestreFiltro !== "todos" && (
+              <Badge variant="secondary">Semestre: {semestreFiltro}º</Badge>
+            )}
+            {cursoFiltro !== "todos" && (
+              <Badge variant="secondary">
+                Curso: {cursoLabelById.get(cursoFiltro) || "Selecionado"}
+              </Badge>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-12">
@@ -340,7 +466,7 @@ export default function TurmasPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredTurmas.map((turma, index) => (
-              <Card 
+              <Card
                 key={turma.id}
                 className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}
               >
@@ -349,7 +475,7 @@ export default function TurmasPage() {
                     <div>
                       <CardTitle className="text-lg">{turma.nome}</CardTitle>
                       <CardDescription className="mt-1">
-                        Turma {turma.periodo}º período
+                        Turma {turma.semestre}º semestre
                       </CardDescription>
                     </div>
                   </div>
@@ -357,12 +483,43 @@ export default function TurmasPage() {
                 <CardContent>
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Curso:</span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="font-medium truncate max-w-[180px]">
+                              {(() => {
+                                const turmaWithCurso = turma as TurmaWithCurso;
+                                return (
+                                  cursoLabelById.get(turma.id_curso || "") ||
+                                  turmaWithCurso.curso?.nome ||
+                                  "—"
+                                );
+                              })()}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs p-2 text-sm bg-popover text-popover-foreground border rounded shadow-lg">
+                            <p className="break-words">
+                              {(() => {
+                                const turmaWithCurso = turma as TurmaWithCurso;
+                                return (
+                                  cursoLabelById.get(turma.id_curso || "") ||
+                                  turmaWithCurso.curso?.nome ||
+                                  "—"
+                                );
+                              })()}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Turno:</span>
                       <span className="font-medium">{turma.turno}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Período:</span>
-                      <span>{turma.periodo}º</span>
+                      <span className="text-muted-foreground">Semestre:</span>
+                      <span>{turma.semestre}º</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground flex items-center">

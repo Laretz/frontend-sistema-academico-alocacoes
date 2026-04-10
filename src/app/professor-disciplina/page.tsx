@@ -84,7 +84,7 @@ export default function ProfessorDisciplinaPage() {
         userService.getAll(),
         disciplinaService.getAll(),
       ]);
-      setProfessores(professoresData.usuarios || []);
+      setProfessores((professoresData.usuarios as unknown as User[]) || []);
       setDisciplinas(disciplinasData.disciplinas || []);
 
       // Extrair cursos únicos das disciplinas

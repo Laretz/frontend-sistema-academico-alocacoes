@@ -27,6 +27,8 @@ export interface Disciplina {
   data_fim_real?: string;
   horario_consolidado?: string;
   curso?: Curso;
+  progresso_aulas?: number;
+  progresso_temporal?: number;
 }
 export interface User {
   id: string;
@@ -52,7 +54,7 @@ export interface Turma {
   id: string;
   nome: string;
   num_alunos: number;
-  periodo: number;
+  semestre: number;
   turno: string;
   id_curso: string;
   curso?: Curso;
@@ -218,7 +220,7 @@ export interface CreateDisciplinaRequest {
 export interface CreateTurmaRequest {
   nome: string;
   num_alunos: number;
-  periodo: number;
+  semestre: number;
   turno: string;
   id_curso: string;
 }
@@ -319,7 +321,7 @@ export interface ReservasSalaQuery {
   salaId?: string;
   horarioId?: string;
   dateFrom?: string; // YYYY-MM-DD
-  dateTo?: string;   // YYYY-MM-DD
+  dateTo?: string; // YYYY-MM-DD
   page?: number;
   limit?: number;
 }

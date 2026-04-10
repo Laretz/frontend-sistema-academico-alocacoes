@@ -57,8 +57,8 @@ interface AlocacaoFormProps {
   submitting: boolean;
   handleSubmit: (e: React.FormEvent) => void;
   todasDisciplinas: Disciplina[];
-  regime: 'SUPERIOR' | 'TECNICO';
-  setRegime: (value: 'SUPERIOR' | 'TECNICO') => void;
+  regime: "SUPERIOR" | "TECNICO";
+  setRegime: (value: "SUPERIOR" | "TECNICO") => void;
 }
 
 export const AlocacaoForm: React.FC<AlocacaoFormProps> = ({
@@ -81,22 +81,283 @@ export const AlocacaoForm: React.FC<AlocacaoFormProps> = ({
   handleCloseDialog,
   submitting,
   handleSubmit,
-  todasDisciplinas,
   regime,
   setRegime,
+  previewGrade,
 }) => {
+  const selectedTurma = turmas.find((t) => t.id === formData.id_turma);
+  const selectedDisciplina = disciplinas.find(
+    (d) => d.id === formData.id_disciplina,
+  );
+
+  // Helper para contar alocações existentes para a disciplina selecionada na turma atual
+  const countExistingAllocations = React.useMemo(() => {
+    if (!previewGrade || !selectedDisciplina) return 0;
+
+    let count = 0;
+    // Itera sobre dias e períodos no previewGrade
+    Object.values(previewGrade).forEach((daySlots: any) => {
+      Object.values(daySlots).forEach((slot: any) => {
+        // Lida com slot sendo um array ou objeto único
+        const allocations = Array.isArray(slot) ? slot : [slot];
+        allocations.forEach((alocacao: any) => {
+          // Se estamos editando, excluímos a alocação atual da contagem "existente"
+          // Nota: Isso requer que a alocação no preview tenha um ID.
+          // Se não disponível, assumimos que o preview reflete o estado do servidor.
+          if (alocacao?.disciplina?.id === selectedDisciplina.id) {
+            // Se estamos editando, não contamos os slots da alocação sendo editada
+            // pois o usuário está redefinindo-os no formulário.
+            if (editingAlocacao && alocacao.id === editingAlocacao.id) {
+              return;
+            }
+            count++;
+          }
+        });
+      });
+    });
+    return count;
+  }, [previewGrade, selectedDisciplina, editingAlocacao]);
+
+  // Ordenar disciplinas: semestre atual primeiro, depois outros
+  const sortedDisciplinas = React.useMemo(() => {
+    if (!selectedTurma) return disciplinas;
+
+    return [...disciplinas].sort((a, b) => {
+      const aIsCurrent = a.semestre === selectedTurma.semestre;
+      const bIsCurrent = b.semestre === selectedTurma.semestre;
+
+      if (aIsCurrent && !bIsCurrent) return -1;
+      if (!aIsCurrent && bIsCurrent) return 1;
+      return a.nome.localeCompare(b.nome);
+    });
+  }, [disciplinas, selectedTurma]);
+
+  // Validação de Carga Horária
+  const weeklyClasses = selectedDisciplina
+    ? Math.ceil(selectedDisciplina.carga_horaria / 15)
+    : 0;
+
+  const currentSelectionCount = formData.id_horarios.length;
+  const totalAllocated = countExistingAllocations + currentSelectionCount;
+
+  const isWorkloadCorrect = totalAllocated === weeklyClasses;
+  const isUnderAllocated = totalAllocated < weeklyClasses;
+  const isOverAllocated = totalAllocated > weeklyClasses;
+
+  const showWorkloadWarning = selectedDisciplina && !isWorkloadCorrect;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
+        {/* 1. Turma Selection */}
+        <div className="space-y-2">
+          <Label htmlFor="id_turma">Turma</Label>
+          <Select
+            value={formData.id_turma}
+            onValueChange={(value) => {
+              if (value === formData.id_turma) return;
+              setFormData({
+                ...formData,
+                id_turma: value,
+                id_disciplina: "",
+                id_user: "",
+              });
+            }}
+            required
+          >
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <SelectTrigger className="w-full">
+                    <div className="truncate max-w-[300px]">
+                      {formData.id_turma ? (
+                        <span className="truncate block">
+                          {(() => {
+                            const turma = turmas.find(
+                              (t) => t.id === formData.id_turma,
+                            );
+                            if (!turma) return "Turma não encontrada";
+                            const full = `${turma.nome} - ${turma.semestre}º semestre (${turma.turno})`;
+                            return full.length > 40
+                              ? full.substring(0, 40) + "..."
+                              : full;
+                          })()}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          Selecione uma turma
+                        </span>
+                      )}
+                    </div>
+                  </SelectTrigger>
+                </TooltipTrigger>
+                {formData.id_turma && (
+                  <TooltipContent className="max-w-sm p-3 text-sm bg-gray-900 text-white rounded shadow-lg z-50">
+                    <p className="break-words">
+                      {(() => {
+                        const turma = turmas.find(
+                          (t) => t.id === formData.id_turma,
+                        );
+                        return turma
+                          ? `${turma.nome} - ${turma.semestre}º semestre (${turma.turno})`
+                          : "";
+                      })()}
+                    </p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+            <SelectContent>
+              {turmas.map((turma) => {
+                const full = `${turma.nome} - ${turma.semestre}º semestre (${turma.turno})`;
+                return (
+                  <SelectItem key={turma.id} value={turma.id}>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="truncate max-w-[300px] block">
+                            {full}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs p-2 text-sm bg-gray-900 text-white rounded shadow-lg">
+                          <p className="break-words">{full}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* 2. Disciplina Selection */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between mb-1">
+            <Label htmlFor="id_disciplina" className="font-medium">
+              Disciplina
+            </Label>
+            {/* 'Mostrar todas' toggle removed as requested flow implies specific sorting */}
+          </div>
+          <div className={`relative`}>
+            <Select
+              value={formData.id_disciplina}
+              onValueChange={(value) => {
+                if (value === formData.id_disciplina) return;
+                setFormData({ ...formData, id_disciplina: value, id_user: "" });
+              }}
+              required
+              disabled={!formData.id_turma}
+            >
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <SelectTrigger className="w-full">
+                      <div className="truncate max-w-[250px]">
+                        {formData.id_disciplina ? (
+                          <span className="truncate block">
+                            {(() => {
+                              const disciplina = disciplinas.find(
+                                (d) => d.id === formData.id_disciplina,
+                              );
+
+                              if (disciplina) {
+                                const nome = disciplina.nome;
+                                return nome.length > 35
+                                  ? nome.substring(0, 35) + "..."
+                                  : nome;
+                              }
+
+                              // Fallback: Tentar usar o nome da disciplina da alocação em edição
+                              if (
+                                editingAlocacao &&
+                                editingAlocacao.id_disciplina ===
+                                  formData.id_disciplina &&
+                                editingAlocacao.disciplina
+                              ) {
+                                const nome = editingAlocacao.disciplina.nome;
+                                return nome.length > 35
+                                  ? nome.substring(0, 35) + "..."
+                                  : nome;
+                              }
+
+                              return "Disciplina não encontrada";
+                            })()}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            {formData.id_turma
+                              ? "Selecione uma disciplina"
+                              : "Selecione uma turma primeiro"}
+                          </span>
+                        )}
+                      </div>
+                    </SelectTrigger>
+                  </TooltipTrigger>
+                  {formData.id_disciplina && (
+                    <TooltipContent className="max-w-sm p-3 text-sm bg-gray-900 text-white rounded shadow-lg z-50">
+                      <p className="break-words">
+                        {disciplinas.find(
+                          (d) => d.id === formData.id_disciplina,
+                        )?.nome || ""}
+                      </p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+              <SelectContent>
+                {sortedDisciplinas.map((disciplina) => {
+                  const isCurrentSemester =
+                    selectedTurma &&
+                    disciplina.semestre === selectedTurma.semestre;
+                  return (
+                    <SelectItem
+                      key={disciplina.id}
+                      value={disciplina.id}
+                      className={
+                        !isCurrentSemester
+                          ? "text-yellow-600 dark:text-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/10"
+                          : ""
+                      }
+                    >
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="truncate max-w-[300px] block">
+                              {disciplina.nome}{" "}
+                              {!isCurrentSemester && "(Outro semestre)"}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs p-2 text-sm bg-gray-900 text-white rounded shadow-lg">
+                            <p className="break-words">{disciplina.nome}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* 3. Professor Selection */}
         <div className="space-y-2">
           <Label htmlFor="id_user">Professor</Label>
           <Select
             value={formData.id_user}
             onValueChange={handleProfessorChange}
             required
+            disabled={!formData.id_disciplina}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Selecione um professor" />
+              <SelectValue
+                placeholder={
+                  formData.id_disciplina
+                    ? "Selecione um professor"
+                    : "Selecione uma disciplina primeiro"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {usuarios
@@ -110,219 +371,36 @@ export const AlocacaoForm: React.FC<AlocacaoFormProps> = ({
           </Select>
         </div>
 
+        {/* 4. Sala Selection */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between mb-1">
-            <Label htmlFor="id_disciplina" className="font-medium">
-              Disciplina
-            </Label>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="mostrar-todas-disciplinas"
-                checked={mostrarTodasDisciplinas}
-                onCheckedChange={handleMostrarTodasDisciplinasChange}
-              />
-              <Label
-                htmlFor="mostrar-todas-disciplinas"
-                className="text-sm font-normal cursor-pointer whitespace-nowrap"
-              >
-                Mostrar todas
-              </Label>
-              {mostrarTodasDisciplinas && formData.id_disciplina && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span
-                        aria-label="Informação"
-                        className="text-xs text-muted-foreground cursor-help select-none"
-                        title="Se esta disciplina não estiver vinculada ao professor, o vínculo será criado automaticamente."
-                      >
-                        💡
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs p-2 text-sm bg-gray-900 text-white rounded shadow-lg">
-                      <p className="break-words">
-                        Se esta disciplina não estiver vinculada ao professor, o
-                        vínculo será criado automaticamente.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-          </div>
-          <div className={`relative`}>
-            <Select
-              value={formData.id_disciplina}
-              onValueChange={(value) =>
-                setFormData({ ...formData, id_disciplina: value })
-              }
-              required
-            >
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <SelectTrigger className="w-full">
-                      <div className="truncate max-w-[250px]">
-                        {formData.id_disciplina ? (
-                          <span className="truncate block">
-                            {(() => {
-                              const disciplina = disciplinas.find(
-                                (d) => d.id === formData.id_disciplina
-                              );
-                              if (!disciplina)
-                                return "Disciplina não encontrada";
-                              const nome = disciplina.nome;
-                              return nome.length > 25
-                                ? nome.substring(0, 25) + "..."
-                                : nome;
-                            })()}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">
-                            Selecione uma disciplina
-                          </span>
-                        )}
-                      </div>
-                    </SelectTrigger>
-                  </TooltipTrigger>
-                  {formData.id_disciplina && (
-                    <TooltipContent className="max-w-sm p-3 text-sm bg-gray-900 text-white rounded shadow-lg z-50">
-                      <p className="break-words">
-                        {disciplinas.find(
-                          (d) => d.id === formData.id_disciplina
-                        )?.nome || ""}
-                      </p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
-              <SelectContent>
-                {disciplinas.map((disciplina) => (
-                  <SelectItem key={disciplina.id} value={disciplina.id}>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="truncate max-w-[300px] block">
-                            {disciplina.nome}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs p-2 text-sm bg-gray-900 text-white rounded shadow-lg">
-                          <p className="break-words">{disciplina.nome}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Dica movida para tooltip ao lado do toggle 'Mostrar todas'. Nada a renderizar aqui. */}
-          </div>
+          <Label htmlFor="id_sala">Sala</Label>
+          <Select
+            value={formData.id_sala}
+            onValueChange={(value) =>
+              setFormData({ ...formData, id_sala: value })
+            }
+            required
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecione uma sala" />
+            </SelectTrigger>
+            <SelectContent>
+              {salas.map((sala) => (
+                <SelectItem key={sala.id} value={sala.id}>
+                  {sala.nome} - {sala.predio.nome} (Cap: {sala.capacidade})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
-      <div className="px-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="id_turma">Turma</Label>
-            <Select
-              value={formData.id_turma}
-              onValueChange={(value) =>
-                setFormData({ ...formData, id_turma: value })
-              }
-              required
-            >
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <SelectTrigger className="w-full">
-                      <div className="truncate max-w-[300px]">
-                        {formData.id_turma ? (
-                          <span className="truncate block">
-                            {(() => {
-                              const turma = turmas.find(
-                                (t) => t.id === formData.id_turma
-                              );
-                              if (!turma) return "Turma não encontrada";
-                              const full = `${turma.nome} - ${turma.periodo}º período (${turma.turno})`;
-                              return full.length > 30
-                                ? full.substring(0, 30) + "..."
-                                : full;
-                            })()}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">
-                            Selecione uma turma
-                          </span>
-                        )}
-                      </div>
-                    </SelectTrigger>
-                  </TooltipTrigger>
-                  {formData.id_turma && (
-                    <TooltipContent className="max-w-sm p-3 text-sm bg-gray-900 text-white rounded shadow-lg z-50">
-                      <p className="break-words">
-                        {(() => {
-                          const turma = turmas.find(
-                            (t) => t.id === formData.id_turma
-                          );
-                          return turma
-                            ? `${turma.nome} - ${turma.periodo}º período (${turma.turno})`
-                            : "";
-                        })()}
-                      </p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
-              <SelectContent>
-                {turmas.map((turma) => {
-                  const full = `${turma.nome} - ${turma.periodo}º período (${turma.turno})`;
-                  return (
-                    <SelectItem key={turma.id} value={turma.id}>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="truncate max-w-[300px] block">
-                              {full}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs p-2 text-sm bg-gray-900 text-white rounded shadow-lg">
-                            <p className="break-words">{full}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="id_sala">Sala</Label>
-            <Select
-              value={formData.id_sala}
-              onValueChange={(value) =>
-                setFormData({ ...formData, id_sala: value })
-              }
-              required
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecione uma sala" />
-              </SelectTrigger>
-              <SelectContent>
-                {salas.map((sala) => (
-                  <SelectItem key={sala.id} value={sala.id}>
-                    {sala.nome} - {sala.predio.nome} (Cap: {sala.capacidade})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
       <div className="space-y-2">
         <Label htmlFor="regime">Regime</Label>
-        <Select value={regime} onValueChange={(value) => setRegime(value as 'SUPERIOR' | 'TECNICO')}>
+        <Select
+          value={regime}
+          onValueChange={(value) => setRegime(value as "SUPERIOR" | "TECNICO")}
+        >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Selecione o regime" />
           </SelectTrigger>
@@ -332,9 +410,11 @@ export const AlocacaoForm: React.FC<AlocacaoFormProps> = ({
           </SelectContent>
         </Select>
       </div>
+
       <HorariosGrid
         horarios={horarios}
         selectedIds={formData.id_horarios}
+        originalHorarioId={editingAlocacao?.id_horario}
         onToggle={(horarioId: string, checked: boolean) => {
           if (editingAlocacao) {
             setFormData((prev) => ({
@@ -351,6 +431,24 @@ export const AlocacaoForm: React.FC<AlocacaoFormProps> = ({
         getDiaSemanaAbrev={getDiaSemanaAbrev}
         getHorariosAgrupados={getHorariosAgrupados}
       />
+
+      {/* Workload Warning */}
+      {showWorkloadWarning && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded-md flex items-start gap-2 text-sm text-yellow-800 dark:text-yellow-200">
+          <span className="text-xl">⚠️</span>
+          <div>
+            <p className="font-semibold">Carga horária divergente</p>
+            <p>
+              A disciplina exige {weeklyClasses} aulas semanais.
+              <br />
+              Você está alocando <strong>{totalAllocated}</strong> no total (
+              <strong>{countExistingAllocations}</strong> existentes +{" "}
+              <strong>{currentSelectionCount}</strong> nesta seleção).
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="pt-4">
         <div className="sticky bottom-0 bg-background pt-4 border-t flex items-center w-full">
           <div className="flex-1 flex items-center gap-1.5 text-xs pl-4">
@@ -371,8 +469,8 @@ export const AlocacaoForm: React.FC<AlocacaoFormProps> = ({
               {submitting
                 ? "Salvando..."
                 : editingAlocacao
-                ? "Atualizar Alocação"
-                : "Criar Alocação"}
+                  ? "Atualizar Alocação"
+                  : "Criar Alocação"}
             </Button>
           </div>
         </div>

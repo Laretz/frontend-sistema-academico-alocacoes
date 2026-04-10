@@ -12,7 +12,15 @@ import {
 } from "@/components/ui/select";
 import { Search } from "lucide-react";
 import { AlocacaoDialog } from "@/app/alocacoes/components/AlocacaoDialog";
-import { User, Disciplina, Turma, Sala, Horario, Alocacao } from "@/types/entities";
+import {
+  User,
+  Disciplina,
+  Turma,
+  Sala,
+  Horario,
+  Alocacao,
+  GradeHorario,
+} from "@/types/entities";
 
 interface FormData {
   id_user: string;
@@ -71,8 +79,9 @@ interface AlocacoesToolbarProps {
   submitting: boolean;
   handleSubmit: (e: React.FormEvent) => void;
   todasDisciplinas: Disciplina[];
-  regime: 'SUPERIOR' | 'TECNICO';
-  setRegime: (value: 'SUPERIOR' | 'TECNICO') => void;
+  regime: "SUPERIOR" | "TECNICO";
+  setRegime: (value: "SUPERIOR" | "TECNICO") => void;
+  previewGrade?: GradeHorario;
 }
 
 export const AlocacoesToolbar: React.FC<AlocacoesToolbarProps> = ({
@@ -84,8 +93,8 @@ export const AlocacoesToolbar: React.FC<AlocacoesToolbarProps> = ({
   setFiltroDataFim,
   filtroDiaSemana,
   setFiltroDiaSemana,
-  filtroPeriodo,
-  setFiltroPeriodo,
+  filtroTurno,
+  setFiltroTurno,
   isDialogOpen,
   setIsDialogOpen,
   editingAlocacao,
@@ -111,6 +120,7 @@ export const AlocacoesToolbar: React.FC<AlocacoesToolbarProps> = ({
   todasDisciplinas,
   regime,
   setRegime,
+  previewGrade,
 }) => {
   return (
     <div className="space-y-4">
@@ -133,7 +143,9 @@ export const AlocacoesToolbar: React.FC<AlocacoesToolbarProps> = ({
           disciplinas={disciplinas}
           mostrarTodasDisciplinas={mostrarTodasDisciplinas}
           handleProfessorChange={handleProfessorChange}
-          handleMostrarTodasDisciplinasChange={handleMostrarTodasDisciplinasChange}
+          handleMostrarTodasDisciplinasChange={
+            handleMostrarTodasDisciplinasChange
+          }
           turmas={turmas}
           salas={salas}
           horarios={horarios}
@@ -148,6 +160,7 @@ export const AlocacoesToolbar: React.FC<AlocacoesToolbarProps> = ({
           todasDisciplinas={todasDisciplinas}
           regime={regime}
           setRegime={setRegime}
+          previewGrade={previewGrade}
         />
       </div>
 
@@ -197,7 +210,10 @@ export const AlocacoesToolbar: React.FC<AlocacoesToolbarProps> = ({
               <label className="text-sm font-medium text-foreground mb-1 block">
                 Dia da Semana
               </label>
-              <Select value={filtroDiaSemana} onValueChange={setFiltroDiaSemana}>
+              <Select
+                value={filtroDiaSemana}
+                onValueChange={setFiltroDiaSemana}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Todos os dias" />
                 </SelectTrigger>
@@ -213,17 +229,17 @@ export const AlocacoesToolbar: React.FC<AlocacoesToolbarProps> = ({
               </Select>
             </div>
 
-            {/* Filtro por período */}
+            {/* Filtro por turno */}
             <div>
               <label className="text-sm font-medium text-foreground mb-1 block">
-                Período
+                Turno
               </label>
-              <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
+              <Select value={filtroTurno} onValueChange={setFiltroTurno}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Todos os períodos" />
+                  <SelectValue placeholder="Todos os turnos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos os períodos</SelectItem>
+                  <SelectItem value="todos">Todos os turnos</SelectItem>
                   <SelectItem value="M">Manhã</SelectItem>
                   <SelectItem value="T">Tarde</SelectItem>
                   <SelectItem value="N">Noite</SelectItem>
