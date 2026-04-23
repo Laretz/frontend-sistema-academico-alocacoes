@@ -253,7 +253,6 @@ export default function UsuariosPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* Mini Tabela de Aulas */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">
@@ -286,7 +285,6 @@ export default function UsuariosPage() {
             </CardContent>
           </Card>
 
-          {/* Filtros */}
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Filtros</CardTitle>
@@ -302,7 +300,6 @@ export default function UsuariosPage() {
                     className="flex-1"
                   />
                 </div>
-                {/* Removido: Select de filtro por curso */}
               </div>
             </CardContent>
           </Card>
@@ -318,7 +315,6 @@ export default function UsuariosPage() {
                 <TableHead>Especialização</TableHead>
                 <TableHead>Carga Máx.</TableHead>
                 <TableHead>Role</TableHead>
-                {/* Removido: coluna Status */}
                 <TableHead className="text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -351,7 +347,6 @@ export default function UsuariosPage() {
                       <span>{getPerfilLabel(usuario.role)}</span>
                     )}
                   </TableCell>
-                  {/* Removido: célula de Status */}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end space-x-2">
                       {(usuario.role === "PROFESSOR" ||
@@ -369,7 +364,6 @@ export default function UsuariosPage() {
                           <Calendar className="h-4 w-4" />
                         </Button>
                       )}
-                      {/* Novo: Gerenciar Cursos */}
                       {user?.role === "ADMIN" && (
                         <Button
                           variant="outline"

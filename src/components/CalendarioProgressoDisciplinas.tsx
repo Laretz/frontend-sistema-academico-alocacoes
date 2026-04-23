@@ -423,7 +423,6 @@ export function CalendarioProgressoDisciplinas({
                 disciplinas,
               );
 
-              // Debug: log para verificar os valores
               console.log(
                 `Disciplina ${disciplina.nome}: ${aulasMinistradas}/${disciplina.total_aulas} = ${percentualAtual}% (backend: ${disciplina.progresso_aulas}%)`,
               );
@@ -479,7 +478,6 @@ export function CalendarioProgressoDisciplinas({
             })}
           </div>
 
-          {/* Calendário */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -488,7 +486,6 @@ export function CalendarioProgressoDisciplinas({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Cabeçalho dos dias da semana */}
               <div className="grid grid-cols-7 gap-1 mb-2">
                 {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(
                   (dia) => (
@@ -502,9 +499,7 @@ export function CalendarioProgressoDisciplinas({
                 )}
               </div>
 
-              {/* Dias do mês */}
               <div className="grid grid-cols-7 gap-1">
-                {/* Células vazias para alinhar o primeiro dia do mês */}
                 {Array.from(
                   { length: getDay(startOfMonth(mesAtual)) },
                   (_, index) => (

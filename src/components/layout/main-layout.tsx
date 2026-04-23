@@ -117,7 +117,6 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sidebar para desktop */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex min-h-0 flex-1 flex-col bg-card border-r border-border">
           <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
@@ -161,7 +160,6 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
       </div>
 
-      {/* Sidebar mobile */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 flex lg:hidden">
           <div
@@ -221,9 +219,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
       )}
 
-      {/* Conteúdo principal */}
       <div className="lg:pl-64">
-        {/* Header */}
         <div className="sticky top-0 z-10 bg-background shadow-sm border-b border-border">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
             <button
@@ -284,7 +280,6 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
         </div>
 
-        {/* Conteúdo da página */}
         <main className="py-6">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             {children}

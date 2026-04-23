@@ -74,7 +74,9 @@ export default function GradeHorariosPage() {
     const carregarListas = async () => {
       try {
         const [turmasRes, salasRes, profsRes] = await Promise.all([
-          turmaService.getAll(1, 100).catch(() => ({ turmas: [] as Turma[] })),
+          turmaService
+            .getAllSimple()
+            .catch(() => ({ turmas: [] as Turma[] })),
           salaService.getAll(1).catch(() => ({ salas: [] as Sala[] })),
           userService.getAll(1).catch(() => ({ usuarios: [] as Usuario[] })),
         ]);
@@ -118,9 +120,27 @@ export default function GradeHorariosPage() {
       setLoading(true);
       let filtros: { id_turma?: string; id_user?: string; id_sala?: string } =
         {};
-      if (tab === "turma" && turmaId) filtros.id_turma = turmaId;
-      if (tab === "sala" && salaId) filtros.id_sala = salaId;
-      if (tab === "prof" && profId) filtros.id_user = profId;
+      if (tab === "turma") {
+        if (!turmaId) {
+          setGrade(null);
+          return;
+        }
+        filtros.id_turma = turmaId;
+      }
+      if (tab === "sala") {
+        if (!salaId) {
+          setGrade(null);
+          return;
+        }
+        filtros.id_sala = salaId;
+      }
+      if (tab === "prof") {
+        if (!profId) {
+          setGrade(null);
+          return;
+        }
+        filtros.id_user = profId;
+      }
       const data = await alocacaoService.getGradeHorarios(filtros);
       // O backend pode retornar em diferentes formatos:
       // 1) { gradeHorarios: { segunda: HorarioAlocacao[], ... } }
@@ -160,6 +180,26 @@ export default function GradeHorariosPage() {
           sábado: "SABADO",
         };
 
+        const normalizeCodigoHorario = (value: unknown): string => {
+          let codigo = String(value ?? "")
+            .trim()
+            .toUpperCase()
+            .replace(/[^A-Z0-9:]/g, "")
+            .replace(/^([MTN])0+(\d+)$/, "$1$2");
+
+          if (/^[MTN]\d+$/.test(codigo)) return codigo;
+
+          if (/^\d{2}:\d{2}/.test(codigo)) {
+            codigo = converterHorarioParaCodigo(codigo)
+              .trim()
+              .toUpperCase()
+              .replace(/[^A-Z0-9]/g, "")
+              .replace(/^([MTN])0+(\d+)$/, "$1$2");
+          }
+
+          return codigo;
+        };
+
         dias.forEach((diaKey) => {
           const lista = rawRecord[diaKey];
           const destKey =
@@ -170,6 +210,7 @@ export default function GradeHorariosPage() {
             result[destKey] = {} as Record<string, Alocacao[]>;
             const map = lista as Record<string, unknown>;
             Object.keys(map || {}).forEach((codigo: string) => {
+              const codigoNormalizado = normalizeCodigoHorario(codigo);
               const item = map[codigo] as unknown as {
                 id?: string;
                 disciplina?: {
@@ -209,7 +250,7 @@ export default function GradeHorariosPage() {
                 };
               };
               if (!item) {
-                result[destKey][codigo] = [];
+                result[destKey][codigoNormalizado] = [];
                 return;
               }
               // item tem estrutura AlocacaoInfo
@@ -277,13 +318,15 @@ export default function GradeHorariosPage() {
                   : undefined,
                 horario: {
                   id: String(item.horario?.id || ""),
-                  codigo: String(item.horario?.codigo || codigo),
+                  codigo: normalizeCodigoHorario(
+                    item.horario?.codigo || codigoNormalizado,
+                  ),
                   dia_semana: String(item.horario?.dia_semana || destKey),
                   horario_inicio: String(item.horario?.horario_inicio || ""),
                   horario_fim: String(item.horario?.horario_fim || ""),
                 },
               };
-              result[destKey][codigo] = [alocacaoLike];
+              result[destKey][codigoNormalizado] = [alocacaoLike];
             });
             return;
           }
@@ -366,6 +409,7 @@ export default function GradeHorariosPage() {
             if (!codigo) {
               codigo = "SEM_HORARIO";
             }
+            codigo = normalizeCodigoHorario(codigo);
 
             if (!result[destKey]) result[destKey] = {};
             if (!result[destKey][codigo]) result[destKey][codigo] = [];
@@ -681,7 +725,6 @@ function GradeGrid({
     <div className="overflow-x-auto">
       <div className="min-w-[900px]">
         <div className="grid grid-cols-[120px_repeat(6,1fr)] gap-2">
-          {/* Cabeçalhos */}
           <div />
           {codigosHorario.slice(0, 6).map((c) => (
             <div
@@ -691,7 +734,6 @@ function GradeGrid({
               {c}
             </div>
           ))}
-          {/* Linhas Manhã */}
           {diasSemana.map((d) => (
             <Fragment key={`m-${d.key}`}>
               <div
@@ -716,7 +758,6 @@ function GradeGrid({
               ))}
             </Fragment>
           ))}
-          {/* Cabeçalhos Tarde */}
           <div />
           {codigosHorario.slice(6, 12).map((c) => (
             <div
@@ -726,7 +767,6 @@ function GradeGrid({
               {c}
             </div>
           ))}
-          {/* Linhas Tarde */}
           {diasSemana.map((d) => (
             <Fragment key={`t-${d.key}`}>
               <div
@@ -751,7 +791,6 @@ function GradeGrid({
               ))}
             </Fragment>
           ))}
-          {/* Cabeçalhos Noite */}
           <div />
           {codigosHorario.slice(12).map((c) => (
             <div
@@ -761,7 +800,6 @@ function GradeGrid({
               {c}
             </div>
           ))}
-          {/* Linhas Noite */}
           {diasSemana.map((d) => (
             <Fragment key={`n-${d.key}`}>
               <div

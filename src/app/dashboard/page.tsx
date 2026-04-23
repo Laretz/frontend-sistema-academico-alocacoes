@@ -295,7 +295,6 @@ export default function DashboardPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
@@ -321,7 +320,6 @@ export default function DashboardPage() {
           </Badge>
         </div>
 
-        {/* Estatísticas */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredStatsCards.map((stat, index) => (
             <Card key={index}>
@@ -347,7 +345,6 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Ações Rápidas */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {filteredQuickActions.map((action, index) => (
             <Card
@@ -375,7 +372,6 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Próximas Aulas (hoje) */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -420,7 +416,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Link para visão completa de Alocações */}
         <div className="flex justify-end">
           <Link
             href="/alocacoes"

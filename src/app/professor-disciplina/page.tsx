@@ -594,7 +594,6 @@ export default function ProfessorDisciplinaPage() {
                 </>
               ) : (
                 <>
-                  {/* Seleção de Disciplina (modo disciplina) */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Disciplina</label>
                     <Select
@@ -621,7 +620,6 @@ export default function ProfessorDisciplinaPage() {
                     </Select>
                   </div>
 
-                  {/* Seleção de Professores (modo disciplina) */}
                   {selectedDisciplina && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
@@ -695,7 +693,6 @@ export default function ProfessorDisciplinaPage() {
                 </>
               )}
 
-              {/* Ações */}
               <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground mb-2">

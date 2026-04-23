@@ -896,7 +896,6 @@ export default function AlocacoesPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Header movido para AlocacoesToolbar */}
         <AlocacoesToolbar
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -942,7 +941,6 @@ export default function AlocacoesPage() {
           previewGrade={previewGrade}
         />
 
-        {/* Filtros Avançados */}
         <Card>
           <CardContent className="p-4">
             <div className="flex justify-between items-center mb-4">
@@ -969,7 +967,6 @@ export default function AlocacoesPage() {
             </div>
 
             <div className="flex flex-col md:flex-row gap-4 items-end">
-              {/* Filtro por Turma */}
               <div className="flex-1">
                 <label className="text-sm font-medium text-foreground mb-1 block">
                   Turma
@@ -990,7 +987,6 @@ export default function AlocacoesPage() {
               </div>
             </div>
 
-            {/* Botão para limpar filtros */}
             <div className="mt-4 flex justify-between">
               <Button onClick={fetchAlocacoes} variant="default" size="sm">
                 Mostrar Todas as Alocações
@@ -1014,7 +1010,6 @@ export default function AlocacoesPage() {
           </CardContent>
         </Card>
 
-        {/* Alocações List */}
         <div className="grid gap-4">
           {loading ? (
             <div className="text-center py-8">

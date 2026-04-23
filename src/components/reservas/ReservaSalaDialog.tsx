@@ -13,7 +13,6 @@ import { toast } from 'sonner'
 import { reservasSalaService } from '@/services/reservas-sala'
 import { Sala, Horario, CreateReservaSalaRequest, ReservasSalaListResponse } from '@/types/entities'
 import { api } from '@/lib/api'
-import { alocacaoService } from '@/services/entities'
 import { GradeHorariosSala } from '@/components/GradeHorariosSala'
 
 function formatDateYYYYMMDD(date: Date | undefined): string | undefined {
@@ -33,9 +32,9 @@ function isDateAfterOrEqual(a?: Date, b?: Date): boolean {
 
 function getDiaSemanaKey(date?: Date): string | undefined {
   if (!date) return undefined
-  // Usa UTC para evitar deslocamentos por fuso na virada de dia
+  // usa utc para evitar deslocamentos por fuso na virada de dia
   const utcMidnight = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const d = utcMidnight.getUTCDay() // 0-Domingo, 1-Segunda, ... 6-Sábado
+  const d = utcMidnight.getUTCDay() 
   const map: Record<number, string> = {
     0: 'DOMINGO',
     1: 'SEGUNDA',
@@ -46,6 +45,30 @@ function getDiaSemanaKey(date?: Date): string | undefined {
     6: 'SABADO',
   }
   return map[d]
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function extractApiErrorMessage(error: unknown): string {
+  if (!isRecord(error)) return 'Falha ao criar reserva'
+  const response = isRecord(error.response) ? error.response : undefined
+  const data = response && isRecord(response.data) ? response.data : undefined
+  if (!data) return 'Falha ao criar reserva'
+
+  const messageRaw = data.message ?? data.error
+  const message = typeof messageRaw === 'string' ? messageRaw : 'Falha ao criar reserva'
+
+  const issues = data.issues
+  if (!Array.isArray(issues)) return message
+
+  const details = issues
+    .map((i) => (isRecord(i) && typeof i.message === 'string' ? i.message : ''))
+    .filter(Boolean)
+    .join('; ')
+
+  return details ? `${message}. ${details}` : message
 }
 
 interface ReservaSalaDialogProps {
@@ -70,7 +93,6 @@ export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }
   const [hasConflict, setHasConflict] = useState<boolean>(false)
   const [conflictDetails, setConflictDetails] = useState<string>('')
 
-  // Carregar horários para seleção
   useEffect(() => {
     async function fetchHorarios() {
       try {
@@ -86,20 +108,17 @@ export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }
     if (open) fetchHorarios()
   }, [open, regime])
 
-  // Filtrar horários pelo dia correspondente à data selecionada
   const diaKey = useMemo(() => getDiaSemanaKey(selectedDate), [selectedDate])
   const horariosFiltrados = useMemo(
     () => horarios.filter((h) => (diaKey ? h.dia_semana === diaKey : true)),
     [horarios, diaKey]
   )
-  // Se horário selecionado sair do filtro ao mudar a data, limpar seleção
   useEffect(() => {
     if (horarioId && !horariosFiltrados.some((h) => h.id === horarioId)) {
       setHorarioId('')
     }
   }, [horariosFiltrados, horarioId])
 
-  // Pré-checagem de conflitos (reservas existentes e alocações fixas)
   useEffect(() => {
     async function checkConflicts() {
       setHasConflict(false)
@@ -109,7 +128,6 @@ export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }
       const diaKey = getDiaSemanaKey(selectedDate)
       const selected = horarios.find(h => h.id === horarioId)
 
-      // Validação: data escolhida deve corresponder ao dia_semana do horário
       if (diaKey && selected?.dia_semana && diaKey !== selected.dia_semana) {
         setHasConflict(true)
         setConflictDetails(`Data selecionada (${diaKey}) não corresponde ao dia do horário (${selected.dia_semana}).`)
@@ -118,7 +136,6 @@ export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }
 
       const dateStr = formatDateYYYYMMDD(selectedDate)!
 
-      // 1) Checar reservas existentes no mesmo sala+horário+data
       try {
         const reservasResp: ReservasSalaListResponse = await reservasSalaService.list({ salaId: sala.id, horarioId, dateFrom: dateStr, dateTo: dateStr })
         const reservasAtivas = (reservasResp.reservas || []).filter(r => r.status === 'ATIVA')
@@ -131,7 +148,6 @@ export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }
         console.warn('Falha ao checar reservas para conflito', err)
       }
 
-      // 2) Checar alocação fixa na grade da sala
       try {
         const resp = await api.get(`/salas/${sala.id}/grade-horarios`)
         const gradeObj = resp.data?.grade || resp.data?.gradeHorarios || resp.data
@@ -184,7 +200,7 @@ export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }
 
     setIsSubmitting(true)
     try {
-      const { reservas } = await reservasSalaService.create(payload)
+      await reservasSalaService.create(payload)
       toast.success('Reserva criada com sucesso')
       setOpen(false)
       setSelectedDate(undefined)
@@ -194,16 +210,9 @@ export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }
       setRecorrente(false)
       setRecurrenceEndDate(undefined)
       onSuccess?.()
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao criar reserva', error)
-      const backendData = error?.response?.data
-      const message = backendData?.message || backendData?.error || backendData?.errors?.[0]?.message || 'Falha ao criar reserva'
-      if (backendData?.issues) {
-        const details = Array.isArray(backendData.issues) ? backendData.issues.map((i: any) => i.message).join('; ') : ''
-        toast.error(`${message}. ${details}`)
-      } else {
-        toast.error(message)
-      }
+      toast.error(extractApiErrorMessage(error))
     } finally {
       setIsSubmitting(false)
     }
@@ -214,7 +223,7 @@ export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }
       <DialogTrigger asChild>
         <Button variant="default" size="sm">{triggerLabel}</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[680px]">
+      <DialogContent className="sm:max-w-[680px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Reservar sala: {sala.nome}</DialogTitle>
           <DialogDescription>
@@ -267,7 +276,7 @@ export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }
                     key={h.id}
                     value={h.id}
                   >
-                    {`${h.codigo}`}
+                    {`${h.dia_semana} - ${h.codigo}`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -284,7 +293,7 @@ export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }
 
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Checkbox id="recorrente" checked={recorrente} onCheckedChange={(v) => setRecorrente(Boolean(v))} />
+              <Checkbox id="recorrente" checked={recorrente} onCheckedChange={(v) => setRecorrente(v === true)} />
               <Label htmlFor="recorrente">Recorrente (semanal)</Label>
             </div>
             {recorrente && (

@@ -613,7 +613,6 @@ useEffect(() => {
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
@@ -627,7 +626,6 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Form */}
         <Card>
           <CardHeader>
             <CardTitle>Configurar Alocação</CardTitle>
@@ -636,7 +634,6 @@ useEffect(() => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Seleção de Turma */}
             <div className="space-y-2">
               <Label htmlFor="turma">Turma</Label>
               <Select 
@@ -673,7 +670,6 @@ useEffect(() => {
               </Select>
             </div>
 
-            {/* Seleção de Disciplinas */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label>Ofertas (Disciplinas do curso) {selectedTurma && disciplinas.length > 0 && (

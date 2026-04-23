@@ -25,20 +25,20 @@ export function converterHorarioParaCodigo(horarioISO: string): string {
   const targets: Array<{ code: string; min: number }> = [
     { code: "M1", min: 7 * 60 + 0 },
     { code: "M2", min: 7 * 60 + 50 },
-    { code: "M3", min: 8 * 60 + 40 },
-    { code: "M4", min: 9 * 60 + 30 },
-    { code: "M5", min: 10 * 60 + 20 },
-    { code: "M6", min: 11 * 60 + 10 },
+    { code: "M3", min: 8 * 60 + 55 },
+    { code: "M4", min: 9 * 60 + 45 },
+    { code: "M5", min: 10 * 60 + 50 },
+    { code: "M6", min: 11 * 60 + 40 },
     { code: "T1", min: 13 * 60 + 0 },
     { code: "T2", min: 13 * 60 + 50 },
-    { code: "T3", min: 14 * 60 + 40 },
-    { code: "T4", min: 15 * 60 + 30 },
-    { code: "T5", min: 16 * 60 + 20 },
-    { code: "T6", min: 17 * 60 + 10 },
-    { code: "N1", min: 19 * 60 + 0 },
-    { code: "N2", min: 19 * 60 + 50 },
-    { code: "N3", min: 20 * 60 + 40 },
-    { code: "N4", min: 21 * 60 + 30 },
+    { code: "T3", min: 14 * 60 + 55 },
+    { code: "T4", min: 15 * 60 + 45 },
+    { code: "T5", min: 16 * 60 + 50 },
+    { code: "T6", min: 17 * 60 + 40 },
+    { code: "N1", min: 18 * 60 + 45 },
+    { code: "N2", min: 19 * 60 + 35 },
+    { code: "N3", min: 20 * 60 + 35 },
+    { code: "N4", min: 21 * 60 + 25 },
   ];
 
   let best: { code: string; diff: number } | null = null;
@@ -46,7 +46,7 @@ export function converterHorarioParaCodigo(horarioISO: string): string {
     const diff = Math.abs(totalMin - t.min);
     if (!best || diff < best.diff) best = { code: t.code, diff };
   }
-  if (best && best.diff <= 25) return best.code;
+  if (best && best.diff <= 35) return best.code;
 
   const hh = hora.toString().padStart(2, "0");
   const mm = minuto.toString().padStart(2, "0");

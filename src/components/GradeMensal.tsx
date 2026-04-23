@@ -249,7 +249,6 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho do calendário */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -272,7 +271,6 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
         </CardHeader>
       </Card>
 
-      {/* Filtros de disciplinas */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Filtrar Disciplinas</CardTitle>
@@ -311,10 +309,8 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
         </CardContent>
       </Card>
 
-      {/* Calendário */}
       <Card>
         <CardContent className="p-6">
-          {/* Cabeçalho dos dias da semana */}
           <div className="grid grid-cols-7 gap-1 mb-4">
             {DIAS_SEMANA.map((dia) => (
               <div
@@ -326,9 +322,7 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
             ))}
           </div>
 
-          {/* Dias do mês */}
           <div className="grid grid-cols-7 gap-1">
-            {/* Células vazias para alinhar o primeiro dia do mês */}
             {Array.from({ length: getDay(inicioMes) }).map((_, index) => (
               <div key={`empty-${index}`} className="min-h-[100px] p-2"></div>
             ))}
@@ -385,7 +379,6 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
         </CardContent>
       </Card>
 
-      {/* Resumo das disciplinas */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Resumo das Disciplinas</CardTitle>

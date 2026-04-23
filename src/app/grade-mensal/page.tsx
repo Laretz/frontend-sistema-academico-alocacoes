@@ -79,6 +79,8 @@ export default function GradeMensalPage() {
   const [loading, setLoading] = useState(true);
   const [dialogAberto, setDialogAberto] = useState(false);
   const [novaReserva, setNovaReserva] = useState<Partial<CreateReservaSalaRequest & { titulo: string; descricao?: string }>>({});
+  const [verificandoConflitoReserva, setVerificandoConflitoReserva] = useState(false);
+  const [conflitoReservaMensagem, setConflitoReservaMensagem] = useState<string>("");
   const [reservas, setReservas] = useState<ReservaSala[]>([]);
   const [filtroSalaId, setFiltroSalaId] = useState<string>("");
   const [filtroHorarioId, setFiltroHorarioId] = useState<string>("");
@@ -89,7 +91,7 @@ export default function GradeMensalPage() {
 
   const carregarTurmas = async () => {
     try {
-      const response = await turmaService.getAll(1, 50);
+      const response = await turmaService.getAllSimple();
       setTurmas(response.turmas);
       
       // Selecionar a primeira turma por padrão
@@ -239,6 +241,7 @@ export default function GradeMensalPage() {
     }
   }, [turmaSelecionada]);
 
+  // carrega reservas filtradas da api
   const carregarReservas = async () => {
     try {
       const qs: any = {};
@@ -264,6 +267,61 @@ export default function GradeMensalPage() {
     carregarReservas();
   }, [turmaSelecionada]);
 
+  useEffect(() => {
+    const getDiaSemanaKeyFromYMD = (ymd: string): string | undefined => {
+      const [y, m, d] = ymd.split("-").map((n) => Number(n));
+      if (!y || !m || !d) return undefined;
+      const utcMidnight = new Date(Date.UTC(y, m - 1, d));
+      const day = utcMidnight.getUTCDay();
+      const map: Record<number, string> = {
+        0: "DOMINGO",
+        1: "SEGUNDA",
+        2: "TERCA",
+        3: "QUARTA",
+        4: "QUINTA",
+        5: "SEXTA",
+        6: "SABADO",
+      };
+      return map[day];
+    };
+
+    const checarConflitos = async () => {
+      setConflitoReservaMensagem("");
+      if (!dialogAberto) return;
+      if (!novaReserva.salaId || !novaReserva.horarioId || !novaReserva.date) return;
+
+      const horario = horarios.find((h) => h.id === novaReserva.horarioId);
+      const diaKey = getDiaSemanaKeyFromYMD(novaReserva.date);
+
+      if (horario?.dia_semana && diaKey && horario.dia_semana !== diaKey) {
+        setConflitoReservaMensagem(
+          `Data selecionada (${diaKey}) não corresponde ao dia do horário (${horario.dia_semana}).`,
+        );
+        return;
+      }
+
+      setVerificandoConflitoReserva(true);
+      try {
+        const resp = await reservasSalaService.list({
+          salaId: novaReserva.salaId,
+          horarioId: novaReserva.horarioId,
+          dateFrom: novaReserva.date,
+          dateTo: novaReserva.date,
+        });
+        const ativas = (resp.reservas || []).filter((r) => r.status === "ATIVA");
+        if (ativas.length > 0) {
+          setConflitoReservaMensagem("Já existe reserva ativa neste horário e data.");
+        }
+      } catch {
+      } finally {
+        setVerificandoConflitoReserva(false);
+      }
+    };
+
+    checarConflitos();
+  }, [dialogAberto, novaReserva.salaId, novaReserva.horarioId, novaReserva.date, horarios]);
+
+  // lida com a criacao de uma nova reserva a partir do modal
   const handleCriarReserva = async () => {
     try {
       if (!novaReserva.salaId || !novaReserva.horarioId || !novaReserva.date || !novaReserva.titulo) return;
@@ -315,7 +373,6 @@ export default function GradeMensalPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Cabeçalho */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Grade Mensal</h1>
@@ -331,7 +388,7 @@ export default function GradeMensalPage() {
                 Adicionar Reserva
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Adicionar Reserva de Sala</DialogTitle>
               </DialogHeader>
@@ -372,7 +429,7 @@ export default function GradeMensalPage() {
                     <SelectContent>
                       {horarios.map((horario) => (
                         <SelectItem key={horario.id} value={horario.id}>
-                          {horario.dia_semana} - {horario.codigo} ({horario.horario_inicio} - {horario.horario_fim})
+                          {horario.dia_semana} - {horario.codigo}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -412,13 +469,20 @@ export default function GradeMensalPage() {
                 <div>
                   <Label htmlFor="recorrencia">Recorrência semanal (opcional)</Label>
                   <Select
-                    value={novaReserva.recurrenceRule || ""}
-                    onValueChange={(value) => setNovaReserva({ ...novaReserva, recurrenceRule: value as any })}
+                    value={novaReserva.recurrenceRule ?? "NONE"}
+                    onValueChange={(value) =>
+                      setNovaReserva({
+                        ...novaReserva,
+                        recurrenceRule: value === "WEEKLY" ? "WEEKLY" : undefined,
+                        ...(value === "WEEKLY" ? {} : { recurrenceEnd: undefined }),
+                      })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Sem recorrência" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="NONE">Sem recorrência</SelectItem>
                       <SelectItem value="WEEKLY">Semanal</SelectItem>
                     </SelectContent>
                   </Select>
@@ -436,8 +500,27 @@ export default function GradeMensalPage() {
                   </div>
                 )}
 
+                {conflitoReservaMensagem && (
+                  <div className="rounded border border-destructive/30 bg-destructive/10 p-2 text-destructive text-sm">
+                    {conflitoReservaMensagem}
+                  </div>
+                )}
+
                 <div className="flex gap-2 pt-4">
-                  <Button onClick={handleCriarReserva} disabled={!novaReserva.salaId || !novaReserva.horarioId || !novaReserva.date || !novaReserva.titulo} className="flex-1">Salvar</Button>
+                  <Button
+                    onClick={handleCriarReserva}
+                    disabled={
+                      !novaReserva.salaId ||
+                      !novaReserva.horarioId ||
+                      !novaReserva.date ||
+                      !novaReserva.titulo ||
+                      !!conflitoReservaMensagem ||
+                      verificandoConflitoReserva
+                    }
+                    className="flex-1"
+                  >
+                    {verificandoConflitoReserva ? "Verificando..." : "Salvar"}
+                  </Button>
                   <Button
                     variant="outline"
                     onClick={() => setDialogAberto(false)}
@@ -451,7 +534,6 @@ export default function GradeMensalPage() {
           </Dialog>
         </div>
 
-        {/* Seleção de Turma */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -501,7 +583,6 @@ export default function GradeMensalPage() {
           </CardContent>
         </Card>
 
-        {/* Abas principais */}
          <Tabs defaultValue="calendario" className="space-y-6">
            <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="calendario" className="flex items-center space-x-2">
@@ -518,7 +599,6 @@ export default function GradeMensalPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Calendário de Progresso das Disciplinas */}
           <TabsContent value="calendario">
             <CalendarioProgressoDisciplinas 
               disciplinas={disciplinas} 
@@ -527,12 +607,10 @@ export default function GradeMensalPage() {
             />
           </TabsContent>
 
-          {/* Grade Mensal Original */}
           <TabsContent value="grade">
             <GradeMensal disciplinas={disciplinas} turma={turmaSelecionada || undefined} />
           </TabsContent>
 
-          {/* Gerenciamento de Reservas */}
           <TabsContent value="reservas">
             <Card>
               <CardHeader>

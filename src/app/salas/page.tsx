@@ -324,7 +324,6 @@ export default function SalasPage() {
         )}
       </div>
 
-      {/* Dialog para criar/editar sala */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
