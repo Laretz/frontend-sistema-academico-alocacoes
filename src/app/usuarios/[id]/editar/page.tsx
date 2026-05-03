@@ -17,17 +17,20 @@ export default function EditarUsuarioPage() {
   const router = useRouter();
   const params = useParams();
   const { user: currentUser } = useAuthStore();
-  const userId = params?.id as string;
-
-  // Verificar se o ID do usuário está presente
-  if (!userId) {
-    router.push('/usuarios');
-    return null;
-  }
+  const userId = (() => {
+    const raw = (params as unknown as { id?: string | string[] })?.id;
+    if (typeof raw === 'string') return raw;
+    if (Array.isArray(raw)) return raw[0] || '';
+    return '';
+  })();
 
   useEffect(() => {
+    if (!userId) {
+      router.push('/usuarios');
+      return;
+    }
     // Verificar se o usuário tem permissão para editar usuários
-    if (currentUser?.role !== 'ADMIN') {
+    if (currentUser?.role !== 'ADMIN' && currentUser?.role !== 'COORDENADOR') {
       router.push('/usuarios');
       toast.error('Você não tem permissão para acessar esta página.');
       return;
@@ -73,6 +76,10 @@ export default function EditarUsuarioPage() {
   const handleCancel = () => {
     router.push('/usuarios');
   };
+
+  if (!userId) {
+    return null;
+  }
 
   if (isLoadingUser) {
     return (

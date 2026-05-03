@@ -1,0 +1,499 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription as UiDialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Calendar, Clock, User, GraduationCap } from "lucide-react";
+import { Sala, ReservaSala, Horario } from "@/types/entities";
+import type {
+  GradeHorariosSalaAlocacaoInfoVM,
+  GradeHorariosSalaResponseVM,
+} from "@/types/view-models/grade-horarios-sala";
+import { api } from "@/lib/api";
+import { reservasSalaService } from "@/services/reservas-sala";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+interface GradeHorariosSalaProps {
+  sala: Sala;
+  trigger?: React.ReactNode;
+  mode?: "dialog" | "inline";
+}
+
+const diasSemana = [
+  { key: "SEGUNDA", label: "Segunda" },
+  { key: "TERCA", label: "Terça" },
+  { key: "QUARTA", label: "Quarta" },
+  { key: "QUINTA", label: "Quinta" },
+  { key: "SEXTA", label: "Sexta" },
+  { key: "SABADO", label: "Sábado" },
+];
+
+const horariosDisponiveis = [
+  "M1",
+  "M2",
+  "M3",
+  "M4",
+  "M5",
+  "M6",
+  "T1",
+  "T2",
+  "T3",
+  "T4",
+  "T5",
+  "T6",
+  "N1",
+  "N2",
+  "N3",
+  "N4",
+  "N5",
+  "N6",
+];
+
+function getHorarioPorCodigo(codigo: string): string {
+  const horarios: { [key: string]: string } = {
+    M1: "07:00 - 07:50",
+    M2: "07:50 - 08:40",
+    M3: "08:55 - 09:45",
+    M4: "09:45 - 10:35",
+    M5: "10:50 - 11:40",
+    M6: "11:40 - 12:30",
+    T1: "13:00 - 13:50",
+    T2: "13:50 - 14:40",
+    T3: "14:55 - 15:45",
+    T4: "15:45 - 16:35",
+    T5: "16:50 - 17:40",
+    T6: "17:40 - 18:30",
+    N1: "18:45 - 19:35",
+    N2: "19:35 - 20:25",
+    N3: "20:35 - 21:25",
+    N4: "21:25 - 22:15",
+  };
+  return horarios[codigo] || "";
+}
+
+export function GradeHorariosSala({
+  sala,
+  trigger,
+  mode = "dialog",
+}: GradeHorariosSalaProps) {
+  const [gradeData, setGradeData] = useState<GradeHorariosSalaResponseVM | null>(
+    null,
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [reservas, setReservas] = useState<ReservaSala[]>([]);
+  const [horarios, setHorarios] = useState<Horario[]>([]);
+  const enabled = mode === "inline" ? true : open;
+
+  function dateStrToDiaKey(dateStr: string): string {
+    const d = new Date(`${dateStr}T00:00:00Z`);
+    const map: Record<number, string> = {
+      0: "DOMINGO",
+      1: "SEGUNDA",
+      2: "TERCA",
+      3: "QUARTA",
+      4: "QUINTA",
+      5: "SEXTA",
+      6: "SABADO",
+    };
+    return map[d.getUTCDay()];
+  }
+
+  function formatMonthDay(dateStr: string): string {
+    const date = new Date(`${dateStr}T00:00:00Z`);
+    const month = new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(
+      date,
+    );
+    const day = new Intl.DateTimeFormat("pt-BR", { day: "2-digit" }).format(
+      date,
+    );
+    const monthCap = month.charAt(0).toUpperCase() + month.slice(1);
+    const dayNum = String(parseInt(day, 10));
+    return `${monthCap} ${dayNum}`;
+  }
+
+  const fetchAuxData = useCallback(async () => {
+    try {
+      const [horariosResp, reservasResp] = await Promise.all([
+        api.get<{ horarios: Horario[] }>("/horarios"),
+        reservasSalaService.list({
+          salaId: sala.id,
+          dateFrom: new Date().toISOString().slice(0, 10),
+        }),
+      ]);
+      setHorarios(horariosResp.data.horarios || []);
+      setReservas(reservasResp.reservas || []);
+    } catch (err) {
+      console.warn("Falha ao buscar horários/reservas da sala", err);
+    }
+  }, [sala.id]);
+
+  const fetchGradeHorarios = useCallback(async () => {
+    if (!sala.id) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const periodoId = (() => {
+        if (typeof window === "undefined") return undefined;
+        const modo = window.localStorage.getItem("periodo.modo");
+        if (modo !== "consulta") return undefined;
+        return window.localStorage.getItem("periodo.consultaId") || undefined;
+      })();
+
+      const resp = await api.get<GradeHorariosSalaResponseVM>(
+        `/salas/${sala.id}/grade-horarios`,
+        {
+          params: periodoId ? { periodoId } : undefined,
+        },
+      );
+      setGradeData(resp.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }, [sala.id]);
+
+  useEffect(() => {
+    if (enabled) {
+      fetchGradeHorarios();
+      fetchAuxData();
+    }
+  }, [enabled, fetchGradeHorarios, fetchAuxData]);
+
+  const renderAlocacao = (
+    alocacao: GradeHorariosSalaAlocacaoInfoVM | null,
+    diaKey: string,
+    codigo: string,
+  ) => {
+    const reservasCell = reservas.filter((r) => {
+      const diaReserva = dateStrToDiaKey(r.date);
+      const codigoReserva = horarios.find((h) => h.id === r.horarioId)?.codigo;
+      return (
+        diaReserva === diaKey &&
+        codigoReserva === codigo &&
+        r.status === "ATIVA"
+      );
+    });
+
+    if (!alocacao && reservasCell.length === 0) {
+      return (
+        <div className="h-16 border border-border bg-muted/30 rounded p-1 text-center text-xs text-muted-foreground">
+          Livre
+        </div>
+      );
+    }
+
+    const hasReservaOnly = !alocacao && reservasCell.length > 0;
+    const containerClasses = hasReservaOnly
+      ? "min-h-16 border border-shadblue-primary/30 bg-shadblue-primary/10 rounded p-1 text-xs overflow-hidden space-y-1"
+      : "min-h-16 border border-primary/20 bg-primary/10 rounded p-1 text-xs overflow-hidden space-y-1";
+
+    const reservasOrdenadas = reservasCell.slice().sort((a, b) => {
+      const da = new Date(`${a.date}T00:00:00Z`).getTime();
+      const db = new Date(`${b.date}T00:00:00Z`).getTime();
+      return da - db;
+    });
+    const primeiraReserva = reservasOrdenadas[0];
+    const extraCount = Math.max(0, reservasOrdenadas.length - 1);
+
+    return (
+      <div className={containerClasses}>
+        {alocacao && (
+          <div>
+            <div
+              className="font-semibold text-foreground truncate"
+              title={alocacao.disciplina.nome}
+            >
+              {alocacao.disciplina.nome}
+            </div>
+            <div
+              className="text-primary truncate"
+              title={alocacao.professor.nome}
+            >
+              {alocacao.professor.nome}
+            </div>
+            <div
+              className="text-primary/80 truncate"
+              title={`${alocacao.turma.nome} - ${alocacao.turma.semestre}º semestre`}
+            >
+              {alocacao.turma.nome}
+            </div>
+          </div>
+        )}
+        {primeiraReserva && (
+          <div className="space-y-1">
+            <div className="rounded p-1 bg-shadblue-primary/10">
+              <div
+                className="font-semibold text-foreground truncate"
+                title={`Reserva - ${formatMonthDay(primeiraReserva.date)}`}
+              >
+                {`Reserva - ${formatMonthDay(primeiraReserva.date)}`}
+              </div>
+              {primeiraReserva.criadorNome && (
+                <div
+                  className="text-primary truncate"
+                  title={primeiraReserva.criadorNome}
+                >
+                  {primeiraReserva.criadorNome}
+                </div>
+              )}
+              <div
+                className="text-primary/80 truncate"
+                title={primeiraReserva.titulo}
+              >
+                {primeiraReserva.titulo}
+              </div>
+            </div>
+            {extraCount > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      className="text-xs text-muted-foreground truncate cursor-help"
+                      title={`+${extraCount} reservas futuras`}
+                    >
+                      {`+${extraCount} reservas futuras`}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="space-y-1">
+                      {reservasOrdenadas.slice(1, 6).map((rv) => (
+                        <div key={rv.id} className="flex items-center gap-2">
+                          <span className="font-semibold">
+                            {formatMonthDay(rv.date)}
+                          </span>
+                          <span className="opacity-80 truncate max-w-[140px]">
+                            {rv.titulo}
+                          </span>
+                        </div>
+                      ))}
+                      {extraCount > 5 && (
+                        <div className="opacity-80">{`+${extraCount - 5} mais`}</div>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const headerDescription = (
+    <>
+      {sala.predio.nome} • Capacidade: {sala.capacidade} pessoas
+      {gradeData && (
+        <span className="ml-4">
+          {gradeData.resumo.totalAlocacoes} alocações •{gradeData.resumo.disciplinasUnicas} disciplinas •
+          {gradeData.resumo.professoresUnicos} professores
+        </span>
+      )}
+    </>
+  );
+
+  const body = (
+    <>
+      {loading && (
+        <div className="flex justify-center items-center py-8">
+          <div className="text-center">
+            <Clock className="h-8 w-8 animate-spin mx-auto mb-2" />
+            <p>Carregando grade de horários...</p>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/20 rounded p-4 text-center">
+          <p className="text-destructive">{error}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchGradeHorarios}
+            className="mt-2"
+          >
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+
+      {gradeData && !loading && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">
+                      {gradeData.resumo.totalAlocacoes}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Alocações</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center space-x-2">
+                  <GraduationCap className="h-4 w-4 text-secondary-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">
+                      {gradeData.resumo.disciplinasUnicas}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Disciplinas</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center space-x-2">
+                  <User className="h-4 w-4 text-accent-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">
+                      {gradeData.resumo.professoresUnicos}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Professores</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center space-x-2">
+                  <GraduationCap className="h-4 w-4 text-destructive" />
+                  <div>
+                    <p className="text-sm font-medium">
+                      {gradeData.resumo.turmasUnicas}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Turmas</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Grade Semanal</CardTitle>
+              <CardDescription>
+                Visualização completa dos horários da sala por dia da semana
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-[980px] border-collapse table-fixed">
+                  <thead>
+                    <tr>
+                      <th className="border border-border p-1 bg-muted/30 text-xs font-medium text-left w-[10%]">
+                        Horário
+                      </th>
+                      {diasSemana.map((dia) => (
+                        <th
+                          key={dia.key}
+                          className="border border-border p-1 bg-muted/30 text-xs font-medium text-center w-[15%]"
+                        >
+                          {dia.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {horariosDisponiveis.map((horario) => (
+                      <tr key={horario}>
+                        <td className="border border-border p-1 bg-muted/30 text-xs font-medium text-center w-[10%]">
+                          <div className="font-semibold">{horario}</div>
+                          <div className="text-muted-foreground text-xs">
+                            {getHorarioPorCodigo(horario)}
+                          </div>
+                        </td>
+                        {diasSemana.map((dia) => {
+                          const alocacao =
+                            gradeData.grade[dia.key]?.[horario] || null;
+                          return (
+                            <td
+                              key={`${dia.key}-${horario}`}
+                              className="border border-border p-1 w-[15%]"
+                            >
+                              {renderAlocacao(alocacao, dia.key, horario)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </>
+  );
+
+  if (mode === "inline") {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Grade de Horários - {sala.nome}
+          </CardTitle>
+          <CardDescription>{headerDescription}</CardDescription>
+        </CardHeader>
+        <CardContent>{body}</CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {trigger || (
+          <Button variant="outline" size="sm">
+            <Calendar className="h-4 w-4 mr-2" />
+            Ver Grade
+          </Button>
+        )}
+      </DialogTrigger>
+      <DialogContent
+        className="!max-w-[80vw] w-[98vw] max-h-[95vh] overflow-y-auto"
+        showCloseButton={true}
+      >
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Grade de Horários - {sala.nome}
+          </DialogTitle>
+          <UiDialogDescription>{headerDescription}</UiDialogDescription>
+        </DialogHeader>
+        {body}
+      </DialogContent>
+    </Dialog>
+  );
+}

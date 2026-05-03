@@ -9,8 +9,8 @@ export interface Notificacao {
   message: string;
   status: NotificacaoStatus;
   replyMessage?: string | null;
-  metadata?: any;
-  created_at: string; // datas vêm como string no JSON
+  metadata?: Record<string, unknown>;
+  created_at: string;
   read_at?: string | null;
   responded_at?: string | null;
 }
@@ -24,7 +24,7 @@ export interface CriarNotificacaoRequest {
   type: NotificacaoType;
   title: string;
   message: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CriarNotificacaoResponse {

@@ -13,7 +13,7 @@ export interface Disciplina {
   id: string;
   nome: string;
   codigo?: string;
-  carga_horaria: number; // 30, 45, 60 ou 90
+  carga_horaria: number;
   carga_horaria_atual?: number;
   total_aulas: number;
   aulas_ministradas: number;
@@ -27,6 +27,8 @@ export interface Disciplina {
   data_fim_real?: string;
   horario_consolidado?: string;
   curso?: Curso;
+  progresso_aulas?: number;
+  progresso_temporal?: number;
 }
 export interface User {
   id: string;
@@ -45,14 +47,14 @@ export interface User {
     updated_at: string;
     curso: Curso;
   }[];
-  curso?: Curso[]; // Para compatibilidade com o código existente
+  curso?: Curso[];
 }
 
 export interface Turma {
   id: string;
   nome: string;
   num_alunos: number;
-  periodo: number;
+  semestre: number;
   turno: string;
   id_curso: string;
   curso?: Curso;
@@ -110,6 +112,17 @@ export interface GradeHorario {
   [key: string]: {
     [key: string]: Alocacao[];
   };
+}
+
+export interface PeriodoLetivo {
+  id: string;
+  nome: string;
+  data_inicio: string;
+  data_fim: string;
+  ativo: boolean;
+  status: "ATIVO" | "ENCERRADO" | "FUTURO";
+  created_at: string;
+  updated_at: string;
 }
 
 // Professor-Disciplina
@@ -218,7 +231,7 @@ export interface CreateDisciplinaRequest {
 export interface CreateTurmaRequest {
   nome: string;
   num_alunos: number;
-  periodo: number;
+  semestre: number;
   turno: string;
   id_curso: string;
 }
@@ -319,7 +332,7 @@ export interface ReservasSalaQuery {
   salaId?: string;
   horarioId?: string;
   dateFrom?: string; // YYYY-MM-DD
-  dateTo?: string;   // YYYY-MM-DD
+  dateTo?: string; // YYYY-MM-DD
   page?: number;
   limit?: number;
 }

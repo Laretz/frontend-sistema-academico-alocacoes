@@ -1,20 +1,19 @@
 import { api } from '@/lib/api'
 import {
   CreateReservaSalaRequest,
-  ReservaSala,
   ReservasSalaQuery,
   ReservaSalaResponse,
   ReservasSalaListResponse,
 } from '@/types/entities'
 
 export const reservasSalaService = {
-  /** Criar reserva de sala (suporta recorrência semanal/mensal) */
+  // criar uma reserva de sala (suporta recorrência semanal/mensal)
   async create(data: CreateReservaSalaRequest): Promise<ReservaSalaResponse> {
     const response = await api.post<ReservaSalaResponse>('/reservas-sala', data)
     return response.data
   },
 
-  /** Buscar reservas com filtros opcionais */
+  // buscar reservas com filtros opcionais
   async list(params?: ReservasSalaQuery): Promise<ReservasSalaListResponse> {
     const searchParams = new URLSearchParams()
     if (params?.salaId) searchParams.append('salaId', params.salaId)
@@ -29,13 +28,13 @@ export const reservasSalaService = {
     return response.data
   },
 
-  /** Cancelar uma reserva específica */
+  // cancelar uma reserva específica
   async cancel(id: string): Promise<{ message: string }> {
     const response = await api.delete<{ message: string }>(`/reservas-sala/${id}`)
     return response.data
   },
 
-  /** Cancelar toda a série de reservas por seriesId */
+  // cancelar toda a série de reservas por seriesId
   async cancelSeries(seriesId: string): Promise<{ message: string; cancelledCount: number }> {
     const response = await api.delete<{ message: string; cancelledCount: number }>(`/reservas-sala/series/${seriesId}`)
     return response.data

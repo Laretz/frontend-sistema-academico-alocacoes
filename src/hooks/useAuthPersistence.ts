@@ -7,23 +7,22 @@ export function useAuthPersistence() {
   const { checkAuth } = useAuthStore();
 
   useEffect(() => {
-    // Verificar autenticação quando a aba ganha foco
     const handleFocus = () => {
       checkAuth();
     };
 
-    // Verificar autenticação quando a página fica visível
+    // verificar autenticação quando a página fica visível
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         checkAuth();
       }
     };
 
-    // Adicionar event listeners
+    // adicionar event listeners
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Cleanup
+    // cleanup
     return () => {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);

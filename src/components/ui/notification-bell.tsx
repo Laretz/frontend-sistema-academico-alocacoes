@@ -10,17 +10,13 @@ import { notificacoesService } from "@/services/notificacoes";
 export function NotificationBell() {
   const router = useRouter();
   const [count, setCount] = useState<number>(0);
-  const [loading, setLoading] = useState<boolean>(false);
 
   const fetchCount = async () => {
-    setLoading(true);
     try {
       const { notificacoes } = await notificacoesService.listar("PENDENTE");
       setCount(notificacoes.length);
-    } catch (e) {
+    } catch {
       // silencioso para não poluir header
-    } finally {
-      setLoading(false);
     }
   };
 

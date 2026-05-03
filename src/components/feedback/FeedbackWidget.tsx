@@ -19,7 +19,6 @@ import { Slider } from "@/components/ui/slider";
 
 export function FeedbackWidget() {
   const pathnameRaw = usePathname();
-  const pathname = pathnameRaw ?? "";
   const [open, setOpen] = useState(false);
   const [npsScore, setNpsScore] = useState<number>(7);
   const [comment, setComment] = useState<string>("");

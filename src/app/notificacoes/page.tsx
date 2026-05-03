@@ -31,6 +31,7 @@ import { Loader2, Bell, Plus } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { userService } from "@/services/users";
 import type { User } from "@/types/auth";
+import { getApiErrorMessage } from "@/lib/api";
 
 export default function NotificacoesPage() {
   const [loading, setLoading] = useState(false);
@@ -55,10 +56,8 @@ export default function NotificacoesPage() {
     try {
       const { notificacoes } = await notificacoesService.listar(statusFiltro);
       setLista(notificacoes);
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message || "Falha ao carregar notificações";
-      toast.error(msg);
+    } catch (e: unknown) {
+      toast.error(getApiErrorMessage(e, "Falha ao carregar notificações"));
     } finally {
       setLoading(false);
     }
@@ -75,8 +74,8 @@ export default function NotificacoesPage() {
       try {
         const { usuarios: listaUsuarios } = await userService.getAll(1);
         setUsuarios(listaUsuarios);
-      } catch (e: any) {
-        toast.error(e?.response?.data?.message || "Falha ao carregar usuários");
+      } catch (e: unknown) {
+        toast.error(getApiErrorMessage(e, "Falha ao carregar usuários"));
       }
     }
   };
@@ -103,9 +102,8 @@ export default function NotificacoesPage() {
       setNovaMensagem("");
       setNovoTipo("GENERICA");
       setCriandoOpen(false);
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || "Falha ao enviar mensagem";
-      toast.error(msg);
+    } catch (e: unknown) {
+      toast.error(getApiErrorMessage(e, "Falha ao enviar mensagem"));
     } finally {
       setCriandoLoading(false);
     }
@@ -143,9 +141,8 @@ export default function NotificacoesPage() {
           item.id === n.id ? { ...(notificacao ?? item) } : item
         )
       );
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || "Falha ao marcar como lida";
-      toast.error(msg);
+    } catch (e: unknown) {
+      toast.error(getApiErrorMessage(e, "Falha ao marcar como lida"));
     }
   };
 
@@ -163,10 +160,8 @@ export default function NotificacoesPage() {
       );
       setRespondendo(null);
       setResposta("");
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message || "Falha ao responder notificação";
-      toast.error(msg);
+    } catch (e: unknown) {
+      toast.error(getApiErrorMessage(e, "Falha ao responder notificação"));
     } finally {
       setRespondendoLoading(false);
     }

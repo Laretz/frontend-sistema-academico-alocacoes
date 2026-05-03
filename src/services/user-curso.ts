@@ -1,5 +1,5 @@
 import { api } from '@/lib/api'
-import { Curso } from '@/types/entities'
+import { Curso, User } from '@/types/entities'
 
 export const userCursoService = {
   // Vincular usuário (professor) a curso
@@ -24,11 +24,11 @@ export const userCursoService = {
   },
 
   // Buscar usuários de um curso (não utilizado nesta tela, mas disponível)
-  async getUsuariosByCurso(id_curso: string, query?: { search?: string }): Promise<{ usuarios: any[] }> {
+  async getUsuariosByCurso(id_curso: string, query?: { search?: string }): Promise<{ usuarios: User[] }> {
     const params = new URLSearchParams()
     if (query?.search) params.set('search', query.search)
     const url = `/user-curso/usuarios/${id_curso}${params.toString() ? `?${params.toString()}` : ''}`
-    const response = await api.get(url)
+    const response = await api.get<{ usuarios: User[] }>(url)
     return response.data
   },
 }

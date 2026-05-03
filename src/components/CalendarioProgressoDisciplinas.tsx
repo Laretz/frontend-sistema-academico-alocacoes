@@ -5,14 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { disciplinasProgressoService } from "@/services/disciplinas-progresso";
-import { temAulaNoDia, calcularAulasNoDia, calcularUltimoDiaAula } from "@/utils/horario-consolidado-cronograma";
+import {
+  temAulaNoDia,
+  calcularAulasNoDia,
+  calcularUltimoDiaAula,
+} from "@/utils/horario-consolidado-cronograma";
+import type { CalendarioProgressoDisciplinaVM } from "@/types/view-models/calendario-progresso";
 
 import {
   ChevronLeft,
   ChevronRight,
   Calendar,
-  Clock,
   TrendingUp,
   Filter,
   ChevronDown,
@@ -27,57 +30,23 @@ import {
   subMonths,
   getDay,
   parseISO,
-  differenceInWeeks,
-  addWeeks,
   isToday,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-// Removidos imports de cálculos locais - agora usamos apenas dados do backend
 
-interface Disciplina {
-  id: string;
-  nome: string;
-  codigo: string | null;
-  carga_horaria: number;
-  total_aulas: number;
-  aulas_ministradas: number;
-  carga_horaria_atual: number;
-  data_inicio: string | null;
-  data_fim_prevista: string | null;
-  data_fim_real: string | null;
-  horario_consolidado: string | null;
-  tipo_de_sala: string;
-  periodo_letivo: string | null;
-  id_curso: string;
-  semestre: number;
-  obrigatoria: boolean;
-  progresso_temporal: number;
-  progresso_aulas: number;
-  aulas_previstas_ate_hoje: number;
-  alocacoes?: Array<{
-    id: string;
-    horario: {
-      codigo: string;
-      dia_semana: string;
-      horario_inicio: string;
-      horario_fim: string;
-    };
-    sala: {
-      nome: string;
-      predio: string;
-    };
-  }>;
-}
+type Disciplina = CalendarioProgressoDisciplinaVM;
 
 interface CalendarioProgressoDisciplinasProps {
   disciplinas: Disciplina[];
   turma?: {
     id: string;
     nome: string;
-    periodo: number;
+    semestre: number;
     turno: string;
   };
   turmaId?: string;
+  loadingProgresso?: boolean;
+  onAtualizarProgresso?: () => void | Promise<void>;
 }
 
 interface AulasDia {
@@ -90,26 +59,6 @@ interface AulasDia {
     isUltimoDia: boolean;
   }>;
 }
-
-const DIAS_SEMANA_MAP: { [key: string]: number } = {
-  DOMINGO: 1,
-  SEGUNDA: 2,
-  TERCA: 3,
-  QUARTA: 4,
-  QUINTA: 5,
-  SEXTA: 6,
-  SABADO: 7,
-  // Manter compatibilidade com minúsculas
-  domingo: 1,
-  segunda: 2,
-  terca: 3,
-  quarta: 4,
-  quinta: 5,
-  sexta: 6,
-  sabado: 7,
-};
-
-
 
 const CORES_DISCIPLINAS = [
   "bg-shadred-primary",
@@ -136,37 +85,31 @@ const CORES_DISCIPLINAS = [
   "bg-shadorange-chart-5",
 ];
 
-// Função para obter cor consistente para cada disciplina baseada no ID
 const obterCorDisciplina = (
   disciplinaId: string,
-  todasDisciplinas: Disciplina[]
+  todasDisciplinas: Disciplina[],
 ): string => {
-  // Verificação de segurança
   if (!todasDisciplinas || todasDisciplinas.length === 0 || !disciplinaId) {
-    return CORES_DISCIPLINAS[0]; // Retornar cor padrão
+    return CORES_DISCIPLINAS[0];
   }
 
-  // Criar um array ordenado de IDs únicos para garantir consistência
   const idsOrdenados = todasDisciplinas
-    .filter((d) => d && d.id) // Filtrar disciplinas válidas
+    .filter((d) => d && d.id)
     .map((d) => d.id)
-    .sort(); // Ordenar para garantir ordem consistente
+    .sort();
 
-  // Encontrar o índice da disciplina no array ordenado
   const indice = idsOrdenados.indexOf(disciplinaId);
 
-  // Se não encontrar, usar hash do ID como fallback
   if (indice === -1) {
     let hash = 0;
     for (let i = 0; i < disciplinaId.length; i++) {
       const char = disciplinaId.charCodeAt(i);
       hash = (hash << 5) - hash + char;
-      hash = hash & hash; // Converter para 32bit integer
+      hash = hash & hash;
     }
     return CORES_DISCIPLINAS[Math.abs(hash) % CORES_DISCIPLINAS.length];
   }
 
-  // Usar o índice para selecionar a cor
   return CORES_DISCIPLINAS[indice % CORES_DISCIPLINAS.length];
 };
 
@@ -174,69 +117,32 @@ export function CalendarioProgressoDisciplinas({
   disciplinas: disciplinasIniciais,
   turma,
   turmaId,
+  loadingProgresso,
+  onAtualizarProgresso,
 }: CalendarioProgressoDisciplinasProps) {
-  const [disciplinas, setDisciplinas] =
-    useState<Disciplina[]>(disciplinasIniciais);
-  const [loading, setLoading] = useState(false);
+  const [disciplinas, setDisciplinas] = useState<Disciplina[]>(disciplinasIniciais);
   const [disciplinasSelecionadas, setDisciplinasSelecionadas] = useState<
     string[]
   >(disciplinasIniciais.map((d) => d.id));
-  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
 
-  // Função para carregar disciplinas com progresso atualizado
-  const carregarDisciplinas = async () => {
-    if (!turmaId) return;
+  useEffect(() => {
+    setDisciplinas(disciplinasIniciais);
+  }, [disciplinasIniciais]);
 
-    setLoading(true);
-    try {
-      // Primeiro, atualizar o progresso das disciplinas
-      await disciplinasProgressoService.atualizarProgresso({ turmaId });
-
-      // Depois, buscar as disciplinas com progresso atualizado
-      const { disciplinas: disciplinasAtualizadas } =
-        await disciplinasProgressoService.buscarComProgresso({ turmaId });
-
-      setDisciplinas(disciplinasAtualizadas);
-      setDisciplinasSelecionadas(disciplinasAtualizadas.map((d) => d.id));
-    } catch (error) {
-      console.error("Erro ao carregar disciplinas:", error);
-      // Em caso de erro, tentar buscar sem atualizar progresso
-      try {
-        const { disciplinas: disciplinasAtualizadas } =
-          await disciplinasProgressoService.buscarComProgresso({ turmaId });
-        setDisciplinas(disciplinasAtualizadas);
-        setDisciplinasSelecionadas(disciplinasAtualizadas.map((d) => d.id));
-      } catch (fallbackError) {
-        console.error("Erro no fallback:", fallbackError);
-        setDisciplinas(disciplinasIniciais);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Atualizar disciplinas selecionadas quando as disciplinas mudarem
   useEffect(() => {
     setDisciplinasSelecionadas(disciplinas.map((d) => d.id));
   }, [disciplinas]);
 
-  // Carregar disciplinas com progresso atualizado na montagem do componente
-  useEffect(() => {
-    if (turmaId) {
-      carregarDisciplinas();
-    }
-  }, [turmaId]);
-
   const disciplinasFiltradas = disciplinas.filter((d) =>
-    disciplinasSelecionadas.includes(d.id)
+    disciplinasSelecionadas.includes(d.id),
   );
 
   const toggleDisciplina = (disciplinaId: string) => {
     setDisciplinasSelecionadas((prev) =>
       prev.includes(disciplinaId)
         ? prev.filter((id) => id !== disciplinaId)
-        : [...prev, disciplinaId]
+        : [...prev, disciplinaId],
     );
   };
 
@@ -252,7 +158,6 @@ export function CalendarioProgressoDisciplinas({
     string | null
   >(null);
 
-  // Função simplificada para formatar duração (mantida para UI)
   const formatarDuracaoAulas = (quantidadeAulas: number): string => {
     if (quantidadeAulas === 1) {
       return "1 aula";
@@ -260,11 +165,6 @@ export function CalendarioProgressoDisciplinas({
     return `${quantidadeAulas} aulas`;
   };
 
-  // Funções antigas removidas - agora usamos apenas dados calculados pelo backend
-
-  // Funções antigas de cálculo removidas - agora usamos apenas dados do backend
-
-  // Dados do calendário para o mês atual
   const dadosCalendario = useMemo(() => {
     const inicioMes = startOfMonth(mesAtual);
     const fimMes = endOfMonth(mesAtual);
@@ -275,12 +175,12 @@ export function CalendarioProgressoDisciplinas({
       const cronogramaDisciplina = calcularCronogramaSimplificado(
         disciplina,
         inicioMes,
-        fimMes
+        fimMes,
       );
 
       cronogramaDisciplina.forEach((item) => {
         const itemExistente = cronogramaCompleto.find(
-          (existing) => existing.data.getTime() === item.data.getTime()
+          (existing) => existing.data.getTime() === item.data.getTime(),
         );
 
         if (itemExistente) {
@@ -325,11 +225,11 @@ export function CalendarioProgressoDisciplinas({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={carregarDisciplinas}
-                disabled={loading || !turmaId}
+                onClick={onAtualizarProgresso}
+                disabled={Boolean(loadingProgresso) || !turmaId || !onAtualizarProgresso}
               >
                 <TrendingUp className="h-4 w-4 mr-2" />
-                {loading ? "Atualizando..." : "Atualizar Progresso"}
+                {loadingProgresso ? "Atualizando..." : "Atualizar Progresso"}
               </Button>
               <Button
                 variant="outline"
@@ -343,23 +243,6 @@ export function CalendarioProgressoDisciplinas({
                     mostrarFiltros ? "rotate-180" : ""
                   }`}
                 />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navegarMes("anterior")}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-lg font-semibold min-w-[200px] text-center">
-                {format(mesAtual, "MMMM yyyy", { locale: ptBR })}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navegarMes("proximo")}
-              >
-                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </CardTitle>
@@ -408,21 +291,14 @@ export function CalendarioProgressoDisciplinas({
           )}
         </CardHeader>
         <CardContent>
-          {/* Resumo das disciplinas */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {disciplinasFiltradas.map((disciplina, index) => {
-              const previsaoConclusao = calcularPrevisaoConclusaoSimplificada(disciplina);
-              // Usar progresso_aulas calculado pelo backend
-              const aulasMinistradas = disciplina.aulas_ministradas;
+            {disciplinasFiltradas.map((disciplina) => {
+              const previsaoConclusao =
+                calcularPrevisaoConclusaoSimplificada(disciplina);
               const percentualAtual = disciplina.progresso_aulas;
               const corDisciplina = obterCorDisciplina(
                 disciplina.id,
-                disciplinas
-              );
-
-              // Debug: log para verificar os valores
-              console.log(
-                `Disciplina ${disciplina.nome}: ${aulasMinistradas}/${disciplina.total_aulas} = ${percentualAtual}% (backend: ${disciplina.progresso_aulas}%)`
+                disciplinas,
               );
 
               return (
@@ -433,7 +309,7 @@ export function CalendarioProgressoDisciplinas({
                     setDisciplinaSelecionada(
                       disciplinaSelecionada === disciplina.id
                         ? null
-                        : disciplina.id
+                        : disciplina.id,
                     )
                   }
                 >
@@ -476,16 +352,35 @@ export function CalendarioProgressoDisciplinas({
             })}
           </div>
 
-          {/* Calendário */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Calendar className="h-5 w-5" />
-                <span>Cronograma de Aulas</span>
-              </CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="flex items-center space-x-2">
+                  <Calendar className="h-5 w-5" />
+                  <span>Cronograma de Aulas</span>
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navegarMes("anterior")}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm sm:text-base font-semibold min-w-[140px] text-center">
+                    {format(mesAtual, "MMMM yyyy", { locale: ptBR })}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navegarMes("proximo")}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              {/* Cabeçalho dos dias da semana */}
               <div className="grid grid-cols-7 gap-1 mb-2">
                 {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(
                   (dia) => (
@@ -495,13 +390,11 @@ export function CalendarioProgressoDisciplinas({
                     >
                       {dia}
                     </div>
-                  )
+                  ),
                 )}
               </div>
 
-              {/* Dias do mês */}
               <div className="grid grid-cols-7 gap-1">
-                {/* Células vazias para alinhar o primeiro dia do mês */}
                 {Array.from(
                   { length: getDay(startOfMonth(mesAtual)) },
                   (_, index) => (
@@ -509,7 +402,7 @@ export function CalendarioProgressoDisciplinas({
                       key={`empty-${index}`}
                       className="min-h-[80px] border border-transparent"
                     ></div>
-                  )
+                  ),
                 )}
 
                 {diasDoMes.map((dia) => {
@@ -517,7 +410,7 @@ export function CalendarioProgressoDisciplinas({
                   const temAulas = dadosDia && dadosDia.disciplinas.length > 0;
                   const disciplinasVisveis = disciplinaSelecionada
                     ? dadosDia?.disciplinas.filter(
-                        (d) => d.disciplina.id === disciplinaSelecionada
+                        (d) => d.disciplina.id === disciplinaSelecionada,
                       )
                     : dadosDia?.disciplinas;
                   const ehHoje = isToday(dia);
@@ -559,11 +452,14 @@ export function CalendarioProgressoDisciplinas({
 
                       {disciplinasVisveis &&
                         disciplinasVisveis
-                          .filter((item) => item && item.disciplina && item.disciplina.id)
+                          .filter(
+                            (item) =>
+                              item && item.disciplina && item.disciplina.id,
+                          )
                           .map((item, index) => {
                             const cor = obterCorDisciplina(
                               item.disciplina.id,
-                              disciplinas
+                              disciplinas,
                             );
 
                             return (
@@ -571,23 +467,27 @@ export function CalendarioProgressoDisciplinas({
                                 key={`${item.disciplina.id}-${index}`}
                                 className="mb-1"
                               >
-                              <div className="flex items-center gap-1">
-                                <Badge
-                                  variant="secondary"
-                                  className={`text-xs p-1 ${cor} text-white ${item.isUltimoDia ? 'ring-2 ring-yellow-400' : ''}`}
+                                <div className="flex items-center gap-1">
+                                  <Badge
+                                    variant="secondary"
+                                    className={`text-xs p-1 ${cor} text-white`}
+                                  >
+                                    {formatarDuracaoAulas(item.quantidadeAulas)}
+                                    {item.isUltimoDia && (
+                                      <span className="ml-1 text-yellow-500">
+                                        📍
+                                      </span>
+                                    )}
+                                  </Badge>
+                                </div>
+                                <div
+                                  className={`text-xs mt-1 ${dia.getTime() > Date.now() ? "text-gray-500 italic underline decoration-dotted" : "text-gray-600"}`}
                                 >
-                                  {formatarDuracaoAulas(item.quantidadeAulas)}
-                                  {item.isUltimoDia && (
-                                    <span className="ml-1 text-yellow-300">📍</span>
-                                  )}
-                                </Badge>
+                                  {`${Math.round(item.percentualConcluido)}%`}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-600 mt-1">
-                                {item.isUltimoDia ? '🏁 Último' : `${Math.round(item.percentualConcluido)}%`}
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
                     </div>
                   );
                 })}
@@ -595,150 +495,176 @@ export function CalendarioProgressoDisciplinas({
             </CardContent>
           </Card>
 
-          {/* Legenda */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Legenda</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-blue-50 border border-blue-200 rounded"></div>
-                  <span>Dias com aulas</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="secondary" className="text-xs">
-                    2 aulas
-                  </Badge>
-                  <span>Duração das aulas</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-600">45%</span>
-                  <span>Progresso acumulado</span>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="h-4 w-4 text-green-500" />
-                  <span>Previsão de conclusão</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="secondary" className="text-xs ring-2 ring-yellow-400">
-                    📍 2h
-                  </Badge>
-                  <span>🏁 Último dia da disciplina</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 bg-blue-50 border border-blue-200 rounded"></div>
+              <span>Dias com aulas</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-600">45%</span>
+              <span>Progresso acumulado</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-500 italic underline decoration-dotted">
+                45%
+              </span>
+              <span>Projeção</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-yellow-500">📍</span>
+              <span> Último dia da disciplina</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
   );
 }
 
-// Simplificar função para usar apenas dados do backend
 const calcularCronogramaSimplificado = (
   disciplina: Disciplina,
   dataInicio: Date,
-  dataFim: Date
+  dataFim: Date,
 ): AulasDia[] => {
   const cronograma: AulasDia[] = [];
   const diasDoMes = eachDayOfInterval({ start: dataInicio, end: dataFim });
-  
-  // Usar apenas dados calculados pelo backend
-  const aulasMinistradas = disciplina.aulas_ministradas || 0;
+  let aulasAcumuladas = 0;
+
   const totalAulas = disciplina.total_aulas || 0;
-  const progressoAtual = disciplina.progresso_aulas || 0;
-  
-  // Verificar se a disciplina tem horário consolidado para determinar dias com aula
-  const temHorarioConsolidado = disciplina.horario_consolidado && disciplina.horario_consolidado.trim() !== "";
-  
-  // Verificar se a disciplina já começou (data_inicio)
-  const dataInicioDisc = disciplina.data_inicio ? new Date(disciplina.data_inicio) : null;
-  
-  // Calcular o último dia de aula baseado no horário consolidado
-  const ultimoDiaAula = temHorarioConsolidado && dataInicioDisc ? 
-    calcularUltimoDiaAula(disciplina.horario_consolidado, dataInicioDisc, totalAulas) : 
-    null;
-  
-  // Usar o último dia calculado ou fallback para data_fim_real do backend
-  const dataFimDisc = ultimoDiaAula || (disciplina.data_fim_real ? new Date(disciplina.data_fim_real) : null);
-  
+
+  const temHorarioConsolidado =
+    disciplina.horario_consolidado &&
+    disciplina.horario_consolidado.trim() !== "";
+
+  const dataInicioDisc = disciplina.data_inicio
+    ? new Date(disciplina.data_inicio)
+    : null;
+
+  const ultimoDiaAula =
+    temHorarioConsolidado && dataInicioDisc
+      ? calcularUltimoDiaAula(
+          disciplina.horario_consolidado || "",
+          dataInicioDisc,
+          totalAulas,
+        )
+      : null;
+
+  const dataFimDisc =
+    ultimoDiaAula ||
+    (disciplina.data_fim_real ? new Date(disciplina.data_fim_real) : null);
+
+  if (dataInicioDisc) {
+    const preRangeEnd = new Date(dataInicio);
+    preRangeEnd.setDate(preRangeEnd.getDate() - 1);
+    if (preRangeEnd >= dataInicioDisc) {
+      const diasPreMes = eachDayOfInterval({
+        start: dataInicioDisc,
+        end: preRangeEnd,
+      });
+      diasPreMes.forEach((diaPre) => {
+        const d = getDay(diaPre);
+        if (d === 0 || d === 6) return;
+        if (dataFimDisc && diaPre > dataFimDisc) return;
+        let temAulaPre = false;
+        let qtdPre = 0;
+        if (temHorarioConsolidado) {
+          const diaSemanaParaHorario = d + 1;
+          temAulaPre = temAulaNoDia(
+            disciplina.horario_consolidado || "",
+            diaSemanaParaHorario,
+          );
+          if (temAulaPre) {
+            qtdPre = calcularAulasNoDia(
+              disciplina.horario_consolidado || "",
+              diaSemanaParaHorario,
+            );
+          }
+        } else {
+          temAulaPre = true;
+          qtdPre = 1;
+        }
+        if (temAulaPre) {
+          aulasAcumuladas += qtdPre;
+        }
+      });
+    }
+  }
   diasDoMes.forEach((dia) => {
     const diaSemanaGetDay = getDay(dia);
-    
-    // Não há aulas nos fins de semana
+
     if (diaSemanaGetDay === 0 || diaSemanaGetDay === 6) {
-      return; // Não adicionar fins de semana ao cronograma
+      return;
     }
-    
-    // Verificar se a disciplina já começou
+
     if (dataInicioDisc && dia < dataInicioDisc) {
-      return; // Não exibir dias antes do início da disciplina
+      return;
     }
-    
-    // Verificar se a disciplina já terminou
+
     if (dataFimDisc && dia > dataFimDisc) {
-      return; // Não exibir dias após o fim da disciplina
+      return;
     }
-    
-    // Verificar se há aula neste dia baseado no horário consolidado
+
     let temAulaNoDiaAtual = false;
     let quantidadeAulasNoDia = 0;
-    
+
     if (temHorarioConsolidado) {
-      // Converter getDay() para o formato usado pelas funções utilitárias
-      // getDay(): 0=domingo, 1=segunda, 2=terça, 3=quarta, 4=quinta, 5=sexta, 6=sábado
-      // horario_consolidado: 1=domingo, 2=segunda, 3=terça, 4=quarta, 5=quinta, 6=sexta, 7=sábado
       const diaSemanaParaHorario = diaSemanaGetDay + 1;
-      
-      // Usar a função utilitária para verificar se tem aula no dia
-      temAulaNoDiaAtual = temAulaNoDia(disciplina.horario_consolidado, diaSemanaParaHorario);
-      
-      // Calcular quantas aulas há neste dia
+
+      temAulaNoDiaAtual = temAulaNoDia(
+        disciplina.horario_consolidado || "",
+        diaSemanaParaHorario,
+      );
+
       if (temAulaNoDiaAtual) {
-        quantidadeAulasNoDia = calcularAulasNoDia(disciplina.horario_consolidado, diaSemanaParaHorario);
+        quantidadeAulasNoDia = calcularAulasNoDia(
+          disciplina.horario_consolidado || "",
+          diaSemanaParaHorario,
+        );
       }
     } else {
-      // Se não há horário consolidado, assumir que há aulas em dias úteis
       temAulaNoDiaAtual = true;
-      quantidadeAulasNoDia = 1; // Assumir 1 aula por dia útil se não há horário consolidado
+      quantidadeAulasNoDia = 1;
     }
-    
-    // Só adicionar dias que têm aula
+
     if (temAulaNoDiaAtual) {
-      // Verificar se é o último dia de aula (comparar apenas a data, ignorando horário)
-      const isUltimoDia = ultimoDiaAula ? 
-        dia.toDateString() === ultimoDiaAula.toDateString() : 
-        false;
-      
+      const isUltimoDia = ultimoDiaAula
+        ? dia.toDateString() === ultimoDiaAula.toDateString()
+        : false;
+      aulasAcumuladas += quantidadeAulasNoDia;
+      const totalAulasValidas = totalAulas || 0;
+      const percentualDia =
+        totalAulasValidas > 0
+          ? Math.min((aulasAcumuladas / totalAulasValidas) * 100, 100)
+          : 0;
+
       cronograma.push({
         data: dia,
-        disciplinas: [{
-          disciplina: disciplina,
-          quantidadeAulas: quantidadeAulasNoDia,
-          aulasCumulativas: aulasMinistradas,
-          percentualConcluido: progressoAtual,
-          isUltimoDia: isUltimoDia,
-        }],
+        disciplinas: [
+          {
+            disciplina: disciplina,
+            quantidadeAulas: quantidadeAulasNoDia,
+            aulasCumulativas: aulasAcumuladas,
+            percentualConcluido: percentualDia,
+            isUltimoDia: isUltimoDia,
+          },
+        ],
       });
     }
   });
-  
+
   return cronograma;
 };
 
-// Usar data_fim_real calculada corretamente pelo backend
-const calcularPrevisaoConclusaoSimplificada = (disciplina: Disciplina): Date | null => {
-  // Usar data_fim_real calculada pelo backend (agora com lógica correta)
+const calcularPrevisaoConclusaoSimplificada = (
+  disciplina: Disciplina,
+): Date | null => {
   if (disciplina.data_fim_real) {
     return parseISO(disciplina.data_fim_real);
   }
-  
-  // Fallback para data_fim_prevista
+
   if (disciplina.data_fim_prevista) {
     return parseISO(disciplina.data_fim_prevista);
   }
-  
+
   return null;
 };

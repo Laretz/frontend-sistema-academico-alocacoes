@@ -22,6 +22,7 @@ import {
   MapPin,
   Calendar,
   CalendarDays,
+  CalendarPlus,
   LogOut,
   User,
   Menu,
@@ -46,15 +47,21 @@ const navigation = [
   { name: "Prédios", href: "/predios", icon: Building, adminOnly: true },
   { name: "Disciplinas", href: "/disciplinas", icon: BookOpen },
   {
-    name: "Professor-Disciplina",
+    name: "Disciplinas por Prof.",
     href: "/professor-disciplina",
     icon: UserCheck,
     adminOnly: true,
   },
   { name: "Turmas", href: "/turmas", icon: GraduationCap },
   { name: "Salas", href: "/salas", icon: MapPin },
-  { name: "Alocações", href: "/alocacoes", icon: Calendar },
-  { name: "Feedbacks", href: "/admin/feedbacks", icon: MessageSquare, adminOnly: true },
+  { name: "Reservas", href: "/reservas", icon: CalendarPlus },
+  { name: "Alocações", href: "/alocacoes", icon: Calendar, adminOnly: true },
+  {
+    name: "Feedbacks",
+    href: "/admin/feedbacks",
+    icon: MessageSquare,
+    adminOnly: true,
+  },
   { name: "Grade de Horários", href: "/grade-horarios", icon: CalendarDays },
 ];
 
@@ -75,15 +82,6 @@ export function MainLayout({ children }: MainLayoutProps) {
     router.push("/login");
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((word) => word[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   const getPerfilColor = (role: string) => {
     switch (role) {
       case "ADMIN":
@@ -98,15 +96,20 @@ export function MainLayout({ children }: MainLayoutProps) {
   };
 
   const filteredNavigation = navigation.filter((item) => {
-    if (item.adminOnly && user?.role !== "ADMIN") {
+    if (item.adminOnly && user?.role !== "ADMIN" && user?.role !== "COORDENADOR") {
       return false;
+    }
+    if ("hiddenForRoles" in item) {
+      const hidden = (item as { hiddenForRoles?: string[] }).hiddenForRoles;
+      if (hidden && user?.role && hidden.includes(user.role)) {
+        return false;
+      }
     }
     return true;
   });
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sidebar para desktop */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex min-h-0 flex-1 flex-col bg-card border-r border-border">
           <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
@@ -150,7 +153,6 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
       </div>
 
-      {/* Sidebar mobile */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 flex lg:hidden">
           <div
@@ -210,9 +212,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
       )}
 
-      {/* Conteúdo principal */}
       <div className="lg:pl-64">
-        {/* Header */}
         <div className="sticky top-0 z-10 bg-background shadow-sm border-b border-border">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
             <button
@@ -273,7 +273,6 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
         </div>
 
-        {/* Conteúdo da página */}
         <main className="py-6">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             {children}

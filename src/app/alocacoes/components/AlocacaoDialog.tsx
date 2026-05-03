@@ -11,7 +11,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { AlocacaoForm } from "@/app/alocacoes/components/AlocacaoForm";
-import { User, Disciplina, Turma, Sala, Horario, Alocacao } from "@/types/entities";
+import { AlocacaoPreview } from "@/app/alocacoes/components/AlocacaoPreview";
+import {
+  User,
+  Disciplina,
+  Turma,
+  Sala,
+  Horario,
+  Alocacao,
+  GradeHorario,
+} from "@/types/entities";
 
 interface FormData {
   id_user: string;
@@ -55,6 +64,9 @@ export interface AlocacaoDialogProps {
   submitting: boolean;
   handleSubmit: (e: React.FormEvent) => void;
   todasDisciplinas: Disciplina[];
+  regime: "SUPERIOR" | "TECNICO";
+  setRegime: (value: "SUPERIOR" | "TECNICO") => void;
+  previewGrade?: GradeHorario | null;
 }
 
 export const AlocacaoDialog: React.FC<AlocacaoDialogProps> = ({
@@ -62,6 +74,7 @@ export const AlocacaoDialog: React.FC<AlocacaoDialogProps> = ({
   setIsOpen,
   editingAlocacao,
   setEditingAlocacao,
+  previewGrade,
   ...formProps
 }) => {
   return (
@@ -72,8 +85,8 @@ export const AlocacaoDialog: React.FC<AlocacaoDialogProps> = ({
           Nova Alocação
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-[95vw] w-[95vw] h-[95vh] overflow-hidden flex flex-col p-0 gap-0 sm:max-w-[95vw]">
+        <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle>
             {editingAlocacao ? "Editar Alocação" : "Nova Alocação"}
           </DialogTitle>
@@ -83,7 +96,28 @@ export const AlocacaoDialog: React.FC<AlocacaoDialogProps> = ({
               : "Preencha as informações para criar uma nova alocação"}
           </DialogDescription>
         </DialogHeader>
-        <AlocacaoForm editingAlocacao={editingAlocacao} {...formProps} />
+
+        <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-2">
+          {/* Form Side */}
+          <div className="overflow-y-auto p-6 border-r">
+            <AlocacaoForm 
+              editingAlocacao={editingAlocacao} 
+              previewGrade={previewGrade}
+              {...formProps} 
+            />
+          </div>
+
+          {/* Preview Side */}
+          <div className="overflow-y-auto p-6 bg-muted/10 hidden lg:block">
+            <AlocacaoPreview
+              grade={previewGrade}
+              selectedSlots={formProps.formData.id_horarios}
+              horarios={formProps.horarios}
+              disciplinaSelecionada={formProps.disciplinas.find(d => d.id === formProps.formData.id_disciplina)}
+              professorSelecionado={formProps.usuarios.find(u => u.id === formProps.formData.id_user)}
+            />
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

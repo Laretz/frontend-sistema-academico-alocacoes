@@ -1,8 +1,41 @@
 import axios from "axios";
 import { toast } from "sonner";
+import type { InternalAxiosRequestConfig } from "axios";
 
-// Configuração base da API
+
+  // Cliente HTTP (Axios) do front.
+  // - Injeta Authorization via token do localStorage.
+  // - Em 401, tenta renovar token (/token/refresh) e reexecuta a requisição original.
+  // - Exibe toast apenas para erros que não sejam 401.
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
+
+export function getApiErrorMessage(
+  error: unknown,
+  fallback = "Erro interno do servidor",
+): string {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as unknown;
+    const messageFromData =
+      typeof data === "object" && data !== null && "message" in data
+        ? (data as { message?: unknown }).message
+        : undefined;
+    if (typeof messageFromData === "string" && messageFromData.trim()) {
+      return messageFromData;
+    }
+
+    const errorFromData =
+      typeof data === "object" && data !== null && "error" in data
+        ? (data as { error?: unknown }).error
+        : undefined;
+    if (typeof errorFromData === "string" && errorFromData.trim()) {
+      return errorFromData;
+    }
+  }
+
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return fallback;
+}
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -12,7 +45,6 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-// Interceptor para adicionar token de autenticação
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
@@ -26,11 +58,13 @@ api.interceptors.request.use(
   }
 );
 
-// Flag para evitar múltiplas tentativas de refresh simultâneas
 let isRefreshing = false;
-let failedQueue: Array<{ resolve: (value?: any) => void; reject: (reason?: any) => void }> = [];
+let failedQueue: Array<{
+  resolve: (value?: string | null) => void;
+  reject: (reason?: unknown) => void;
+}> = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach(({ resolve, reject }) => {
     if (error) {
       reject(error);
@@ -42,68 +76,81 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Interceptor para tratar respostas e erros
 api.interceptors.response.use(
   (response) => {
     return response;
   },
-  async (error) => {
-    const originalRequest = error.config;
-    const message = error.response?.data?.message || "Erro interno do servidor";
+  async (error: unknown) => {
+    if (!axios.isAxiosError(error)) {
+      toast.error("Erro interno do servidor");
+      return Promise.reject(error);
+    }
 
-    // Se o token expirou (401) e não é uma tentativa de refresh
+    const originalRequest = (error.config || {}) as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
+
+    const data = error.response?.data as unknown;
+    const messageFromData =
+      typeof data === "object" && data !== null && "message" in data
+        ? (data as { message?: unknown }).message
+        : undefined;
+    const message =
+      typeof messageFromData === "string"
+        ? messageFromData
+        : "Erro interno do servidor";
+
     if (error.response?.status === 401 && !originalRequest._retry) {
-      // Verificar se não estamos já na página de login ou refresh
       if (typeof window !== 'undefined' && 
           !window.location.pathname.includes('/login') && 
           !originalRequest.url?.includes('/token/refresh')) {
         
         if (isRefreshing) {
-          // Se já está fazendo refresh, adicionar à fila
           return new Promise((resolve, reject) => {
             failedQueue.push({ resolve, reject });
-          }).then(token => {
-            if (token) {
-              originalRequest.headers['Authorization'] = 'Bearer ' + token;
-              return api(originalRequest);
-            }
-            return Promise.reject(error);
-          }).catch(err => {
-            return Promise.reject(err);
-          });
+          })
+            .then((token) => {
+              if (typeof token === "string" && token) {
+                originalRequest.headers = originalRequest.headers ?? {};
+                originalRequest.headers["Authorization"] = "Bearer " + token;
+                return api(originalRequest);
+              }
+              return Promise.reject(error);
+            })
+            .catch((err: unknown) => {
+              return Promise.reject(err);
+            });
         }
 
         originalRequest._retry = true;
         isRefreshing = true;
 
         try {
-          // Tentar fazer refresh do token
           const refreshResponse = await api.patch('/token/refresh');
           
-          if (refreshResponse.data?.token) {
-            const newToken = refreshResponse.data.token;
+          const refreshData = refreshResponse.data as unknown;
+          const tokenCandidate =
+            typeof refreshData === "object" && refreshData !== null && "token" in refreshData
+              ? (refreshData as { token?: unknown }).token
+              : undefined;
+
+          if (typeof tokenCandidate === "string" && tokenCandidate) {
+            const newToken = tokenCandidate;
             
-            // Atualizar localStorage
             localStorage.setItem('token', newToken);
             
-            // Processar fila de requisições pendentes
             processQueue(null, newToken);
             
-            // Repetir a requisição original com o novo token
-            originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
-            
-            console.log('✅ Token renovado automaticamente via interceptor');
+            originalRequest.headers = originalRequest.headers ?? {};
+            originalRequest.headers["Authorization"] = "Bearer " + newToken;
             
             return api(originalRequest);
           }
         } catch (refreshError) {
-          // Se o refresh falhar, limpar dados e redirecionar
           processQueue(refreshError, null);
           
           localStorage.removeItem("token");
           localStorage.removeItem("user");
-          
-          console.log('❌ Refresh falhou, redirecionando para login');
           
           if (window.location.pathname !== '/login') {
             window.location.href = "/login?redirect=" + encodeURIComponent(window.location.pathname);
@@ -114,12 +161,10 @@ api.interceptors.response.use(
           isRefreshing = false;
         }
       } else {
-        // Se estamos na página de login ou é uma tentativa de refresh, apenas rejeitar
         return Promise.reject(error);
       }
     }
 
-    // Mostrar toast de erro apenas para erros que não sejam 401
     if (error.response?.status !== 401) {
       toast.error(message);
     }

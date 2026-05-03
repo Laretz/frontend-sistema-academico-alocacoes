@@ -11,30 +11,31 @@ Este projeto frontend foi desenvolvido com **Next.js 15** + **TypeScript** segui
 - **Estilização**: Tailwind CSS
 - **Componentes UI**: Shadcn/ui
 - **Gerenciamento de Estado**: Zustand
-- **Requisições HTTP**: Axios + React Query
+- **Requisições HTTP**: Axios
 - **Validação**: Zod + React Hook Form
 - **Notificações**: Sonner
+ 
+## Estrutura de Pastas
 
-## 📁 Estrutura de Pastas
-
-```
+```txt
 src/
-├── app/                    # App Router do Next.js
-│   ├── dashboard/         # Página principal do sistema
-│   ├── disciplinas/       # Gestão de disciplinas
+├── app/                  # App Router do Next.js
+│   ├── dashboard/        # Página principal do sistema
+│   ├── disciplinas/      # Gestão de disciplinas
 │   ├── login/            # Autenticação
 │   ├── turmas/           # Gestão de turmas
-│   └── usuarios/         # Gestão de usuários
-│       ├── novo/         # Criação de usuário
-│       └── [id]/editar/  # Edição de usuário
-├── components/            # Componentes reutilizáveis
+│   ├── usuarios/         # Gestão de usuários
+│   │    ├── novo/        # Criação de usuário
+│   │    ├── [id]/editar/ # Edição de usuário
+    └─── etc              # outras paginas do sistema
+├── components/           # Componentes reutilizáveis
 │   ├── forms/            # Formulários
 │   ├── layout/           # Layouts da aplicação
 │   └── ui/               # Componentes base (Shadcn/ui)
 ├── hooks/                # Custom hooks
 ├── lib/                  # Configurações e utilitários
 ├── services/             # Serviços de API
-├── store/                # Gerenciamento de estado (Zustand)
+├── store/                # Gerenciamento de estado 
 ├── types/                # Definições de tipos TypeScript
 └── utils/                # Funções utilitárias
 ```
@@ -51,8 +52,7 @@ src/
 ### Perfis de Usuário
 
 - **ADMIN**: Acesso total ao sistema
-- **PROFESSOR**: Visualização de grades e disciplinas
-- **ALUNO**: Visualização limitada
+- **PROFESSOR**: Acesso às funcionalidades de professor e visualização de grades
 
 ## 🎨 Interface e UX
 
@@ -108,35 +108,10 @@ NEXT_PUBLIC_API_URL=http://localhost:3333
 
 ### Endpoints do Backend
 
-```typescript
-// Autenticação
-POST /session           # Login
-GET  /profile           # Perfil do usuário
+Para ver todos os endpoints, parâmetros e exemplos de resposta, use o Swagger do backend:
 
-// Usuários
-GET    /users           # Listar usuários
-POST   /users           # Criar usuário
-GET    /users/:id       # Buscar usuário
-PUT    /users/:id       # Atualizar usuário
-DELETE /users/:id       # Excluir usuário
-
-// Disciplinas
-GET    /disciplinas     # Listar disciplinas
-POST   /disciplinas     # Criar disciplina
-
-// Turmas
-GET    /turmas          # Listar turmas
-POST   /turmas          # Criar turma
-
-// Salas
-GET    /salas           # Listar salas
-POST   /salas           # Criar sala
-
-// Alocações
-GET    /alocacoes       # Listar alocações
-POST   /alocacoes       # Criar alocação
-GET    /grade-horarios  # Grade de horários
-```
+- Inicie o backend (`cd backend && npm run dev`)
+- Acesse: `http://localhost:3333/docs`
 
 ## 🚀 Como Executar
 
@@ -181,16 +156,7 @@ npm run dev
    - Teste os endpoints no Postman/Insomnia
    - Verifique se o CORS está configurado
 
-3. **Ativar Integração Real**
-   Nos arquivos de serviço, descomente as linhas:
-
-   ```typescript
-   // TODO: Implementar quando o backend estiver conectado
-   const response = await userService.getAll();
-   setUsuarios(response.data);
-   ```
-
-4. **Testar Funcionalidades**
+3. **Testar Funcionalidades**
    - Login com usuário real
    - CRUD de usuários
    - Navegação entre páginas
@@ -233,16 +199,6 @@ npm run dev
    - Manter interfaces sincronizadas com backend
    - Usar Zod para validação em runtime
 
-### Debug
-
-```typescript
-// Habilitar logs de requisições
-api.interceptors.request.use((config) => {
-  console.log("Request:", config);
-  return config;
-});
-```
-
 ## 📚 Documentação Adicional
 
 - [Next.js Documentation](https://nextjs.org/docs)
@@ -252,5 +208,3 @@ api.interceptors.request.use((config) => {
 - [React Hook Form](https://react-hook-form.com/)
 
 ---
-
-**Desenvolvido com ❤️ para o TCC - Sistema de Alocação Acadêmica**

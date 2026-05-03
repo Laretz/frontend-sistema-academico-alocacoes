@@ -16,19 +16,18 @@ export interface RegisterData {
   senha: string;
   role: "PROFESSOR" | "ADMIN" | "COORDENADOR";
   especializacao?: string;
-  cargaHorariaMax?: number;
+  carga_horaria_max?: number;
   preferencia?: string;
 }
 
 export const authService = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
     const response = await api.post<LoginResponse>("/session", credentials);
-    console.log("🔹 Resposta da API:", response.data);
     return response.data;
   },
 
   register: async (data: RegisterData): Promise<void> => {
-    await api.post("/users", data);
+    await api.post("/register", data);
   },
 
   getProfile: async (): Promise<User> => {

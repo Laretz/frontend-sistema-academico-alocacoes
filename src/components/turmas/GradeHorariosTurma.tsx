@@ -13,58 +13,19 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
+  CardDescription as UiCardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, GraduationCap, User } from "lucide-react";
+import { GradeLegend } from "@/components/GradeLegend";
 import { Turma } from "@/types/entities";
-
-interface AlocacaoInfo {
-  id: string;
-  disciplina: {
-    id: string;
-    nome: string;
-    codigo: string;
-    cargaHoraria: number;
-    horario_consolidado?: string;
-  };
-  professor: {
-    id: string;
-    nome: string;
-    email: string;
-  };
-  sala: {
-    id: string;
-    nome: string;
-    predio: string;
-    capacidade: number;
-  };
-  horario: {
-    id: string;
-    codigo: string;
-    dia_semana: string;
-    horario_inicio: string;
-    horario_fim: string;
-  };
-}
-
-interface GradeHorarios {
-  [dia_semana: string]: {
-    [codigoHorario: string]: AlocacaoInfo | null;
-  };
-}
-
-interface GradeHorariosTurmaResponse {
-  turmaId: string;
-  grade: GradeHorarios;
-  resumo: {
-    totalAlocacoes: number;
-    disciplinasUnicas: number;
-    professoresUnicos: number;
-  };
-}
+import type {
+  GradeHorariosTurmaAlocacaoInfoVM,
+  GradeHorariosTurmaResponseVM,
+} from "@/types/view-models/grade-horarios-turma";
+import api from "@/lib/api";
 
 interface GradeHorariosTurmaProps {
   turma: Turma;
@@ -99,7 +60,6 @@ const horariosDisponiveis = [
   "N4",
 ];
 
-// Função para mapear períodos para horários usando tema shadcn/ui
 const getStatusColor = (vagas: number, demanda: number) => {
   if (demanda === 0) return "bg-muted text-muted-foreground";
   if (vagas >= demanda)
@@ -116,20 +76,7 @@ const getStatusText = (vagas: number, demanda: number) => {
   return "Lotado";
 };
 
-// Função para cores de disciplinas usando tema shadcn/ui
-const getDisciplinaColor = (index: number) => {
-  const colors = [
-    "bg-primary/10 text-primary border-primary/20",
-    "bg-secondary/50 text-secondary-foreground border-secondary",
-    "bg-accent/50 text-accent-foreground border-accent",
-    "bg-destructive/10 text-destructive border-destructive/20",
-    "bg-muted/50 text-muted-foreground border-muted",
-    "bg-primary/20 text-primary border-primary/30",
-  ];
-  return colors[index % colors.length];
-};
-
-const getPeriodoHorario = (periodo: string): string => {
+const getHorarioPorCodigo = (codigo: string): string => {
   const horarios: { [key: string]: string } = {
     M1: "07:00-07:50",
     M2: "07:50-08:40",
@@ -148,16 +95,13 @@ const getPeriodoHorario = (periodo: string): string => {
     N3: "20:35-21:25",
     N4: "21:25-22:15",
   };
-  return horarios[periodo] || "";
+  return horarios[codigo] || "";
 };
 
-export function GradeHorariosTurma({
-  turma,
-  trigger,
-}: GradeHorariosTurmaProps) {
+export function GradeHorariosTurma({ turma, trigger }: GradeHorariosTurmaProps) {
   const [open, setOpen] = useState(false);
-  const [gradeData, setGradeData] = useState<GradeHorariosTurmaResponse | null>(
-    null
+  const [gradeData, setGradeData] = useState<GradeHorariosTurmaResponseVM | null>(
+    null,
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,16 +111,20 @@ export function GradeHorariosTurma({
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `http://localhost:3333/turmas/${turma.id}/grade-horarios`
+      const periodoId = (() => {
+        if (typeof window === "undefined") return undefined;
+        const modo = window.localStorage.getItem("periodo.modo");
+        if (modo !== "consulta") return undefined;
+        return window.localStorage.getItem("periodo.consultaId") || undefined;
+      })();
+
+      const resp = await api.get<GradeHorariosTurmaResponseVM>(
+        `/turmas/${turma.id}/grade-horarios`,
+        {
+          params: periodoId ? { periodoId } : undefined,
+        },
       );
-
-      if (!response.ok) {
-        throw new Error("Erro ao buscar grade de horários");
-      }
-
-      const data = await response.json();
-      setGradeData(data);
+      setGradeData(resp.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -190,16 +138,14 @@ export function GradeHorariosTurma({
     }
   }, [open, fetchGradeHorarios]);
 
-  // Função para determinar a cor baseada no turno da turma vs horário da alocação usando tema shadcn/ui
   const getAlocacaoColor = (codigoHorario: string) => {
     const turnoTurma = turma.turno.toUpperCase();
-    const periodoHorario = codigoHorario.charAt(0); // M, T ou N
+    const turnoHorario = codigoHorario.charAt(0);
 
-    // Se o horário está no turno correto da turma, usa primary (normal)
     if (
-      (turnoTurma === "MATUTINO" && periodoHorario === "M") ||
-      (turnoTurma === "VESPERTINO" && periodoHorario === "T") ||
-      (turnoTurma === "NOTURNO" && periodoHorario === "N")
+      (turnoTurma === "MATUTINO" && turnoHorario === "M") ||
+      (turnoTurma === "VESPERTINO" && turnoHorario === "T") ||
+      (turnoTurma === "NOTURNO" && turnoHorario === "N")
     ) {
       return {
         border: "border-primary/20",
@@ -210,8 +156,7 @@ export function GradeHorariosTurma({
       };
     }
 
-    // Se é horário noturno fora do turno, usa destructive
-    if (periodoHorario === "N") {
+    if (turnoHorario === "N") {
       return {
         border: "border-destructive/20",
         bg: "bg-destructive/5",
@@ -221,7 +166,6 @@ export function GradeHorariosTurma({
       };
     }
 
-    // Para outros casos (manhã em turma vespertina, tarde em turma matutina), usa warning
     return {
       border: "border-warning/20",
       bg: "bg-warning/10",
@@ -231,7 +175,7 @@ export function GradeHorariosTurma({
     };
   };
 
-  const renderAlocacao = (alocacao: AlocacaoInfo | null) => {
+  const renderAlocacao = (alocacao: GradeHorariosTurmaAlocacaoInfoVM | null) => {
     if (!alocacao) {
       return (
         <div className="h-16 border border-border bg-muted/30 rounded-md p-2 text-center text-xs text-muted-foreground flex items-center justify-center">
@@ -288,7 +232,7 @@ export function GradeHorariosTurma({
             Grade de Horários - {turma.nome}
           </DialogTitle>
           <DialogDescription>
-            {turma.periodo}º período • {turma.turno} • {turma.num_alunos} alunos
+            {turma.semestre}º semestre • {turma.turno} • {turma.num_alunos} alunos
             {gradeData && (
               <span className="ml-4">
                 {gradeData.resumo.totalAlocacoes} alocações •
@@ -324,16 +268,13 @@ export function GradeHorariosTurma({
 
         {gradeData && !loading && (
           <div className="space-y-4">
-            {/* Resumo */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <Card>
                 <CardContent className="p-3">
                   <div className="flex items-center space-x-2">
                     <Calendar className="h-4 w-4 text-primary" />
                     <div>
-                      <p className="text-sm font-medium">
-                        {gradeData.resumo.totalAlocacoes}
-                      </p>
+                      <p className="text-sm font-medium">{gradeData.resumo.totalAlocacoes}</p>
                       <p className="text-xs text-muted-foreground">Alocações</p>
                     </div>
                   </div>
@@ -344,12 +285,8 @@ export function GradeHorariosTurma({
                   <div className="flex items-center space-x-2">
                     <GraduationCap className="h-4 w-4 text-secondary-foreground" />
                     <div>
-                      <p className="text-sm font-medium">
-                        {gradeData.resumo.disciplinasUnicas}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Disciplinas
-                      </p>
+                      <p className="text-sm font-medium">{gradeData.resumo.disciplinasUnicas}</p>
+                      <p className="text-xs text-muted-foreground">Disciplinas</p>
                     </div>
                   </div>
                 </CardContent>
@@ -359,25 +296,20 @@ export function GradeHorariosTurma({
                   <div className="flex items-center space-x-2">
                     <User className="h-4 w-4 text-accent-foreground" />
                     <div>
-                      <p className="text-sm font-medium">
-                        {gradeData.resumo.professoresUnicos}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Professores
-                      </p>
+                      <p className="text-sm font-medium">{gradeData.resumo.professoresUnicos}</p>
+                      <p className="text-xs text-muted-foreground">Professores</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Tabela de Disciplinas */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Disciplinas da Turma</CardTitle>
-                <CardDescription>
+                <UiCardDescription>
                   Detalhes completos das disciplinas alocadas para esta turma
-                </CardDescription>
+                </UiCardDescription>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -420,112 +352,83 @@ export function GradeHorariosTurma({
                       {Object.values(gradeData.grade)
                         .flatMap((dia) => Object.values(dia))
                         .filter(
-                          (alocacao): alocacao is AlocacaoInfo =>
-                            alocacao !== null
+                          (alocacao): alocacao is GradeHorariosTurmaAlocacaoInfoVM => alocacao !== null,
                         )
                         .reduce((unique, alocacao) => {
-                          const exists = unique.find(
-                            (item) =>
-                              item.disciplina.id === alocacao.disciplina.id
-                          );
+                          const exists = unique.find((item) => item.disciplina.id === alocacao.disciplina.id);
                           if (!exists) {
                             unique.push(alocacao);
                           }
                           return unique;
-                        }, [] as AlocacaoInfo[])
+                        }, [] as GradeHorariosTurmaAlocacaoInfoVM[])
                         .map((alocacao, index) => {
-                          // Usar horário consolidado da disciplina se disponível, senão buscar dos horários
-                          let horarioConsolidado =
-                            alocacao.disciplina.horario_consolidado || "";
+                          let horarioConsolidado = alocacao.disciplina.horario_consolidado || "";
 
                           if (!horarioConsolidado) {
-                            // Buscar todos os horários desta disciplina e organizá-los por dia
                             const horariosPorDia: { [dia: string]: string[] } = {};
-                            
-                            Object.entries(gradeData.grade).forEach(
-                              ([dia, horarios]) => {
-                                Object.entries(horarios).forEach(
-                                  ([horario, alocacaoHorario]) => {
-                                    if (
-                                      alocacaoHorario?.disciplina.codigo ===
-                                      alocacao.disciplina.codigo
-                                    ) {
-                                      if (!horariosPorDia[dia]) {
-                                        horariosPorDia[dia] = [];
-                                      }
-                                      horariosPorDia[dia].push(horario);
-                                    }
+
+                            Object.entries(gradeData.grade).forEach(([dia, horarios]) => {
+                              Object.entries(horarios).forEach(([horario, alocacaoHorario]) => {
+                                if (alocacaoHorario?.disciplina.codigo === alocacao.disciplina.codigo) {
+                                  if (!horariosPorDia[dia]) {
+                                    horariosPorDia[dia] = [];
                                   }
-                                );
-                              }
-                            );
-                            
-                            // Consolidar horários por dia
+                                  horariosPorDia[dia].push(horario);
+                                }
+                              });
+                            });
+
                             const horariosConsolidados: string[] = [];
-                            const diasSemana = ['SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA', 'SABADO'];
+                            const diasSemanaLocal = ["SEGUNDA", "TERCA", "QUARTA", "QUINTA", "SEXTA", "SABADO"];
                             const diasMap: { [key: string]: string } = {
-                              'SEGUNDA': '2',
-                              'TERCA': '3', 
-                              'QUARTA': '4',
-                              'QUINTA': '5',
-                              'SEXTA': '6',
-                              'SABADO': '7'
+                              SEGUNDA: "2",
+                              TERCA: "3",
+                              QUARTA: "4",
+                              QUINTA: "5",
+                              SEXTA: "6",
+                              SABADO: "7",
                             };
-                            
-                            diasSemana.forEach(dia => {
+
+                            diasSemanaLocal.forEach((dia) => {
                               if (horariosPorDia[dia] && horariosPorDia[dia].length > 0) {
                                 const horariosOrdenados = horariosPorDia[dia].sort();
-                                const turno = horariosOrdenados[0].charAt(0); // M, T, N
-                                
+                                const turno = horariosOrdenados[0].charAt(0);
+
                                 if (horariosOrdenados.length === 1) {
-                                  // Horário isolado
                                   const numeroHorario = horariosOrdenados[0].charAt(1);
                                   horariosConsolidados.push(`${diasMap[dia]}${turno}${numeroHorario}`);
                                 } else {
-                                  // Múltiplos horários - verificar se são consecutivos
-                                  const numeros = horariosOrdenados.map(h => parseInt(h.charAt(1)));
-                                  const saoConsecutivos = numeros.every((num, index) => 
-                                    index === 0 || num === numeros[index - 1] + 1
+                                  const numeros = horariosOrdenados.map((h) => parseInt(h.charAt(1)));
+                                  const saoConsecutivos = numeros.every(
+                                    (num, index) => index === 0 || num === numeros[index - 1] + 1,
                                   );
-                                  
+
                                   if (saoConsecutivos) {
-                                    // Horários consecutivos - usar formato compacto
-                                    const primeiroNumero = numeros[0];
-                                    const ultimoNumero = numeros[numeros.length - 1];
-                                    const sequencia = numeros.join('');
+                                    const sequencia = numeros.join("");
                                     horariosConsolidados.push(`${diasMap[dia]}${turno}${sequencia}`);
                                   } else {
-                                    // Horários não consecutivos - listar separadamente
-                                    numeros.forEach(num => {
+                                    numeros.forEach((num) => {
                                       horariosConsolidados.push(`${diasMap[dia]}${turno}${num}`);
                                     });
                                   }
                                 }
                               }
                             });
-                            
-                            horarioConsolidado = horariosConsolidados.length > 0
-                              ? horariosConsolidados.join(", ")
-                              : "-";
+
+                            horarioConsolidado =
+                              horariosConsolidados.length > 0 ? horariosConsolidados.join(", ") : "-";
                           }
 
                           return (
                             <tr
                               key={alocacao.disciplina.id}
-                              className={
-                                index % 2 === 0
-                                  ? "bg-background"
-                                  : "bg-muted/30"
-                              }
+                              className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}
                             >
                               <td className="px-3 py-2 text-sm font-medium text-foreground border-r border-border">
                                 {alocacao.disciplina.codigo || "---"}
                               </td>
                               <td className="px-3 py-2 border-r border-border">
-                                <Badge
-                                  variant="outline"
-                                  className="font-mono text-xs"
-                                >
+                                <Badge variant="outline" className="font-mono text-xs">
                                   ---
                                 </Badge>
                               </td>
@@ -551,16 +454,8 @@ export function GradeHorariosTurma({
                                 {turma.num_alunos}
                               </td>
                               <td className="px-3 py-2">
-                                <Badge
-                                  className={getStatusColor(
-                                    turma.num_alunos,
-                                    turma.num_alunos
-                                  )}
-                                >
-                                  {getStatusText(
-                                    turma.num_alunos,
-                                    turma.num_alunos
-                                  )}
+                                <Badge className={getStatusColor(turma.num_alunos, turma.num_alunos)}>
+                                  {getStatusText(turma.num_alunos, turma.num_alunos)}
                                 </Badge>
                               </td>
                             </tr>
@@ -572,13 +467,13 @@ export function GradeHorariosTurma({
               </CardContent>
             </Card>
 
-            {/* Grade de Horários */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Grade Semanal</CardTitle>
-                <CardDescription>
+                <UiCardDescription>
                   Visualização completa dos horários da turma por dia da semana
-                </CardDescription>
+                </UiCardDescription>
+                <GradeLegend />
               </CardHeader>
               <CardContent>
                 <div className="w-full overflow-x-auto">
@@ -600,21 +495,15 @@ export function GradeHorariosTurma({
                     </thead>
                     <tbody>
                       {horariosDisponiveis.map((horario) => (
-                        <tr
-                          key={horario}
-                          className="hover:bg-muted/50 transition-colors"
-                        >
+                        <tr key={horario} className="hover:bg-muted/50 transition-colors">
                           <td className="border border-border p-3 bg-muted/30 text-sm font-medium text-center w-[10%]">
-                            <div className="font-semibold text-foreground">
-                              {horario}
-                            </div>
+                            <div className="font-semibold text-foreground">{horario}</div>
                             <div className="text-muted-foreground text-xs">
-                              {getPeriodoHorario(horario)}
+                              {getHorarioPorCodigo(horario)}
                             </div>
                           </td>
                           {diasSemana.map((dia) => {
-                            const alocacao =
-                              gradeData.grade[dia.key]?.[horario] || null;
+                            const alocacao = gradeData.grade[dia.key]?.[horario] || null;
                             return (
                               <td
                                 key={`${dia.key}-${horario}`}

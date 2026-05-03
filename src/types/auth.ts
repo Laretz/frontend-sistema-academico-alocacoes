@@ -8,6 +8,8 @@ export interface User {
   preferencia?: string;
   createdAt: string;
   updatedAt: string;
+  cursos?: { curso: { id: string; nome: string } }[];
+  curso?: { id: string; nome: string }[];
 }
 
 export interface LoginRequest {

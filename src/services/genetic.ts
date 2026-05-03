@@ -38,7 +38,7 @@ export interface GeneticReportResponse {
   turma: {
     id: string;
     nome: string;
-    periodo: number;
+    semestre: number;
     turno: string;
   };
   configuracoes: {

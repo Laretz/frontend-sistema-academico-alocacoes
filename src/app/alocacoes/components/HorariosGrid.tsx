@@ -15,6 +15,7 @@ export type ConflictType =
 interface HorariosGridProps {
   horarios: Horario[];
   selectedIds: string[];
+  originalHorarioId?: string;
   onToggle: (horarioId: string, checked: boolean) => void;
   editingAlocacao: boolean;
   conflictingHorarios: Map<string, ConflictType>;
@@ -24,8 +25,8 @@ interface HorariosGridProps {
 }
 
 export const HorariosGrid: React.FC<HorariosGridProps> = ({
-  horarios,
   selectedIds,
+  originalHorarioId,
   onToggle,
   editingAlocacao,
   conflictingHorarios,
@@ -33,14 +34,24 @@ export const HorariosGrid: React.FC<HorariosGridProps> = ({
   getDiaSemanaAbrev,
   getHorariosAgrupados,
 }) => {
-  const getConflictStyles = (isConflicting: boolean) => {
-    if (!isConflicting) return "cursor-pointer hover:bg-muted/50";
-    return "bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20";
-  };
+  const getConflictStyles = (
+    isConflicting: boolean,
+    isOriginal: boolean,
+    isSelected: boolean,
+  ) => {
+    if (isOriginal) {
+      if (isSelected)
+        return "bg-primary/10 border-primary border-2 text-primary font-bold";
+      return "bg-muted/30 border-dashed border-2 border-muted-foreground/50 opacity-70";
+    }
 
-  const getConflictTextColor = (isConflicting: boolean) => {
-    if (!isConflicting) return "";
-    return "text-destructive";
+    if (isSelected) {
+      return "bg-primary/20 border-primary/50 border text-primary";
+    }
+
+    if (!isConflicting)
+      return "cursor-pointer hover:bg-muted/50 border border-transparent";
+    return "bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20 border";
   };
 
   const getConflictLabel = (conflictType?: ConflictType) => {
@@ -67,7 +78,8 @@ export const HorariosGrid: React.FC<HorariosGridProps> = ({
   return (
     <div className="space-y-3">
       <Label>
-        Horários {editingAlocacao ? "(selecione apenas um)" : "(selecione um ou mais)"}
+        Horários{" "}
+        {editingAlocacao ? "(selecione apenas um)" : "(selecione um ou mais)"}
       </Label>
       <div className="max-h-64 overflow-y-auto border rounded-lg p-4 bg-muted/20">
         {Object.entries(getHorariosAgrupados()).map(([dia, horariosGrupo]) => (
@@ -83,6 +95,7 @@ export const HorariosGrid: React.FC<HorariosGridProps> = ({
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-2">
               {horariosGrupo.map((horario) => {
                 const isSelected = selectedIds.includes(horario.id);
+                const isOriginal = originalHorarioId === horario.id;
                 const conflictType = conflictingHorarios.get(horario.id);
                 const isConflicting = !!conflictType;
                 const isDisabled =
@@ -91,14 +104,17 @@ export const HorariosGrid: React.FC<HorariosGridProps> = ({
                     conflictType === "professor_turma" ||
                     conflictType === "sala_turma" ||
                     conflictType === "todos" ||
-                    !isSelected);
+                    !isSelected) &&
+                  !isOriginal; // Permitir selecionar o original mesmo com conflito (já estava alocado)
 
                 return (
                   <label
                     key={horario.id}
-                    className={`flex items-center space-x-3 p-2 rounded-md transition-colors ${getConflictStyles(isConflicting)} ${
-                      isDisabled ? "cursor-not-allowed opacity-60" : ""
-                    }`}
+                    className={`flex items-center space-x-2 p-2 rounded-md transition-colors border ${getConflictStyles(
+                      isConflicting,
+                      isOriginal,
+                      isSelected,
+                    )} ${isDisabled ? "cursor-not-allowed opacity-60" : ""}`}
                   >
                     <input
                       type={editingAlocacao ? "radio" : "checkbox"}
@@ -108,14 +124,33 @@ export const HorariosGrid: React.FC<HorariosGridProps> = ({
                       onChange={(e) => onToggle(horario.id, e.target.checked)}
                       className={`rounded ${isDisabled ? "cursor-not-allowed" : ""}`}
                     />
-                    <span className={`text-sm font-medium ${isDisabled ? getConflictTextColor(isConflicting) : ""}`}>
-                      {horario.codigo}
+                    <div className="flex flex-col flex-1">
+                      <span
+                        className={`text-sm font-medium flex items-center gap-1 ${
+                          isDisabled ? "text-muted-foreground" : ""
+                        }`}
+                      >
+                        {horario.codigo}
+                        {isOriginal && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] h-4 px-1 ml-auto"
+                          >
+                            Atual
+                          </Badge>
+                        )}
+                        {!isOriginal && isSelected && editingAlocacao && (
+                          <Badge className="text-[10px] h-4 px-1 ml-auto bg-green-500 hover:bg-green-600">
+                            Novo
+                          </Badge>
+                        )}
+                      </span>
                       {isConflicting && (
-                        <span className={`ml-1 text-xs ${getConflictTextColor(isConflicting)}`}>
+                        <span className="text-[10px] text-destructive leading-tight">
                           {getConflictLabel(conflictType)}
                         </span>
                       )}
-                    </span>
+                    </div>
                   </label>
                 );
               })}

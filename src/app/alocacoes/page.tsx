@@ -1,44 +1,50 @@
 "use client";
 import { AlocacoesToolbar } from "@/app/alocacoes/components/AlocacoesToolbar";
 
-
-
 import { MainLayout } from "@/components/layout/main-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { LimparDisciplinaDialog } from "@/app/grade-horarios/components/LimparDisciplinaDialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Edit,
+  Trash2,
+  Calendar,
+} from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-// Removed Dialog components (encapsulated in AlocacaoDialog)
-// import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-// Keep Select components (used in Filtros Avançados)
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// Clean lucide-react imports: remove Plus, Search (moved to AlocacoesToolbar)
-import { Edit, Trash2, Calendar, Clock, MapPin, User as UserIcon, BookOpen, GraduationCap } from "lucide-react";
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
+import { useAuthStore } from "@/store/auth";
+import { useRouter } from "next/navigation";
 import {
   alocacaoService,
-  disciplinaService,
-  turmaService,
-  salaService,
-  horarioService,
+  cursoService,
   professorDisciplinaService,
 } from "@/services/entities";
-import { userService } from "@/services/users";
 import {
   Alocacao,
   CreateAlocacaoRequest,
   Disciplina,
+  GradeHorario,
   Turma,
   Sala,
   Horario,
 } from "@/types/entities";
 import { User } from "@/types/entities";
-
-
-import { cursoService } from "@/services/entities";
-
 
 interface FormData {
   id_user: string;
@@ -57,6 +63,8 @@ const initialFormData: FormData = {
 };
 
 export default function AlocacoesPage() {
+  const { user } = useAuthStore();
+  const router = useRouter();
   const [alocacoes, setAlocacoes] = useState<Alocacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -65,7 +73,6 @@ export default function AlocacoesPage() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [submitting, setSubmitting] = useState(false);
 
-  // Dados para os selects
   const [usuarios, setUsuarios] = useState<User[]>([]);
 
   const [disciplinas, setDisciplinas] = useState<Disciplina[]>([]);
@@ -74,9 +81,6 @@ export default function AlocacoesPage() {
   >([]);
   const [todasDisciplinas, setTodasDisciplinas] = useState<Disciplina[]>([]);
   const [mostrarTodasDisciplinas, setMostrarTodasDisciplinas] = useState(false);
-  const [todasDisciplinasCurso, setTodasDisciplinasCurso] = useState<Disciplina[]>([]);
-  // Novos: ids de disciplinas vinculadas ao curso da turma selecionada
-  const [disciplinasVinculadasCurso, setDisciplinasVinculadasCurso] = useState<string[]>([]);
   const [conflictingHorarios, setConflictingHorarios] = useState<
     Map<
       string,
@@ -89,78 +93,44 @@ export default function AlocacoesPage() {
       | "todos"
     >
   >(new Map());
+  const conflictCheckSeq = useRef(0);
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [salas, setSalas] = useState<Sala[]>([]);
   const [horarios, setHorarios] = useState<Horario[]>([]);
-  //estados para filtros
+  const [regime, setRegime] = useState<"SUPERIOR" | "TECNICO">("SUPERIOR");
+
   const [filtroDataInicio, setFiltroDataInicio] = useState<Date | undefined>(
-    undefined
+    undefined,
   );
   const [filtroDataFim, setFiltroDataFim] = useState<Date | undefined>(
-    undefined
+    undefined,
   );
   const [filtroDiaSemana, setFiltroDiaSemana] = useState("");
-  const [filtroPeriodo, setFiltroPeriodo] = useState("");
+  const [filtroTurno, setFiltroTurno] = useState("");
   const [filtroTurmaId, setFiltroTurmaId] = useState("");
-  useEffect(() => {
-    fetchAlocacoes();
-    fetchSelectData();
-  }, []);
+
+
+  const [previewGrade, setPreviewGrade] = useState<GradeHorario | null>(null);
+  const [qualifiedProfessorIds, setQualifiedProfessorIds] = useState<string[]>(
+    [],
+  );
 
   useEffect(() => {
-    checkHorarioConflicts(
-      formData.id_user,
-      formData.id_sala,
-      formData.id_turma
-    );
-  }, [formData.id_user, formData.id_sala, formData.id_turma]);
-
-  // Carregar disciplinas do curso da turma selecionada quando turma/toggle mudarem
-  useEffect(() => {
-    const loadCursoDisciplinas = async () => {
-      try {
-        if (!formData.id_turma) {
-          setTodasDisciplinasCurso([]);
-          if (mostrarTodasDisciplinas) setDisciplinas(todasDisciplinas);
-          return;
-        }
-        const turma = turmas.find((t) => t.id === formData.id_turma);
-        const idCurso = turma?.id_curso;
-        if (!idCurso) {
-          setTodasDisciplinasCurso([]);
-          if (mostrarTodasDisciplinas) setDisciplinas([]);
-          return;
-        }
-        const disciplinasData = await cursoService.getDisciplinas(idCurso);
-        const cursoDisciplinas = disciplinasData?.disciplinas || [];
-        setTodasDisciplinasCurso(cursoDisciplinas);
-        if (mostrarTodasDisciplinas) {
-          setDisciplinas(cursoDisciplinas);
-        }
-      } catch (error) {
-        console.error("Erro ao buscar disciplinas do curso:", error);
-        setTodasDisciplinasCurso([]);
-        if (mostrarTodasDisciplinas) setDisciplinas([]);
-      }
-    };
-    loadCursoDisciplinas();
-  }, [formData.id_turma, turmas, mostrarTodasDisciplinas]);
-
-  // Recomputar a lista exibida ao alternar o toggle
-  useEffect(() => {
-    if (mostrarTodasDisciplinas) {
-      setDisciplinas(todasDisciplinasCurso.length ? todasDisciplinasCurso : todasDisciplinas);
-    } else {
-      setDisciplinas(disciplinasProfessor || []);
+    if (user?.role === "PROFESSOR") {
+      router.replace("/dashboard");
     }
-    // limpar seleção de disciplina ao alternar
-    setFormData((prev) => ({ ...prev, id_disciplina: "" }));
-  }, [mostrarTodasDisciplinas, disciplinasProfessor, todasDisciplinasCurso, todasDisciplinas]);
+  }, [user?.role, router]);
+  const [dialogDataLoaded, setDialogDataLoaded] = useState(false);
 
-  const fetchAlocacoes = async () => {
+  const fetchAlocacoes = useCallback(async () => {
+    if (!filtroTurmaId) {
+      setAlocacoes([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const response = await alocacaoService.getAll(1);
+      const response = await alocacaoService.getAllByTurma(filtroTurmaId);
       setAlocacoes(response.alocacoes || []);
     } catch (error) {
       console.error("Erro ao buscar alocações:", error);
@@ -168,11 +138,184 @@ export default function AlocacoesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filtroTurmaId]);
+
+  const fetchTurmas = useCallback(async () => {
+    try {
+      const bootstrap = await alocacaoService.getAlocacoesBootstrap({ regime });
+      setTurmas((bootstrap.turmas as unknown as Turma[]) || []);
+      setHorarios((bootstrap.horarios as unknown as Horario[]) || []);
+    } catch (error) {
+      console.error("Erro ao buscar turmas:", error);
+    }
+  }, [regime]);
+
+  const fetchDialogData = useCallback(async () => {
+    try {
+      const bootstrap = await alocacaoService.getAlocacoesBootstrap({ regime });
+      setUsuarios((bootstrap.professores as unknown as User[]) || []);
+      setTodasDisciplinas((bootstrap.disciplinas as unknown as Disciplina[]) || []);
+      setDisciplinas((bootstrap.disciplinas as unknown as Disciplina[]) || []);
+      setSalas((bootstrap.salas as unknown as Sala[]) || []);
+      setHorarios((bootstrap.horarios as unknown as Horario[]) || []);
+
+      setDialogDataLoaded(true);
+    } catch (error) {
+      console.error("Erro ao buscar dados para o diálogo:", error);
+    }
+  }, [regime]);
+
+  const checkHorarioConflicts = useCallback(
+    async (professorId: string, salaId: string, turmaId: string) => {
+      const seq = ++conflictCheckSeq.current;
+      if (!professorId && !salaId && !turmaId) {
+        setConflictingHorarios(new Map());
+        return;
+      }
+
+      setConflictingHorarios(new Map());
+
+      try {
+        const periodoIdFromStorage = (() => {
+          if (typeof window === "undefined") return undefined;
+          const modo = window.localStorage.getItem("periodo.modo");
+          if (modo !== "consulta") return undefined;
+          return window.localStorage.getItem("periodo.consultaId") || undefined;
+        })();
+
+        const result = await alocacaoService.getHorarioConflicts({
+          id_user: professorId || undefined,
+          id_sala: salaId || undefined,
+          id_turma: turmaId || undefined,
+          periodoId: periodoIdFromStorage,
+          regime,
+        });
+        const conflicts = new Map(Object.entries(result.conflitos || {}));
+
+        if (seq !== conflictCheckSeq.current) return;
+        setConflictingHorarios(conflicts);
+      } catch (error) {
+        console.error("Erro ao verificar conflitos de horário:", error);
+        if (seq !== conflictCheckSeq.current) return;
+        setConflictingHorarios(new Map());
+      }
+    },
+    [regime],
+  );
+
+  useEffect(() => {
+    fetchTurmas();
+  }, [fetchTurmas]);
+
+  useEffect(() => {
+    if (isDialogOpen && !dialogDataLoaded) {
+      fetchDialogData();
+    }
+  }, [isDialogOpen, dialogDataLoaded, fetchDialogData]);
+
+  useEffect(() => {
+    fetchAlocacoes();
+  }, [fetchAlocacoes]);
+
+  useEffect(() => {
+    checkHorarioConflicts(formData.id_user, formData.id_sala, formData.id_turma);
+  }, [formData.id_user, formData.id_sala, formData.id_turma, checkHorarioConflicts]);
+
+  useEffect(() => {
+    checkHorarioConflicts(formData.id_user, formData.id_sala, formData.id_turma);
+  }, [horarios, formData.id_user, formData.id_sala, formData.id_turma, checkHorarioConflicts]);
+
+  // disciplinas disponíveis no contexto da turma (curso) + compatibilidade com edição
+  useEffect(() => {
+    const loadCursoDisciplinas = async () => {
+      if (!formData.id_turma) {
+        setDisciplinas([]);
+        return;
+      }
+
+      try {
+        const turma = turmas.find((t) => t.id === formData.id_turma);
+        const idCurso = turma?.id_curso;
+
+        if (!idCurso) {
+          setDisciplinas(todasDisciplinas);
+          return;
+        }
+
+        const disciplinasData = await cursoService.getDisciplinas(idCurso);
+        const cursoDisciplinas = disciplinasData?.disciplinas || [];
+
+        let finalDisciplinas = cursoDisciplinas;
+        if (editingAlocacao && editingAlocacao.id_turma === formData.id_turma) {
+          const disciplinaId = editingAlocacao.id_disciplina;
+          const exists = cursoDisciplinas.some((d) => d.id === disciplinaId);
+          if (!exists) {
+            let disciplina = todasDisciplinas.find(
+              (d) => d.id === disciplinaId,
+            );
+
+            if (!disciplina && editingAlocacao.disciplina) {
+              disciplina = editingAlocacao.disciplina;
+            }
+
+            if (disciplina) {
+              finalDisciplinas = [...cursoDisciplinas, disciplina];
+            }
+          }
+        }
+
+        setDisciplinas(finalDisciplinas);
+      } catch (error) {
+        console.error("Erro ao buscar disciplinas do curso:", error);
+        setDisciplinas([]);
+      }
+    };
+    loadCursoDisciplinas();
+  }, [formData.id_turma, turmas, todasDisciplinas, editingAlocacao]);
+
+  // preview da grade da turma (para ajudar na visualização durante criação/edição)
+  useEffect(() => {
+    const fetchPreview = async () => {
+      if (!formData.id_turma) {
+        setPreviewGrade(null);
+        return;
+      }
+      try {
+        const grade = await alocacaoService.getGradeHorarios({
+          id_turma: formData.id_turma,
+        });
+        setPreviewGrade(grade);
+      } catch (error) {
+        console.error("Erro ao buscar grade de preview:", error);
+      }
+    };
+    fetchPreview();
+  }, [formData.id_turma]);
+
+  // professores qualificados pela disciplina selecionada
+  useEffect(() => {
+    setQualifiedProfessorIds([]);
+    const fetchProfessores = async () => {
+      if (!formData.id_disciplina) {
+        return;
+      }
+      try {
+        const data = await professorDisciplinaService.getByDisciplina(
+          formData.id_disciplina,
+        );
+        const ids = data.professores.map((p) => p.id);
+        setQualifiedProfessorIds(ids);
+      } catch (error) {
+        console.error("Erro ao buscar professores qualificados:", error);
+        setQualifiedProfessorIds([]);
+      }
+    };
+    fetchProfessores();
+  }, [formData.id_disciplina]);
 
   const excluirTodasAlocacoesTurma = async () => {
     if (!filtroTurmaId) {
-      alert("Selecione uma turma");
+      toast.error("Selecione uma turma");
       return;
     }
     if (
@@ -183,152 +326,49 @@ export default function AlocacoesPage() {
     try {
       setLoading(true);
       await alocacaoService.deleteAllByTurma(filtroTurmaId);
-      alert("Todas as alocações da turma foram excluídas com sucesso!");
+      toast.success("Todas as alocações da turma foram excluídas com sucesso!");
       fetchAlocacoes(); // Recarregar a lista
     } catch (error) {
       console.error("Erro ao excluir alocações da turma:", error);
-      alert("Erro ao excluir alocações da turma");
+      toast.error("Erro ao excluir alocações da turma");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchSelectData = async () => {
-    try {
-      const [
-        usuariosData,
-        disciplinasData,
-        turmasData,
-        salasData,
-        horariosData,
-      ] = await Promise.all([
-        userService.getAll(1),
-        disciplinaService.getAll(),
-        turmaService.getAll(1),
-        salaService.getAll(1),
-        horarioService.getAll(),
-      ]);
-
-      setUsuarios(usuariosData.usuarios || []);
-      setTodasDisciplinas(disciplinasData.disciplinas || []);
-      setDisciplinas(disciplinasData.disciplinas || []);
-      setTurmas(turmasData.turmas || []);
-      setSalas(salasData.salas || []);
-      setHorarios(horariosData || []);
-    } catch (error) {
-      console.error("Erro ao buscar dados para os selects:", error);
-    }
-  };
-
-  const fetchDisciplinasProfessor = async (id_user: string) => {
-    try {
-      const response = await disciplinaService.getByProfessor(id_user);
-      setDisciplinasProfessor(response.disciplinas || []);
-
-      // Se não está mostrando todas as disciplinas, filtrar apenas as do professor
-      if (!mostrarTodasDisciplinas) {
-        setDisciplinas(response.disciplinas || []);
+  const disciplinasDaTurma = alocacoes
+    .filter((a) => a.id_turma === filtroTurmaId)
+    .map((a) => a.disciplina)
+    .filter((d): d is Disciplina => !!d)
+    .reduce((acc, curr) => {
+      if (!acc.some((d) => d.id === curr.id)) {
+        acc.push(curr);
       }
-    } catch (error) {
-      console.error("Erro ao buscar disciplinas do professor:", error);
-      setDisciplinasProfessor([]);
-      if (!mostrarTodasDisciplinas) {
-        setDisciplinas([]);
-      }
-    }
-  };
-
-  const checkHorarioConflicts = async (
-    professorId: string,
-    salaId: string,
-    turmaId: string
-  ) => {
-    if (!professorId && !salaId && !turmaId) {
-      setConflictingHorarios(new Map());
-      return;
-    }
-
-    try {
-      const conflicts = new Map<
-        string,
-        | "professor"
-        | "sala"
-        | "turma"
-        | "professor_sala"
-        | "professor_turma"
-        | "sala_turma"
-        | "todos"
-      >();
-
-      const response = await alocacaoService.getAll(1);
-      const alocacoes = response.alocacoes || [];
-
-      alocacoes.forEach((alocacao: any) => {
-        const conflictTypes: string[] = [];
-
-        // Verificar conflitos do professor
-        if (professorId && alocacao.id_user === professorId) {
-          conflictTypes.push("professor");
-        }
-
-        // Verificar conflitos da sala
-        if (salaId && alocacao.id_sala === salaId) {
-          conflictTypes.push("sala");
-        }
-
-        // Verificar conflitos da turma
-        if (turmaId && alocacao.id_turma === turmaId) {
-          conflictTypes.push("turma");
-        }
-
-        // Definir o tipo de conflito baseado nas combinações
-        if (conflictTypes.length > 0) {
-          let conflictType:
-            | "professor"
-            | "sala"
-            | "turma"
-            | "professor_sala"
-            | "professor_turma"
-            | "sala_turma"
-            | "todos";
-
-          if (conflictTypes.length === 3) {
-            conflictType = "todos";
-          } else if (conflictTypes.length === 2) {
-            if (
-              conflictTypes.includes("professor") &&
-              conflictTypes.includes("sala")
-            ) {
-              conflictType = "professor_sala";
-            } else if (
-              conflictTypes.includes("professor") &&
-              conflictTypes.includes("turma")
-            ) {
-              conflictType = "professor_turma";
-            } else {
-              conflictType = "sala_turma";
-            }
-          } else {
-            conflictType = conflictTypes[0] as "professor" | "sala" | "turma";
-          }
-
-          conflicts.set(alocacao.id_horario, conflictType);
-        }
-      });
-
-      setConflictingHorarios(conflicts);
-    } catch (error) {
-      console.error("Erro ao verificar conflitos de horário:", error);
-      setConflictingHorarios(new Map());
-    }
-  };
+      return acc;
+    }, [] as Disciplina[]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
+
+    // validação de carga horária (confirmação do usuário quando está abaixo do esperado)
+    const selectedDisciplina = todasDisciplinas.find(
+      (d) => d.id === formData.id_disciplina,
+    );
+    if (selectedDisciplina) {
+      const weeklyClasses = Math.ceil(selectedDisciplina.carga_horaria / 15);
+      const selectedCount = formData.id_horarios.length;
+
+      if (selectedCount < weeklyClasses) {
+        const confirmMessage = `A disciplina "${selectedDisciplina.nome}" exige aproximadamente ${weeklyClasses} aulas semanais, mas você selecionou apenas ${selectedCount}.\n\nDeseja continuar mesmo assim?`;
+        if (!confirm(confirmMessage)) {
+          return;
+        }
+      }
+    }
+
     setSubmitting(true);
     try {
-      // Obter id_curso da turma selecionada
       const turmaSelecionada = turmas.find((t) => t.id === formData.id_turma);
       if (!turmaSelecionada) {
         toast.error("Turma inválida");
@@ -336,26 +376,34 @@ export default function AlocacoesPage() {
       }
       const idCurso = turmaSelecionada.id_curso;
 
-      // Buscar vínculos CursoDisciplina do curso para mapear disciplina → id_curso_disciplina
       const { vinculos } = await cursoService.getDisciplinaVinculos(idCurso);
-      const vinculo = vinculos.find((v) => v.id_disciplina === formData.id_disciplina);
+      const vinculo = vinculos.find(
+        (v) => v.id_disciplina === formData.id_disciplina,
+      );
       if (!vinculo) {
-        toast.error("Disciplina não está vinculada ao curso da turma selecionada");
+        toast.error(
+          "Disciplina não está vinculada ao curso da turma selecionada",
+        );
         return;
       }
 
-      // Verificar vínculo professor-disciplina; se ausente, criar automaticamente
-      const professorPossuiVinculo = disciplinasProfessor.some((d) => d.id === formData.id_disciplina);
+      const professorPossuiVinculo = disciplinasProfessor.some(
+        (d) => d.id === formData.id_disciplina,
+      );
       if (!professorPossuiVinculo) {
         try {
-          await professorDisciplinaService.vincular({ id_user: formData.id_user, id_disciplina: formData.id_disciplina });
+          await professorDisciplinaService.vincular({
+            id_user: formData.id_user,
+            id_disciplina: formData.id_disciplina,
+          });
           toast.success("Vínculo professor-disciplina criado automaticamente");
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error("Erro ao criar vínculo professor-disciplina:", err);
-          if (err?.response?.status === 409) {
-            // Vínculo já existe; seguir adiante
-            console.warn("Vínculo professor-disciplina já existente (409). Prosseguindo.");
-          } else {
+          const status =
+            typeof err === "object" && err !== null && "response" in err
+              ? (err as { response?: { status?: unknown } }).response?.status
+              : undefined;
+          if (status !== 409) {
             toast.error("Falha ao criar vínculo professor-disciplina");
             setSubmitting(false);
             return;
@@ -364,7 +412,6 @@ export default function AlocacoesPage() {
       }
 
       if (editingAlocacao) {
-        // Atualização de alocação existente
         const updateData: Partial<CreateAlocacaoRequest> = {
           id_user: formData.id_user,
           id_turma: formData.id_turma,
@@ -375,7 +422,6 @@ export default function AlocacoesPage() {
         await alocacaoService.update(editingAlocacao.id, updateData);
         toast.success("Alocação atualizada com sucesso!");
       } else {
-        // Criação de alocação nova (suporta múltiplos horários)
         const createData: CreateAlocacaoRequest = {
           id_user: formData.id_user,
           id_turma: formData.id_turma,
@@ -402,11 +448,15 @@ export default function AlocacoesPage() {
   const handleEdit = (alocacao: Alocacao) => {
     setEditingAlocacao(alocacao);
     setIsDialogOpen(true);
+
+    const idDisciplina =
+      alocacao.id_disciplina || alocacao.disciplina?.id || "";
+
     setFormData({
-      id_user: alocacao.id_user,
-      id_disciplina: alocacao.id_disciplina,
-      id_turma: alocacao.id_turma,
-      id_sala: alocacao.id_sala,
+      id_user: alocacao.id_user || "",
+      id_disciplina: idDisciplina,
+      id_turma: alocacao.id_turma || "",
+      id_sala: alocacao.id_sala || "",
       id_horarios: [alocacao.id_horario],
     });
   };
@@ -434,15 +484,7 @@ export default function AlocacoesPage() {
   };
 
   const handleProfessorChange = (value: string) => {
-    setFormData({ ...formData, id_user: value, id_disciplina: "" });
-
-    if (value) {
-      fetchDisciplinasProfessor(value);
-    } else {
-      setDisciplinasProfessor([]);
-      setDisciplinas(todasDisciplinas);
-      setMostrarTodasDisciplinas(false);
-    }
+    setFormData({ ...formData, id_user: value });
   };
 
   const handleMostrarTodasDisciplinasChange = (checked: boolean) => {
@@ -500,17 +542,12 @@ export default function AlocacoesPage() {
       if (diaSemanaAlocacao !== filtroDiaSemana.toLowerCase()) return false;
     }
 
-    if (filtroPeriodo && filtroPeriodo !== "todos") {
+    if (filtroTurno && filtroTurno !== "todos") {
       const codigoHorario = alocacao.horario?.codigo?.toLowerCase();
-      if (
-        filtroPeriodo === "M" ||
-        filtroPeriodo === "T" ||
-        filtroPeriodo === "N"
-      ) {
-        if (!codigoHorario?.startsWith(filtroPeriodo.toLowerCase()))
-          return false;
+      if (filtroTurno === "M" || filtroTurno === "T" || filtroTurno === "N") {
+        if (!codigoHorario?.startsWith(filtroTurno.toLowerCase())) return false;
       } else {
-        if (codigoHorario !== filtroPeriodo.toLowerCase()) return false;
+        if (codigoHorario !== filtroTurno.toLowerCase()) return false;
       }
     }
 
@@ -546,20 +583,58 @@ export default function AlocacoesPage() {
   };
 
   const getHorariosAgrupados = () => {
-    const grupos: { [key: string]: typeof horarios } = {};
-    horarios.forEach((horario) => {
-      if (!grupos[horario.dia_semana]) {
-        grupos[horario.dia_semana] = [];
+    const ordemDias = [
+      "SEGUNDA",
+      "TERCA",
+      "QUARTA",
+      "QUINTA",
+      "SEXTA",
+      "SABADO",
+    ];
+
+    const gruposTmp: { [key: string]: typeof horarios } = {};
+
+    const horariosUnicos = horarios.reduce((acc, current) => {
+      const isDuplicate = acc.some(
+        (h) =>
+          h.dia_semana === current.dia_semana && h.codigo === current.codigo,
+      );
+      if (!isDuplicate) {
+        acc.push(current);
       }
-      grupos[horario.dia_semana].push(horario);
+      return acc;
+    }, [] as Horario[]);
+
+    horariosUnicos.forEach((horario) => {
+      const dia = horario.dia_semana;
+      if (!gruposTmp[dia]) gruposTmp[dia] = [];
+      gruposTmp[dia].push(horario);
     });
-    return grupos;
+
+    const ordenarCodigo = (a: Horario, b: Horario) => {
+      const rank = (codigo: string) => {
+        const p = codigo.charAt(0);
+        const n = parseInt(codigo.slice(1)) || 0;
+        const base = p === "M" ? 0 : p === "T" ? 100 : p === "N" ? 200 : 300;
+        return base + n;
+      };
+      return rank(a.codigo) - rank(b.codigo);
+    };
+
+    Object.keys(gruposTmp).forEach((dia) => {
+      gruposTmp[dia] = gruposTmp[dia].slice().sort(ordenarCodigo);
+    });
+
+    const gruposOrdenados: { [key: string]: typeof horarios } = {};
+    ordemDias.forEach((dia) => {
+      gruposOrdenados[dia] = gruposTmp[dia] || [];
+    });
+    return gruposOrdenados;
   };
 
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Header movido para AlocacoesToolbar */}
         <AlocacoesToolbar
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -569,22 +644,30 @@ export default function AlocacoesPage() {
           setFiltroDataFim={setFiltroDataFim}
           filtroDiaSemana={filtroDiaSemana}
           setFiltroDiaSemana={setFiltroDiaSemana}
-          filtroPeriodo={filtroPeriodo}
-          setFiltroPeriodo={setFiltroPeriodo}
+          filtroTurno={filtroTurno}
+          setFiltroTurno={setFiltroTurno}
           isDialogOpen={isDialogOpen}
           setIsDialogOpen={setIsDialogOpen}
           editingAlocacao={editingAlocacao}
           setEditingAlocacao={setEditingAlocacao}
           formData={formData}
           setFormData={setFormData}
-          usuarios={usuarios}
+          usuarios={
+            formData.id_disciplina && qualifiedProfessorIds.length > 0
+              ? usuarios.filter((u) => qualifiedProfessorIds.includes(u.id))
+              : usuarios
+          }
           disciplinas={disciplinas}
           mostrarTodasDisciplinas={mostrarTodasDisciplinas}
           handleProfessorChange={handleProfessorChange}
-          handleMostrarTodasDisciplinasChange={handleMostrarTodasDisciplinasChange}
+          handleMostrarTodasDisciplinasChange={
+            handleMostrarTodasDisciplinasChange
+          }
           turmas={turmas}
           salas={salas}
           horarios={horarios}
+          regime={regime}
+          setRegime={setRegime}
           conflictingHorarios={conflictingHorarios}
           handleHorarioChange={handleHorarioChange}
           getDiaSemanaLabel={getDiaSemanaLabel}
@@ -594,51 +677,55 @@ export default function AlocacoesPage() {
           submitting={submitting}
           handleSubmit={handleSubmit}
           todasDisciplinas={todasDisciplinas}
+          previewGrade={previewGrade}
         />
 
-        {/* Filtros Avançados */}
         <Card>
           <CardContent className="p-4">
-            <div>
-              <h3 className="text-lg font-medium text-foreground mb-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-foreground">
                 Filtros Avançados
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Filtro por Turma */}
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1 block">
-                    Turma
-                  </label>
-                  <Select value={filtroTurmaId} onValueChange={setFiltroTurmaId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma turma" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todas">Todas as turmas</SelectItem>
-                      {turmas.map((turma) => (
-                        <SelectItem key={turma.id} value={turma.id}>
-                          {turma.nome} - {turma.periodo}º período ({turma.turno})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Botões de Ação */}
-                <div className="flex flex-col space-y-2 md:col-span-2">
-                  <Button
-                    onClick={excluirTodasAlocacoesTurma}
-                    variant="destructive"
-                    size="sm"
-                    className="w-full"
-                  >
-                    Excluir Todas da Turma
-                  </Button>
-                </div>
+              <div className="flex gap-2">
+                {filtroTurmaId && (
+                  <LimparDisciplinaDialog
+                    turmaId={filtroTurmaId}
+                    disciplinas={disciplinasDaTurma}
+                    onSuccess={fetchAlocacoes}
+                  />
+                )}
+                <Button
+                  onClick={excluirTodasAlocacoesTurma}
+                  variant="destructive"
+                  size="sm"
+                  disabled={!filtroTurmaId}
+                >
+                  Excluir Todas da Turma
+                </Button>
               </div>
             </div>
 
-            {/* Botão para limpar filtros */}
+            <div className="flex flex-col md:flex-row gap-4 items-end">
+              <div className="flex-1">
+                <label className="text-sm font-medium text-foreground mb-1 block">
+                  Turma
+                </label>
+                <Select value={filtroTurmaId} onValueChange={setFiltroTurmaId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma turma" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {turmas.map((turma) => (
+                      <SelectItem key={turma.id} value={turma.id}>
+                        {turma.nome} - {turma.semestre}º semestre (
+                        {turma.turno || "Sem Turno"})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="mt-4 flex justify-between">
               <Button onClick={fetchAlocacoes} variant="default" size="sm">
                 Mostrar Todas as Alocações
@@ -651,7 +738,7 @@ export default function AlocacoesPage() {
                   setFiltroDataInicio(undefined);
                   setFiltroDataFim(undefined);
                   setFiltroDiaSemana("");
-                  setFiltroPeriodo("");
+                  setFiltroTurno("");
                   setFiltroTurmaId("");
                   fetchAlocacoes();
                 }}
@@ -662,7 +749,6 @@ export default function AlocacoesPage() {
           </CardContent>
         </Card>
 
-        {/* Alocações List */}
         <div className="grid gap-4">
           {loading ? (
             <div className="text-center py-8">
@@ -676,101 +762,99 @@ export default function AlocacoesPage() {
                 filtroDataInicio ||
                 filtroDataFim ||
                 filtroDiaSemana ||
-                filtroPeriodo ||
+                filtroTurno ||
                 filtroTurmaId
                   ? "Nenhuma alocação encontrada com os filtros aplicados"
                   : "Nenhuma alocação cadastrada"}
               </p>
             </div>
           ) : (
-            filteredAlocacoes.map((alocacao) => (
-              <Card
-                key={alocacao.id}
-                className="hover:shadow-md transition-shadow"
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2">
-                          <BookOpen className="h-4 w-4 text-primary" />
-                          <span className="font-medium text-lg">
-                            {alocacao.disciplina?.nome ||
-                              "Disciplina não encontrada"}
-                          </span>
-                        </div>
-                        <Badge variant="outline">
-                          {alocacao.horario?.codigo || "Horário não encontrado"}
-                        </Badge>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center space-x-2">
-                          <UserIcon className="h-4 w-4" />
+            <div className="rounded-md border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Dia</TableHead>
+                    <TableHead>Horário</TableHead>
+                    <TableHead>Disciplina</TableHead>
+                    <TableHead>Professor</TableHead>
+                    <TableHead>Sala</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAlocacoes.map((alocacao) => (
+                    <TableRow key={alocacao.id}>
+                      <TableCell className="font-medium">
+                        {alocacao.horario
+                          ? getDiaSemanaLabel(alocacao.horario.dia_semana)
+                          : "N/A"}
+                      </TableCell>
+                      <TableCell>
+                        {alocacao.horario ? (
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {alocacao.horario.codigo}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {alocacao.horario.horario_inicio
+                                ?.split("T")[1]
+                                ?.substring(0, 5) ||
+                                alocacao.horario.horario_inicio}{" "}
+                              -{" "}
+                              {alocacao.horario.horario_fim
+                                ?.split("T")[1]
+                                ?.substring(0, 5) ||
+                                alocacao.horario.horario_fim}
+                            </span>
+                          </div>
+                        ) : (
+                          "N/A"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {alocacao.disciplina?.nome ||
+                          "Disciplina não encontrada"}
+                      </TableCell>
+                      <TableCell>
+                        {alocacao.user?.nome || "Professor não encontrado"}
+                      </TableCell>
+                      <TableCell>
+                        {alocacao.sala ? (
                           <span>
-                            {alocacao.user?.nome || "Professor não encontrado"}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <GraduationCap className="h-4 w-4" />
-                          <span>
-                            {alocacao.turma?.nome || "Turma não encontrada"}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <MapPin className="h-4 w-4" />
-                          <span>
-                            {alocacao.sala?.nome || "Sala não encontrada"}
-                            {alocacao.sala?.predio &&
+                            {alocacao.sala.nome}
+                            {alocacao.sala.predio &&
                               ` - ${alocacao.sala.predio.nome}`}
                           </span>
+                        ) : (
+                          "Sala não encontrada"
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(alocacao)}
+                            title="Editar"
+                          >
+                            <Edit className="h-4 w-4 text-shadblue-primary" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(alocacao.id)}
+                            className="text-destructive hover:text-destructive/80"
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Clock className="h-4 w-4" />
-                          <span>
-                            {alocacao.horario
-                              ? getDiaSemanaLabel(alocacao.horario.dia_semana)
-                              : "Horário não encontrado"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {alocacao.horario && (
-                        <div className="text-sm text-muted-foreground">
-                          Horário: {alocacao.horario.codigo} -{" "}
-                          {alocacao.horario.horario_inicio
-                            ?.split("T")[1]
-                            ?.substring(0, 5) ||
-                            alocacao.horario.horario_inicio}{" "}
-                          -{" "}
-                          {alocacao.horario.horario_fim
-                            ?.split("T")[1]
-                            ?.substring(0, 5) || alocacao.horario.horario_fim}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex space-x-2 ml-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(alocacao)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(alocacao.id)}
-                        className="text-destructive hover:text-destructive/80"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </div>
       </div>
