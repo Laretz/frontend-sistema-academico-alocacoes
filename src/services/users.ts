@@ -1,6 +1,12 @@
 import api from '@/lib/api';
 import { User } from '@/types/auth';
 import { PaginatedResponse } from '@/types/entities';
+import type {
+  GradeHorariosProfessorAlocacaoVM,
+  GradeHorariosProfessorCursoVinculadoVM,
+  GradeHorariosProfessorDataVM,
+  GradeHorariosProfessorDisciplinaVinculadaVM,
+} from "@/types/view-models/grade-horarios-professor";
 
 export interface CreateUserRequest {
   nome: string;
@@ -24,7 +30,6 @@ export interface UpdateUserRequest {
 export const userService = {
   getAll: async (page = 1): Promise<{ usuarios: User[] }> => {
     const response = await api.get<{ usuarios: User[] }>(`/users?page=${page}`);
-    // Transformar os dados para compatibilidade com o frontend
     const usuarios = response.data.usuarios.map(user => ({
       ...user,
       curso: user.cursos?.map((uc: { curso: { id: string; nome: string } }) => uc.curso) || []
@@ -61,6 +66,18 @@ export const userService = {
 
   search: async (query: string, page = 1, limit = 10): Promise<PaginatedResponse<User>> => {
     const response = await api.get<PaginatedResponse<User>>(`/users/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`);
+    return response.data;
+  },
+
+  getGradeHorariosBootstrap: async (id: string): Promise<{
+    professor: GradeHorariosProfessorDataVM;
+    alocacoes: GradeHorariosProfessorAlocacaoVM[];
+    cursos: GradeHorariosProfessorCursoVinculadoVM[];
+    disciplinas: GradeHorariosProfessorDisciplinaVinculadaVM[];
+    gradeConfig: { regime: "SUPERIOR" | "TECNICO"; dias: Array<{ key: string; label: string }>; codigos: string[] };
+    horarios: Array<{ id: string; codigo: string; dia_semana: string; horario_inicio: string; horario_fim: string; regime?: "SUPERIOR" | "TECNICO" }>;
+  }> => {
+    const response = await api.get(`/users/${id}/grade-horarios/bootstrap`);
     return response.data;
   },
 };

@@ -66,7 +66,7 @@ export interface AlocacaoDialogProps {
   todasDisciplinas: Disciplina[];
   regime: "SUPERIOR" | "TECNICO";
   setRegime: (value: "SUPERIOR" | "TECNICO") => void;
-  previewGrade?: GradeHorario;
+  previewGrade?: GradeHorario | null;
 }
 
 export const AlocacaoDialog: React.FC<AlocacaoDialogProps> = ({

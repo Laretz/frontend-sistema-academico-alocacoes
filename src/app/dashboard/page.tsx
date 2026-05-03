@@ -22,36 +22,19 @@ import {
   Clock,
   Brain,
   ArrowLeft,
-  Library,
-  Building2,
-  Plus,
   Grid3X3,
   CalendarRange,
-  Layers,
-  Users2,
+  CalendarPlus,
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { statsService, StatsResponse } from "@/services/stats";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 
 interface ProximaAulaItem {
   titulo: string;
   detalhe: string;
   codigoHorario: string;
-}
-
-interface DiasHorario {
-  segunda: string;
-  terca: string;
-  quarta: string;
-  quinta: string;
-  sexta: string;
-}
-
-interface GradeHorarios {
-  [turma: string]: {
-    [horario: string]: DiasHorario;
-  };
 }
 
 // Dados das alocações serão carregados do backend
@@ -75,8 +58,8 @@ export default function DashboardPage() {
       try {
         const data = await statsService.get();
         setStats(data);
-      } catch (err: any) {
-        setErrorStats(err?.message || "Falha ao carregar estatísticas");
+      } catch (err: unknown) {
+        setErrorStats(getApiErrorMessage(err, "Falha ao carregar estatísticas"));
       } finally {
         setLoadingStats(false);
       }
@@ -90,9 +73,18 @@ export default function DashboardPage() {
       setErrorAulas(null);
       try {
         // Importante: usar a rota correta para evitar colisão com /alocacoes/:id
-        const resp = await api.get("/grade-horarios");
+        const resp = await api.get<unknown>("/grade-horarios");
+        const raw = resp.data as unknown;
+        const rawGrade =
+          typeof raw === "object" && raw !== null && "gradeHorarios" in raw
+            ? (raw as { gradeHorarios?: unknown }).gradeHorarios
+            : typeof raw === "object" && raw !== null && "grade" in raw
+              ? (raw as { grade?: unknown }).grade
+              : raw;
         const grade =
-          resp.data?.gradeHorarios || resp.data?.grade || resp.data || {};
+          (typeof rawGrade === "object" && rawGrade !== null
+            ? (rawGrade as Record<string, unknown>)
+            : {}) as Record<string, unknown>;
 
         // Normalizar chaves de dias para facilitar
         const hojeIdx = new Date().getDay(); // 0-dom ... 6-sab
@@ -107,36 +99,57 @@ export default function DashboardPage() {
         ];
         const hojeKey = diaMap[hojeIdx];
 
-        const candidates: any[] =
+        const candidatesRaw =
           grade[hojeKey] || grade[hojeKey.toUpperCase()] || [];
+        const candidates = Array.isArray(candidatesRaw)
+          ? (candidatesRaw as unknown[])
+          : [];
+
+        type ProximaAulaRaw = {
+          horario_inicio?: string;
+          horario_fim?: string;
+          disciplina?: { nome?: string };
+          disciplina_nome?: string;
+          turma?: { nome?: string };
+          turma_nome?: string;
+          sala?: { nome?: string };
+          sala_nome?: string;
+          horario?: { codigo?: string };
+          horario_codigo?: string;
+        };
 
         // Gerar lista simplificada das próximas 3 aulas do dia, ordenadas por início
         const now = new Date();
         const proximas = (candidates || [])
-          .filter((item: any) => item?.horario_inicio)
+          .filter((item) => {
+            const it = item as ProximaAulaRaw;
+            return typeof it?.horario_inicio === "string" && !!it.horario_inicio;
+          })
           .sort(
-            (a: any, b: any) =>
-              new Date(a.horario_inicio).getTime() -
-              new Date(b.horario_inicio).getTime()
+            (a, b) =>
+              new Date((a as ProximaAulaRaw).horario_inicio || 0).getTime() -
+              new Date((b as ProximaAulaRaw).horario_inicio || 0).getTime()
           )
           .filter(
-            (item: any) => new Date(item.horario_fim).getTime() >= now.getTime()
+            (item) =>
+              new Date((item as ProximaAulaRaw).horario_fim || 0).getTime() >=
+              now.getTime()
           )
           .slice(0, 3)
-          .map(
-            (item: any): ProximaAulaItem => ({
-              titulo: item?.disciplina?.nome || item?.disciplina_nome || "Aula",
-              detalhe: `${item?.turma?.nome || item?.turma_nome || ""} - ${
-                item?.sala?.nome || item?.sala_nome || ""
+          .map((item): ProximaAulaItem => {
+            const it = item as ProximaAulaRaw;
+            return {
+              titulo: it?.disciplina?.nome || it?.disciplina_nome || "Aula",
+              detalhe: `${it?.turma?.nome || it?.turma_nome || ""} - ${
+                it?.sala?.nome || it?.sala_nome || ""
               }`.trim(),
-              codigoHorario:
-                item?.horario?.codigo || item?.horario_codigo || "",
-            })
-          );
+              codigoHorario: it?.horario?.codigo || it?.horario_codigo || "",
+            };
+          });
 
         setProximasAulas(proximas);
-      } catch (err: any) {
-        setErrorAulas(err?.message || "Falha ao carregar próximas aulas");
+      } catch (err: unknown) {
+        setErrorAulas(getApiErrorMessage(err, "Falha ao carregar próximas aulas"));
       } finally {
         setLoadingAulas(false);
       }
@@ -151,20 +164,6 @@ export default function DashboardPage() {
     return "Boa noite";
   };
 
-  const getStatusColor = (vagas: number, demanda: number) => {
-    const ocupacao = (demanda / vagas) * 100;
-    if (ocupacao > 100) return "bg-destructive/10 text-destructive";
-    if (ocupacao > 80) return "bg-yellow-50 text-yellow-700";
-    return "bg-secondary/50 text-secondary-foreground";
-  };
-
-  const getStatusText = (vagas: number, demanda: number) => {
-    const ocupacao = (demanda / vagas) * 100;
-    if (ocupacao > 100) return "Superlotada";
-    if (ocupacao > 80) return "Quase Cheia";
-    return "Disponível";
-  };
-
   const quickActions = [
     {
       title: "Alocação Automática",
@@ -174,25 +173,18 @@ export default function DashboardPage() {
       color: "bg-blue-600",
     },
     {
-      title: "Gerenciar Cursos",
-      description: "Visualizar e gerenciar cursos",
-      href: "/cursos",
-      icon: Library,
+      title: "Criar Reserva",
+      description: "Reservar uma sala em um horário",
+      href: "/reservas",
+      icon: CalendarPlus,
       color: "bg-emerald-600",
     },
     {
-      title: "Gerenciar Prédios",
-      description: "Visualizar e gerenciar prédios",
-      href: "/predios",
-      icon: Building2,
+      title: "Período Letivo",
+      description: "Configurar período ativo e modo de consulta",
+      href: "/configuracoes",
+      icon: Settings,
       color: "bg-slate-600",
-    },
-    {
-      title: "Nova Alocação",
-      description: "Criar uma nova alocação de horário",
-      href: "/alocacoes/nova",
-      icon: Plus,
-      color: "bg-green-600",
     },
     {
       title: "Ver Grade",
@@ -207,20 +199,6 @@ export default function DashboardPage() {
       href: "/grade-mensal",
       icon: CalendarRange,
       color: "bg-indigo-600",
-    },
-    {
-      title: "Gerenciar Disciplinas",
-      description: "Adicionar ou editar disciplinas",
-      href: "/disciplinas",
-      icon: Layers,
-      color: "bg-purple-600",
-    },
-    {
-      title: "Gerenciar Turmas",
-      description: "Adicionar ou editar turmas",
-      href: "/turmas",
-      icon: Users2,
-      color: "bg-orange-600",
     },
   ];
 
@@ -287,10 +265,7 @@ export default function DashboardPage() {
     return true;
   });
 
-  const filteredQuickActions = quickActions.filter((action) => {
-    // Filtrar ações baseadas no perfil do usuário se necessário
-    return true;
-  });
+  const filteredQuickActions = quickActions;
 
   return (
     <MainLayout>

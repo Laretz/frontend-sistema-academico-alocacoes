@@ -25,22 +25,65 @@ import { Input } from "@/components/ui/input";
 import { Brain, AlertTriangle, Play, Calendar, Eye, Search, Filter } from "lucide-react";
 import { gerarHorarioConsolidadoPorDisciplina } from "@/utils/horario-consolidado";
 import { toast } from "sonner";
-import { turmaService, disciplinaService, cursoService, alocacaoService, professorDisciplinaService, salaService, horarioService } from "@/services/entities";
-import { Turma, Disciplina } from "@/types/entities";
-import { GradeHorariosTurma } from "@/components/GradeHorariosTurma";
-import { api } from "@/lib/api";
+import { turmaService, cursoService, professorDisciplinaService, salaService, horarioService } from "@/services/entities";
+import { Turma, Disciplina, User } from "@/types/entities";
+import { GradeHorariosTurma } from "@/components/turmas/GradeHorariosTurma";
+import { api, getApiErrorMessage } from "@/lib/api";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-// Função para mapear códigos de horário para horários de início e fim
+type PreviewConflict = {
+  disciplinaId: string;
+  professorId: string;
+  salaId: string;
+  horarioId: string;
+  reason: string;
+  message?: string;
+};
+
+type PreviewScheduleCell =
+  | null
+  | {
+      disciplina: string;
+      codigo?: string;
+      professor: string;
+      sala: string;
+    };
+
+type PreviewScheduleRow = {
+  time: string;
+  days: PreviewScheduleCell[];
+};
+
+type PreviewAllocationDetailed = {
+  disciplinaId: string;
+  professorId: string;
+  salaId: string;
+  horarioId: string;
+  horarioStr?: string;
+  disciplina?: { id: string; codigo?: string; nome?: string; carga_horaria?: number };
+  professor?: { nome?: string };
+  sala?: { nome: string; predio?: { nome?: string } };
+};
+
+type PreviewData = {
+  allocations?: PreviewAllocationDetailed[];
+  schedule?: PreviewScheduleRow[];
+  fitness?: number;
+  conflicts?: PreviewConflict[];
+};
+
+/*
+  Mapeia um slot da grade para (código, início e fim).
+  Aceita tanto o formato "07:00 - 07:50 M1" quanto apenas "M1".
+*/
 const getTimeInfo = (
   timeString: string
 ): { code: string; startTime: string; endTime: string } => {
-  // Formato esperado: "07:00 - 07:50 M1" ou "M1"
   const parts = timeString.trim().split(" ");
 
   if (parts.length >= 3) {
     // Formato: "07:00 - 07:50 M1"
-    const code = parts[parts.length - 1]; // Último elemento é o código
+    const code = parts[parts.length - 1]; 
     const startTime = parts[0];
     const endTime = parts[2];
     return { code, startTime, endTime };
@@ -82,29 +125,26 @@ const [mostrarTodasOfertas, setMostrarTodasOfertas] = useState(false);
   const [selectedDisciplinas, setSelectedDisciplinas] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showGrade, setShowGrade] = useState(false);
-  const [generatedTurma, setGeneratedTurma] = useState<Turma | null>(null);
-  const [previewData, setPreviewData] = useState<any>(null);
+  const [generatedTurma] = useState<Turma | null>(null);
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   
-  // Estados para filtros
   const [selectedSemestre, setSelectedSemestre] = useState<string>("todos");
   const [searchTerm, setSearchTerm] = useState<string>("");
 
-  // Estado para vínculos curso-disciplina do curso selecionado
   const [cursoDisciplinaVinculos, setCursoDisciplinaVinculos] = useState<Array<{ id: string; id_curso: string; id_disciplina: string }>>([]);
   const [advancedMode, setAdvancedMode] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmSummary, setConfirmSummary] = useState<{ total: number; valid: number; discarded: number; conflicts: Array<{ disciplinaId: string; professorId: string; salaId: string; horarioId: string; reason: string }>; validGroups: Array<{ disciplinaId: string; professorId: string; salaId: string; horarios: string[] }> }>({ total: 0, valid: 0, discarded: 0, conflicts: [], validGroups: [] });
 
-// Recalcula a lista exibida de disciplinas quando alterna "Mostrar todas" ou muda vínculos
+  // lista exibida de disciplinas (vinculadas vs todas) + limpeza de seleção
 useEffect(() => {
   const vinculoIds = new Set((cursoDisciplinaVinculos || []).map(v => v.id_disciplina));
   const base = mostrarTodasOfertas
     ? allCursoDisciplinas
     : allCursoDisciplinas.filter(d => vinculoIds.has(d.id));
   setDisciplinas(base);
-  // Remover seleções que não existem mais na lista
   setSelectedDisciplinas(prev => prev.filter(id => base.some(d => d.id === id)));
 }, [mostrarTodasOfertas, allCursoDisciplinas, cursoDisciplinaVinculos]);
 
@@ -200,11 +240,10 @@ useEffect(() => {
         prev.filter(id => !disciplinasFiltradas.some(d => d.id === id))
       );
     } else {
-      // Selecionar todas as disciplinas filtradas
       const newSelections = disciplinasFiltradas.map(d => d.id);
       setSelectedDisciplinas(prev => {
         const combined = [...prev, ...newSelections];
-        return [...new Set(combined)]; // Remove duplicatas
+        return [...new Set(combined)];
       });
     }
   };
@@ -223,7 +262,7 @@ useEffect(() => {
       const newSelections = disciplinasSemestre.map(d => d.id);
       setSelectedDisciplinas(prev => {
         const combined = [...prev, ...newSelections];
-        return [...new Set(combined)]; // Remove duplicatas
+        return [...new Set(combined)];
       });
      }
    };
@@ -257,8 +296,12 @@ useEffect(() => {
 
       // Opcional: verificar professores do curso (não bloqueante)
       try {
-        const { data: usuariosCursoResp } = await api.get(`/user-curso/usuarios/${cursoId}`);
-        const professoresDoCurso = (usuariosCursoResp?.usuarios || []).filter((u: any) => u.role === "PROFESSOR");
+        const { data: usuariosCursoResp } = await api.get<{ usuarios?: User[] }>(
+          `/user-curso/usuarios/${cursoId}`,
+        );
+        const professoresDoCurso = (usuariosCursoResp?.usuarios || []).filter(
+          (u) => u.role === "PROFESSOR",
+        );
         if (!professoresDoCurso.length) {
           toast.warning("Nenhum professor vinculado ao curso da turma. O preview pode falhar. Vincule professores ao curso.");
         }
@@ -301,8 +344,6 @@ useEffect(() => {
         }
       );
 
-      console.log("Resposta do preview:", result);
-
       if (!result.success) {
         throw new Error(result.message || result.error || "Falha na geração do preview");
       }
@@ -314,23 +355,24 @@ useEffect(() => {
       setPreviewData(result.data);
       setShowPreview(true);
       toast.success("Preview gerado com sucesso!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao gerar preview:", error);
-      const status = error?.response?.status;
-      const serverMsg = error?.response?.data?.message || error?.response?.data?.error;
+      const status =
+        typeof error === "object" && error !== null && "response" in error
+          ? (error as { response?: { status?: unknown } }).response?.status
+          : undefined;
       if (status === 400) {
         toast.error(
           "Sem disponibilidade de horários no turno selecionado ou restrições inviabilizaram a alocação. Ajuste professores/salas/horários e tente novamente."
         );
       } else {
-        toast.error(serverMsg || (error instanceof Error ? error.message : "Erro ao gerar preview"));
+        toast.error(getApiErrorMessage(error, "Erro ao gerar preview"));
       }
     } finally {
       setIsGeneratingPreview(false);
     }
   };
 
-  // Utilitário: calcula conflitos locais e grupos válidos (usa selectedTurma atual)
   const computeValidGroupsAndConflicts = (allocations: Array<{ disciplinaId: string; professorId: string; salaId: string; horarioId: string }>, selectedTurmaId: string) => {
     type GroupKey = string;
     const groups: Record<GroupKey, { disciplinaId: string; professorId: string; salaId: string; horarios: string[] }> = {};
@@ -429,8 +471,12 @@ useEffect(() => {
         // Garantir vínculo professor-disciplina (ignora 409 caso já exista)
         try {
           await professorDisciplinaService.vincular({ id_user: g.professorId, id_disciplina: g.disciplinaId });
-        } catch (err: any) {
-          if (err?.response?.status !== 409) {
+        } catch (err: unknown) {
+          const status =
+            typeof err === "object" && err !== null && "response" in err
+              ? (err as { response?: { status?: unknown } }).response?.status
+              : undefined;
+          if (status !== 409) {
             console.warn("Falha ao criar vínculo professor-disciplina (prosseguindo):", err);
           }
         }
@@ -444,12 +490,20 @@ useEffect(() => {
         };
 
         try {
-          const resp = await api.post('/alocacoes', payload);
-          return { status: 201, data: resp.data };
-        } catch (err: any) {
-          const status = err?.response?.status;
+          const resp = await api.post<unknown>('/alocacoes', payload);
+          return { status: 201 as const, data: resp.data };
+        } catch (err: unknown) {
+          const status =
+            typeof err === "object" && err !== null && "response" in err
+              ? (err as { response?: { status?: unknown; data?: unknown } })
+                  .response?.status
+              : undefined;
           if (status === 409) {
-            return { status, data: err.response?.data };
+            const data =
+              typeof err === "object" && err !== null && "response" in err
+                ? (err as { response?: { data?: unknown } }).response?.data
+                : undefined;
+            return { status: 409 as const, data };
           }
           throw err;
         }
@@ -457,14 +511,25 @@ useEffect(() => {
 
       const results = await Promise.allSettled(requests);
       let createdCount = 0;
-      let backendConflicts: any[] = [];
+      const backendConflicts: unknown[] = [];
       for (const r of results) {
         if (r.status === "fulfilled") {
-          const value: any = r.value;
-          if (value.status === 201) {
-            createdCount += Array.isArray(value.data?.alocacoes) ? value.data.alocacoes.length : 0;
-          } else if (value.status === 409) {
-            backendConflicts.push(...(value.data?.conflitos || []));
+          if (r.value.status === 201) {
+            const data = r.value.data as unknown;
+            const alocacoes =
+              typeof data === "object" && data !== null && "alocacoes" in data
+                ? (data as { alocacoes?: unknown }).alocacoes
+                : undefined;
+            createdCount += Array.isArray(alocacoes) ? alocacoes.length : 0;
+          } else if (r.value.status === 409) {
+            const data = r.value.data as unknown;
+            const conflitos =
+              typeof data === "object" && data !== null && "conflitos" in data
+                ? (data as { conflitos?: unknown }).conflitos
+                : undefined;
+            if (Array.isArray(conflitos)) {
+              backendConflicts.push(...conflitos);
+            }
           }
         } else {
           console.error("Falha ao criar alocações:", r.reason);
@@ -476,11 +541,9 @@ useEffect(() => {
       setConfirmOpen(false);
       setShowPreview(false);
       setPreviewData(null);
-      // TODO: disparar refresh da grade (pendente)
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Erro ao confirmar após resumo:", error);
-      const errMsg = (error as any)?.response?.data?.message || (error as Error)?.message || "Erro ao confirmar alocações";
-      toast.error(errMsg);
+      toast.error(getApiErrorMessage(error, "Erro ao confirmar alocações"));
     } finally {
       setIsGenerating(false);
     }
@@ -566,8 +629,12 @@ useEffect(() => {
         // Garantir vínculo professor-disciplina (ignora 409 caso já exista)
         try {
           await professorDisciplinaService.vincular({ id_user: g.professorId, id_disciplina: g.disciplinaId });
-        } catch (err: any) {
-          if (err?.response?.status !== 409) {
+        } catch (err: unknown) {
+          const status =
+            typeof err === "object" && err !== null && "response" in err
+              ? (err as { response?: { status?: unknown } }).response?.status
+              : undefined;
+          if (status !== 409) {
             console.warn("Falha ao criar vínculo professor-disciplina (prosseguindo):", err);
           }
         }
@@ -581,20 +648,18 @@ useEffect(() => {
         };
 
         // Usar axios API que injeta automaticamente Authorization: Bearer <token>
-        const resp = await api.post('/alocacoes', payload);
+        const resp = await api.post<unknown>('/alocacoes', payload);
         return resp.data;
       });
 
-      const results = await Promise.all(requests);
-      console.log("Criação de alocações concluída:", results);
+      await Promise.all(requests);
       toast.success("Alocações criadas com sucesso!");
 
       setShowPreview(false);
       setPreviewData(null);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Erro ao confirmar alocações:", error);
-      const errMsg = (error as any)?.response?.data?.message || (error as Error)?.message || "Erro ao confirmar alocações";
-      toast.error(errMsg);
+      toast.error(getApiErrorMessage(error, "Erro ao confirmar alocações"));
     } finally {
       setIsGenerating(false);
     }
@@ -976,20 +1041,21 @@ useEffect(() => {
                           </thead>
                           <tbody className="bg-background divide-y divide-border">
                             {previewData.allocations
-                              .reduce((unique: any[], allocation: any) => {
+                              .reduce<PreviewAllocationDetailed[]>((unique, allocation) => {
                                 const exists = unique.find(
                                   (item) =>
-                                    item.disciplina?.codigo ===
-                                    allocation.disciplina?.codigo
+                                    item.disciplina?.codigo === allocation.disciplina?.codigo,
                                 );
                                 if (!exists) unique.push(allocation);
                                 return unique;
                               }, [])
-                              .map((allocation: any, index: number) => {
+                              .map((allocation, index: number) => {
+                                const disciplinaId =
+                                  allocation.disciplina?.id || allocation.disciplinaId;
                                 const horarioConsolidado =
                                   gerarHorarioConsolidadoPorDisciplina(
-                                    previewData.allocations,
-                                    allocation.disciplina?.id
+                                    previewData.allocations || [],
+                                    disciplinaId,
                                   ) || "-";
                                 return (
                                   <tr
@@ -1067,7 +1133,7 @@ useEffect(() => {
                         </thead>
                         <tbody>
                           {previewData.schedule.map(
-                            (row: any, index: number) => (
+                            (row: PreviewScheduleRow, index: number) => (
                               <tr key={index} className="hover:bg-muted/50">
                                 <td className="border border-border p-3 font-medium bg-primary/10">
                                   <div className="text-center">
@@ -1087,7 +1153,7 @@ useEffect(() => {
                                     })()}
                                   </div>
                                 </td>
-                                {row.days.map((day: any, dayIndex: number) => (
+                                {row.days.map((day: PreviewScheduleCell, dayIndex: number) => (
                                   <td
                                     key={dayIndex}
                                     className="border border-border p-3 min-w-[150px]"
@@ -1152,13 +1218,13 @@ useEffect(() => {
                     </h3>
                     <div className="space-y-2">
                       {previewData.conflicts.map(
-                        (conflict: any, index: number) => (
+                        (conflict: PreviewConflict, index: number) => (
                           <div
                             key={index}
                             className="bg-destructive/10 border border-destructive/20 p-3 rounded"
                           >
                             <div className="text-sm text-destructive">
-                              {conflict.message}
+                              {conflict.message || conflict.reason || "Conflito"}
                             </div>
                           </div>
                         )

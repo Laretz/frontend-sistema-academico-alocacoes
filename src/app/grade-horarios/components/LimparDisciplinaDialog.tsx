@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Trash2, BookOpen } from "lucide-react";
-import { Alocacao } from "@/types/entities";
 import { toast } from "sonner";
 import { alocacaoService } from "@/services/entities";
 

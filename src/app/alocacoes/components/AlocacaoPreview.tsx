@@ -2,13 +2,15 @@ import React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { cn } from "@/lib/utils";
+import type { GradeHorario, Horario } from "@/types/entities";
 
 interface AlocacaoPreviewProps {
-  grade: any; // Estrutura de GradeHorarios
+  grade: GradeHorario | null | undefined; // Estrutura de GradeHorarios
   selectedSlots: string[]; // Lista de IDs de horários
-  horarios: any[]; // Lista de todos os horários para mapear ID -> Código/Hora
+  horarios: Horario[]; // Lista de todos os horários para mapear ID -> Código/Hora
   disciplinaSelecionada?: { id: string; nome: string; codigo?: string };
   professorSelecionado?: { nome: string };
+  title?: string;
 }
 
 export const AlocacaoPreview: React.FC<AlocacaoPreviewProps> = ({
@@ -17,10 +19,8 @@ export const AlocacaoPreview: React.FC<AlocacaoPreviewProps> = ({
   horarios,
   disciplinaSelecionada,
   professorSelecionado,
+  title = "Pré-visualização da Grade",
 }) => {
-  // Auxiliar para obter tempo/código a partir do ID
-  const getHorarioInfo = (id: string) => horarios.find((h) => h.id === id);
-
   // Agrupar horários por período (Manhã, Tarde, Noite) para linhas
   // e Dias para colunas
   const days = ["SEGUNDA", "TERCA", "QUARTA", "QUINTA", "SEXTA", "SABADO"];
@@ -45,7 +45,7 @@ export const AlocacaoPreview: React.FC<AlocacaoPreviewProps> = ({
 
   return (
     <div className="h-full flex flex-col">
-      <h3 className="font-semibold text-lg mb-4">Pré-visualização da Grade</h3>
+      <h3 className="font-semibold text-lg mb-4">{title}</h3>
       <ScrollArea className="flex-1 h-[600px] border rounded-md p-2">
         <div className="grid grid-cols-7 gap-1 min-w-[600px]">
           {/* Header Row */}
@@ -71,7 +71,7 @@ export const AlocacaoPreview: React.FC<AlocacaoPreviewProps> = ({
                 {days.map((day) => {
                   // Verifica se está ocupado na grade
                   const rawCell = grade?.[day]?.[code];
-                  const cell = Array.isArray(rawCell) ? rawCell[0] : rawCell;
+                  const cell = rawCell?.[0];
 
                   // Verifica se foi selecionado no formulário
                   // Precisamos encontrar o ID do horário que corresponde a este dia+código
@@ -115,7 +115,7 @@ export const AlocacaoPreview: React.FC<AlocacaoPreviewProps> = ({
                       ) : cell ? (
                         <div
                           className="truncate w-full"
-                          title={`${cell.disciplina?.nome} - ${cell.user?.nome || cell.professor?.nome}`}
+                          title={`${cell.disciplina?.nome} - ${cell.user?.nome || ""}`}
                         >
                           <span className="block font-medium truncate">
                             {cell.disciplina?.codigo ||
@@ -124,9 +124,7 @@ export const AlocacaoPreview: React.FC<AlocacaoPreviewProps> = ({
                           <span className="block text-muted-foreground truncate">
                             {
                               (
-                                cell.user?.nome ||
-                                cell.professor?.nome ||
-                                ""
+                                cell.user?.nome || ""
                               ).split(" ")[0]
                             }
                           </span>

@@ -8,8 +8,6 @@ import { z } from "zod";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-// Card components removed - using new layout;
 import {
   Form,
   FormControl,
@@ -45,8 +43,7 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      const user = await login(data);
-      console.log("Usuário logado:", user);
+      await login(data);
       router.push(redirectTo);
     } catch (error) {
       console.error("Erro no login:", error);

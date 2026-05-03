@@ -11,9 +11,10 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 
 import { reservasSalaService } from '@/services/reservas-sala'
+import { alocacaoService } from '@/services/entities'
 import { Sala, Horario, CreateReservaSalaRequest, ReservasSalaListResponse } from '@/types/entities'
 import { api } from '@/lib/api'
-import { GradeHorariosSala } from '@/components/GradeHorariosSala'
+import { GradeHorariosSala } from '@/components/salas/GradeHorariosSala'
 
 function formatDateYYYYMMDD(date: Date | undefined): string | undefined {
   if (!date) return undefined
@@ -149,12 +150,13 @@ export function ReservaSalaDialog({ sala, triggerLabel = 'Reservar', onSuccess }
       }
 
       try {
-        const resp = await api.get(`/salas/${sala.id}/grade-horarios`)
-        const gradeObj = resp.data?.grade || resp.data?.gradeHorarios || resp.data
         const codigo = selected?.codigo
         if (diaKey && codigo) {
-          const slot = gradeObj?.[diaKey]?.[codigo]
-          if (slot) {
+          const gradeObj = await alocacaoService.getGradeHorarios({
+            id_sala: sala.id,
+          })
+          const slot = gradeObj?.[diaKey]?.[codigo] ?? []
+          if (Array.isArray(slot) ? slot.length > 0 : !!slot) {
             setHasConflict(true)
             setConflictDetails('Há alocação de aula fixa neste horário.')
             return

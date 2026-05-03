@@ -13,7 +13,7 @@ export interface Disciplina {
   id: string;
   nome: string;
   codigo?: string;
-  carga_horaria: number; // 30, 45, 60 ou 90
+  carga_horaria: number;
   carga_horaria_atual?: number;
   total_aulas: number;
   aulas_ministradas: number;
@@ -47,7 +47,7 @@ export interface User {
     updated_at: string;
     curso: Curso;
   }[];
-  curso?: Curso[]; // Para compatibilidade com o código existente
+  curso?: Curso[];
 }
 
 export interface Turma {
@@ -112,6 +112,17 @@ export interface GradeHorario {
   [key: string]: {
     [key: string]: Alocacao[];
   };
+}
+
+export interface PeriodoLetivo {
+  id: string;
+  nome: string;
+  data_inicio: string;
+  data_fim: string;
+  ativo: boolean;
+  status: "ATIVO" | "ENCERRADO" | "FUTURO";
+  created_at: string;
+  updated_at: string;
 }
 
 // Professor-Disciplina

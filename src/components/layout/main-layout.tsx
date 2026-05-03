@@ -22,6 +22,7 @@ import {
   MapPin,
   Calendar,
   CalendarDays,
+  CalendarPlus,
   LogOut,
   User,
   Menu,
@@ -53,6 +54,7 @@ const navigation = [
   },
   { name: "Turmas", href: "/turmas", icon: GraduationCap },
   { name: "Salas", href: "/salas", icon: MapPin },
+  { name: "Reservas", href: "/reservas", icon: CalendarPlus },
   { name: "Alocações", href: "/alocacoes", icon: Calendar, adminOnly: true },
   {
     name: "Feedbacks",
@@ -78,15 +80,6 @@ export function MainLayout({ children }: MainLayoutProps) {
   const handleLogout = () => {
     logout();
     router.push("/login");
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((word) => word[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
   };
 
   const getPerfilColor = (role: string) => {

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// Removido seletor de perfil (role)
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { authService } from '@/services/auth';
@@ -50,7 +49,6 @@ export default function RegistroPage() {
         nome: formData.nome,
         email: formData.email,
         senha: formData.senha,
-        // Força criação de professor: não solicitar perfil
         role: 'PROFESSOR' as const,
         especializacao: formData.especializacao || undefined,
         carga_horaria_max: formData.cargaHorariaMax ? parseInt(formData.cargaHorariaMax) : undefined,
@@ -116,8 +114,6 @@ export default function RegistroPage() {
               />
             </div>
 
-            {/* Perfil removido: criação restrita a Professor */}
-
             <div className="space-y-2">
               <Label htmlFor="especializacao">Especialização</Label>
               <Input
@@ -129,7 +125,6 @@ export default function RegistroPage() {
               />
             </div>
 
-            {/* Campos específicos de professor (sempre visíveis) */}
             <div className="space-y-2">
               <Label htmlFor="cargaHorariaMax">Carga Horária Máxima</Label>
               <Input

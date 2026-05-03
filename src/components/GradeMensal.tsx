@@ -18,63 +18,10 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-interface Disciplina {
-  id: string;
-  nome: string;
-  carga_horaria: number;
-  total_aulas: number;
-  aulas_ministradas?: number;
-  carga_horaria_atual?: number;
-  data_inicio?: string;
-  data_fim_prevista?: string;
-  data_fim_real?: string;
-  tipo_de_sala: string;
-  progresso_aulas?: number;
-  progresso_temporal?: number;
-  alocacoes: Array<{
-    id: string;
-    horario: {
-      codigo: string;
-      dia_semana: string;
-      horario_inicio: string;
-      horario_fim: string;
-    };
-    sala: {
-      nome: string;
-      predio: {
-        id: string;
-        nome: string;
-        codigo: string;
-      };
-    };
-  }>;
-  modulos: Array<{
-    id: string;
-    data_inicio: string;
-    data_fim: string;
-    ativo: boolean;
-    horario: {
-      codigo: string;
-      dia_semana: string;
-      horario_inicio: string;
-      horario_fim: string;
-    };
-    sala: {
-      nome: string;
-      predio: {
-        id: string;
-        nome: string;
-        codigo: string;
-      };
-    };
-  }>;
-}
-
-import type { Turma } from '@/types/entities';
+import type { GradeMensalDisciplinaVM } from "@/types/view-models/grade-mensal";
 
 interface GradeMensalProps {
-  disciplinas: Disciplina[];
-  turma?: Turma;
+  disciplinas: GradeMensalDisciplinaVM[];
 }
 
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -105,7 +52,10 @@ const CORES_DISCIPLINAS = [
 ];
 
 // Função para obter cor consistente para cada disciplina baseada no ID
-const obterCorDisciplina = (disciplinaId: string, todasDisciplinas: Disciplina[]): string => {
+const obterCorDisciplina = (
+  disciplinaId: string,
+  todasDisciplinas: GradeMensalDisciplinaVM[],
+): string => {
   // Criar um array ordenado de IDs únicos para garantir consistência
   const idsOrdenados = todasDisciplinas
     .map(d => d.id)
@@ -129,7 +79,7 @@ const obterCorDisciplina = (disciplinaId: string, todasDisciplinas: Disciplina[]
   return CORES_DISCIPLINAS[indice % CORES_DISCIPLINAS.length];
 };
 
-export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
+export function GradeMensal({ disciplinas }: GradeMensalProps) {
   const [mesAtual, setMesAtual] = useState(new Date());
   const [disciplinasSelecionadas, setDisciplinasSelecionadas] = useState<
     string[]
@@ -208,7 +158,7 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
     return obterCorDisciplina(disciplinaId, disciplinas);
   };
 
-  const calcularProgresso = (disciplina: Disciplina) => {
+  const calcularProgresso = (disciplina: GradeMensalDisciplinaVM) => {
     // Prioridade 1: Usar progresso_aulas calculado pelo backend se disponível
     if (disciplina.progresso_aulas !== undefined && disciplina.progresso_aulas >= 0) {
       return disciplina.progresso_aulas;
@@ -251,28 +201,6 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Grade Mensal de Disciplinas
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={mesAnterior}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="font-medium min-w-[150px] text-center">
-                {format(mesAtual, "MMMM yyyy", { locale: ptBR })}
-              </span>
-              <Button variant="outline" size="sm" onClick={proximoMes}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle className="text-sm">Filtrar Disciplinas</CardTitle>
         </CardHeader>
         <CardContent>
@@ -310,7 +238,26 @@ export function GradeMensal({ disciplinas, turma }: GradeMensalProps) {
       </Card>
 
       <Card>
-        <CardContent className="p-6">
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Grade Mensal de Disciplinas
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={mesAnterior}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="font-medium min-w-[150px] text-center">
+                {format(mesAtual, "MMMM yyyy", { locale: ptBR })}
+              </span>
+              <Button variant="outline" size="sm" onClick={proximoMes}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4">
           <div className="grid grid-cols-7 gap-1 mb-4">
             {DIAS_SEMANA.map((dia) => (
               <div

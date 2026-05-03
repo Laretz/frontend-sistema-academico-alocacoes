@@ -25,7 +25,6 @@ interface HorariosGridProps {
 }
 
 export const HorariosGrid: React.FC<HorariosGridProps> = ({
-  horarios,
   selectedIds,
   originalHorarioId,
   onToggle,
@@ -53,11 +52,6 @@ export const HorariosGrid: React.FC<HorariosGridProps> = ({
     if (!isConflicting)
       return "cursor-pointer hover:bg-muted/50 border border-transparent";
     return "bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20 border";
-  };
-
-  const getConflictTextColor = (isConflicting: boolean) => {
-    if (!isConflicting) return "";
-    return "text-destructive";
   };
 
   const getConflictLabel = (conflictType?: ConflictType) => {

@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Plus, Building, MapPin, Eye, Trash2 } from "lucide-react";
-import { predioService, salaService } from "@/services/entities";
+import { predioService } from "@/services/entities";
 import { Predio, Sala } from "@/types/entities";
 import { toast } from "sonner";
 

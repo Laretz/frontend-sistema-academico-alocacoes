@@ -8,18 +8,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
+  DialogDescription as UiDialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Calendar, Clock, User, GraduationCap, X } from "lucide-react";
+import { Calendar, Clock, User, GraduationCap } from "lucide-react";
 import { Sala, ReservaSala, Horario } from "@/types/entities";
+import type {
+  GradeHorariosSalaAlocacaoInfoVM,
+  GradeHorariosSalaResponseVM,
+} from "@/types/view-models/grade-horarios-sala";
 import { api } from "@/lib/api";
 import { reservasSalaService } from "@/services/reservas-sala";
 import {
@@ -29,53 +32,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-interface AlocacaoInfo {
-  id: string;
-  disciplina: {
-    id: string;
-    nome: string;
-  };
-  professor: {
-    id: string;
-    nome: string;
-    email: string;
-  };
-  turma: {
-    id: string;
-    nome: string;
-    num_alunos: number;
-    semestre: number;
-    turno: string;
-  };
-  horario: {
-    id: string;
-    codigo: string;
-    dia_semana: string;
-    horario_inicio: string;
-    horario_fim: string;
-  };
-}
-
-interface GradeHorarios {
-  [dia_semana: string]: {
-    [codigoHorario: string]: AlocacaoInfo | null;
-  };
-}
-
-interface GradeHorariosSalaResponse {
-  salaId: string;
-  grade: GradeHorarios;
-  resumo: {
-    totalAlocacoes: number;
-    disciplinasUnicas: number;
-    professoresUnicos: number;
-    turmasUnicas: number;
-  };
-}
-
 interface GradeHorariosSalaProps {
   sala: Sala;
   trigger?: React.ReactNode;
+  mode?: "dialog" | "inline";
 }
 
 const diasSemana = [
@@ -130,8 +90,12 @@ function getHorarioPorCodigo(codigo: string): string {
   return horarios[codigo] || "";
 }
 
-export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
-  const [gradeData, setGradeData] = useState<GradeHorariosSalaResponse | null>(
+export function GradeHorariosSala({
+  sala,
+  trigger,
+  mode = "dialog",
+}: GradeHorariosSalaProps) {
+  const [gradeData, setGradeData] = useState<GradeHorariosSalaResponseVM | null>(
     null,
   );
   const [loading, setLoading] = useState(false);
@@ -139,9 +103,9 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
   const [open, setOpen] = useState(false);
   const [reservas, setReservas] = useState<ReservaSala[]>([]);
   const [horarios, setHorarios] = useState<Horario[]>([]);
+  const enabled = mode === "inline" ? true : open;
 
   function dateStrToDiaKey(dateStr: string): string {
-    // Normaliza como UTC para evitar deslocamentos de fuso
     const d = new Date(`${dateStr}T00:00:00Z`);
     const map: Record<number, string> = {
       0: "DOMINGO",
@@ -155,9 +119,7 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
     return map[d.getUTCDay()];
   }
 
-  // Formata "Mês e dia" em pt-BR para exibição: "Novembro 18"
   function formatMonthDay(dateStr: string): string {
-    // Garantir interpretação em UTC para strings YYYY-MM-DD
     const date = new Date(`${dateStr}T00:00:00Z`);
     const month = new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(
       date,
@@ -166,7 +128,6 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
       date,
     );
     const monthCap = month.charAt(0).toUpperCase() + month.slice(1);
-    // Remover possíveis zeros à esquerda do dia para ficar mais natural (ex: "09" -> "9")
     const dayNum = String(parseInt(day, 10));
     return `${monthCap} ${dayNum}`;
   }
@@ -194,16 +155,20 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
     setError(null);
 
     try {
-      const response = await fetch(
-        `http://localhost:3333/salas/${sala.id}/grade-horarios`,
+      const periodoId = (() => {
+        if (typeof window === "undefined") return undefined;
+        const modo = window.localStorage.getItem("periodo.modo");
+        if (modo !== "consulta") return undefined;
+        return window.localStorage.getItem("periodo.consultaId") || undefined;
+      })();
+
+      const resp = await api.get<GradeHorariosSalaResponseVM>(
+        `/salas/${sala.id}/grade-horarios`,
+        {
+          params: periodoId ? { periodoId } : undefined,
+        },
       );
-
-      if (!response.ok) {
-        throw new Error("Erro ao buscar grade de horários");
-      }
-
-      const data = await response.json();
-      setGradeData(data);
+      setGradeData(resp.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -212,14 +177,14 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
   }, [sala.id]);
 
   useEffect(() => {
-    if (open) {
+    if (enabled) {
       fetchGradeHorarios();
       fetchAuxData();
     }
-  }, [open, fetchGradeHorarios, fetchAuxData]);
+  }, [enabled, fetchGradeHorarios, fetchAuxData]);
 
   const renderAlocacao = (
-    alocacao: AlocacaoInfo | null,
+    alocacao: GradeHorariosSalaAlocacaoInfoVM | null,
     diaKey: string,
     codigo: string,
   ) => {
@@ -246,7 +211,6 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
       ? "min-h-16 border border-shadblue-primary/30 bg-shadblue-primary/10 rounded p-1 text-xs overflow-hidden space-y-1"
       : "min-h-16 border border-primary/20 bg-primary/10 rounded p-1 text-xs overflow-hidden space-y-1";
 
-    // Ordenar reservas por data e resumir para evitar crescimento vertical da célula
     const reservasOrdenadas = reservasCell.slice().sort((a, b) => {
       const da = new Date(`${a.date}T00:00:00Z`).getTime();
       const db = new Date(`${b.date}T00:00:00Z`).getTime();
@@ -340,6 +304,173 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
     );
   };
 
+  const headerDescription = (
+    <>
+      {sala.predio.nome} • Capacidade: {sala.capacidade} pessoas
+      {gradeData && (
+        <span className="ml-4">
+          {gradeData.resumo.totalAlocacoes} alocações •{gradeData.resumo.disciplinasUnicas} disciplinas •
+          {gradeData.resumo.professoresUnicos} professores
+        </span>
+      )}
+    </>
+  );
+
+  const body = (
+    <>
+      {loading && (
+        <div className="flex justify-center items-center py-8">
+          <div className="text-center">
+            <Clock className="h-8 w-8 animate-spin mx-auto mb-2" />
+            <p>Carregando grade de horários...</p>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/20 rounded p-4 text-center">
+          <p className="text-destructive">{error}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchGradeHorarios}
+            className="mt-2"
+          >
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+
+      {gradeData && !loading && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">
+                      {gradeData.resumo.totalAlocacoes}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Alocações</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center space-x-2">
+                  <GraduationCap className="h-4 w-4 text-secondary-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">
+                      {gradeData.resumo.disciplinasUnicas}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Disciplinas</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center space-x-2">
+                  <User className="h-4 w-4 text-accent-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">
+                      {gradeData.resumo.professoresUnicos}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Professores</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center space-x-2">
+                  <GraduationCap className="h-4 w-4 text-destructive" />
+                  <div>
+                    <p className="text-sm font-medium">
+                      {gradeData.resumo.turmasUnicas}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Turmas</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Grade Semanal</CardTitle>
+              <CardDescription>
+                Visualização completa dos horários da sala por dia da semana
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-[980px] border-collapse table-fixed">
+                  <thead>
+                    <tr>
+                      <th className="border border-border p-1 bg-muted/30 text-xs font-medium text-left w-[10%]">
+                        Horário
+                      </th>
+                      {diasSemana.map((dia) => (
+                        <th
+                          key={dia.key}
+                          className="border border-border p-1 bg-muted/30 text-xs font-medium text-center w-[15%]"
+                        >
+                          {dia.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {horariosDisponiveis.map((horario) => (
+                      <tr key={horario}>
+                        <td className="border border-border p-1 bg-muted/30 text-xs font-medium text-center w-[10%]">
+                          <div className="font-semibold">{horario}</div>
+                          <div className="text-muted-foreground text-xs">
+                            {getHorarioPorCodigo(horario)}
+                          </div>
+                        </td>
+                        {diasSemana.map((dia) => {
+                          const alocacao =
+                            gradeData.grade[dia.key]?.[horario] || null;
+                          return (
+                            <td
+                              key={`${dia.key}-${horario}`}
+                              className="border border-border p-1 w-[15%]"
+                            >
+                              {renderAlocacao(alocacao, dia.key, horario)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </>
+  );
+
+  if (mode === "inline") {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Grade de Horários - {sala.nome}
+          </CardTitle>
+          <CardDescription>{headerDescription}</CardDescription>
+        </CardHeader>
+        <CardContent>{body}</CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -359,159 +490,9 @@ export function GradeHorariosSala({ sala, trigger }: GradeHorariosSalaProps) {
             <Calendar className="h-5 w-5" />
             Grade de Horários - {sala.nome}
           </DialogTitle>
-          <DialogDescription>
-            {sala.predio.nome} • Capacidade: {sala.capacidade} pessoas
-            {gradeData && (
-              <span className="ml-4">
-                {gradeData.resumo.totalAlocacoes} alocações •
-                {gradeData.resumo.disciplinasUnicas} disciplinas •
-                {gradeData.resumo.professoresUnicos} professores
-              </span>
-            )}
-          </DialogDescription>
+          <UiDialogDescription>{headerDescription}</UiDialogDescription>
         </DialogHeader>
-
-        {loading && (
-          <div className="flex justify-center items-center py-8">
-            <div className="text-center">
-              <Clock className="h-8 w-8 animate-spin mx-auto mb-2" />
-              <p>Carregando grade de horários...</p>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="bg-destructive/10 border border-destructive/20 rounded p-4 text-center">
-            <p className="text-destructive">{error}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchGradeHorarios}
-              className="mt-2"
-            >
-              Tentar novamente
-            </Button>
-          </div>
-        )}
-
-        {gradeData && !loading && (
-          <div className="space-y-4">
-            {/* Resumo */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-3">
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    <div>
-                      <p className="text-sm font-medium">
-                        {gradeData.resumo.totalAlocacoes}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Alocações</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-3">
-                  <div className="flex items-center space-x-2">
-                    <GraduationCap className="h-4 w-4 text-secondary-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">
-                        {gradeData.resumo.disciplinasUnicas}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Disciplinas
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-3">
-                  <div className="flex items-center space-x-2">
-                    <User className="h-4 w-4 text-accent-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">
-                        {gradeData.resumo.professoresUnicos}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Professores
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-3">
-                  <div className="flex items-center space-x-2">
-                    <GraduationCap className="h-4 w-4 text-destructive" />
-                    <div>
-                      <p className="text-sm font-medium">
-                        {gradeData.resumo.turmasUnicas}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Turmas</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Grade de Horários */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Grade Semanal</CardTitle>
-                <CardDescription>
-                  Visualização completa dos horários da sala por dia da semana
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="w-full">
-                  <table className="w-full border-collapse table-fixed">
-                    <thead>
-                      <tr>
-                        <th className="border border-border p-1 bg-muted/30 text-xs font-medium text-left w-[10%]">
-                          Horário
-                        </th>
-                        {diasSemana.map((dia) => (
-                          <th
-                            key={dia.key}
-                            className="border border-border p-1 bg-muted/30 text-xs font-medium text-center w-[15%]"
-                          >
-                            {dia.label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {horariosDisponiveis.map((horario) => (
-                        <tr key={horario}>
-                          <td className="border border-border p-1 bg-muted/30 text-xs font-medium text-center w-[10%]">
-                            <div className="font-semibold">{horario}</div>
-                            <div className="text-muted-foreground text-xs">
-                              {getHorarioPorCodigo(horario)}
-                            </div>
-                          </td>
-                          {diasSemana.map((dia) => {
-                            const alocacao =
-                              gradeData.grade[dia.key]?.[horario] || null;
-                            return (
-                              <td
-                                key={`${dia.key}-${horario}`}
-                                className="border border-border p-1 w-[15%]"
-                              >
-                                {renderAlocacao(alocacao, dia.key, horario)}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {body}
       </DialogContent>
     </Dialog>
   );

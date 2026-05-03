@@ -23,7 +23,6 @@ export interface RegisterData {
 export const authService = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
     const response = await api.post<LoginResponse>("/session", credentials);
-    console.log("🔹 Resposta da API:", response.data);
     return response.data;
   },
 

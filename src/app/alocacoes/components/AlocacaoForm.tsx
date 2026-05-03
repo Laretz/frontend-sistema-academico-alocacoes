@@ -1,9 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -25,8 +22,8 @@ import {
   Sala,
   Horario,
   Alocacao,
+  GradeHorario,
 } from "@/types/entities";
-import { DatePicker } from "@/components/ui/date-picker";
 
 interface FormData {
   id_user: string;
@@ -59,6 +56,7 @@ interface AlocacaoFormProps {
   todasDisciplinas: Disciplina[];
   regime: "SUPERIOR" | "TECNICO";
   setRegime: (value: "SUPERIOR" | "TECNICO") => void;
+  previewGrade?: GradeHorario | null;
 }
 
 export const AlocacaoForm: React.FC<AlocacaoFormProps> = ({
@@ -66,9 +64,7 @@ export const AlocacaoForm: React.FC<AlocacaoFormProps> = ({
   setFormData,
   usuarios,
   disciplinas,
-  mostrarTodasDisciplinas,
   handleProfessorChange,
-  handleMostrarTodasDisciplinasChange,
   turmas,
   salas,
   horarios,
@@ -96,20 +92,11 @@ export const AlocacaoForm: React.FC<AlocacaoFormProps> = ({
 
     let count = 0;
     // Itera sobre dias e períodos no previewGrade
-    Object.values(previewGrade).forEach((daySlots: any) => {
-      Object.values(daySlots).forEach((slot: any) => {
-        // Lida com slot sendo um array ou objeto único
-        const allocations = Array.isArray(slot) ? slot : [slot];
-        allocations.forEach((alocacao: any) => {
-          // Se estamos editando, excluímos a alocação atual da contagem "existente"
-          // Nota: Isso requer que a alocação no preview tenha um ID.
-          // Se não disponível, assumimos que o preview reflete o estado do servidor.
+    Object.values(previewGrade).forEach((daySlots) => {
+      Object.values(daySlots).forEach((allocations) => {
+        (allocations || []).forEach((alocacao) => {
           if (alocacao?.disciplina?.id === selectedDisciplina.id) {
-            // Se estamos editando, não contamos os slots da alocação sendo editada
-            // pois o usuário está redefinindo-os no formulário.
-            if (editingAlocacao && alocacao.id === editingAlocacao.id) {
-              return;
-            }
+            if (editingAlocacao && alocacao.id === editingAlocacao.id) return;
             count++;
           }
         });
@@ -141,8 +128,6 @@ export const AlocacaoForm: React.FC<AlocacaoFormProps> = ({
   const totalAllocated = countExistingAllocations + currentSelectionCount;
 
   const isWorkloadCorrect = totalAllocated === weeklyClasses;
-  const isUnderAllocated = totalAllocated < weeklyClasses;
-  const isOverAllocated = totalAllocated > weeklyClasses;
 
   const showWorkloadWarning = selectedDisciplina && !isWorkloadCorrect;
 

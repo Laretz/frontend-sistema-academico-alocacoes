@@ -5,7 +5,7 @@ export interface SubmitFeedbackPayload {
   comment: string;
   page?: string;
   feature?: string;
-  metadata?: any;
+  metadata?: unknown;
 }
 
 export const feedbackService = {

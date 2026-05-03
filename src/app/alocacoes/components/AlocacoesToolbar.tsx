@@ -42,8 +42,8 @@ interface AlocacoesToolbarProps {
   setFiltroDataFim: React.Dispatch<React.SetStateAction<Date | undefined>>;
   filtroDiaSemana: string;
   setFiltroDiaSemana: (value: string) => void;
-  filtroPeriodo: string;
-  setFiltroPeriodo: (value: string) => void;
+  filtroTurno: string;
+  setFiltroTurno: (value: string) => void;
 
   // Props do Dialog/Form
   isDialogOpen: boolean;
@@ -81,7 +81,7 @@ interface AlocacoesToolbarProps {
   todasDisciplinas: Disciplina[];
   regime: "SUPERIOR" | "TECNICO";
   setRegime: (value: "SUPERIOR" | "TECNICO") => void;
-  previewGrade?: GradeHorario;
+  previewGrade?: GradeHorario | null;
 }
 
 export const AlocacoesToolbar: React.FC<AlocacoesToolbarProps> = ({
